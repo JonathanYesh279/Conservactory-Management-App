@@ -1,0 +1,82 @@
+/* Reisinger Hebrew Font Family - Custom Fonts */
+
+/* Reisinger Michal - Light, Regular & Bold */
+@font-face {
+  font-family: 'Reisinger Michal';
+  src: url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Light.woff2') format('woff2'),
+       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Light.woff') format('woff'),
+       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Reisinger Michal';
+  src: url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Regular.woff2') format('woff2'),
+       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Regular.woff') format('woff'),
+       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Reisinger Michal';
+  src: url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Bold.woff2') format('woff2'),
+       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Bold.woff') format('woff'),
+       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Reisinger Neta - Light, Regular, Medium & Bold */
+@font-face {
+  font-family: 'Reisinger Neta';
+  src: url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Light.woff2') format('woff2'),
+       url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Light.woff') format('woff'),
+       url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Reisinger Neta';
+  src: url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Regular.woff2') format('woff2'),
+       url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Regular.woff') format('woff'),
+       url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Reisinger Neta';
+  src: url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Medium.woff2') format('woff2'),
+       url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Medium.woff') format('woff'),
+       url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Reisinger Neta';
+  src: url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Bold.woff2') format('woff2'),
+       url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Bold.woff') format('woff'),
+       url('/fonts/Reisinger-Neta-web/Reisinger-Neta-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Custom Hebrew font utility classes */
+.font-reisinger-michal {
+  font-family: 'Reisinger Michal', 'Arial Hebrew', 'Noto Sans Hebrew', Arial, sans-serif;
+}
+
+.font-reisinger-neta {
+  font-family: 'Reisinger Neta', 'Arial Hebrew', 'Noto Sans Hebrew', Arial, sans-serif;
+}
