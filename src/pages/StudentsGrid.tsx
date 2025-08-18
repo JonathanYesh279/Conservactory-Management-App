@@ -230,10 +230,6 @@ export default function StudentsGrid() {
               </button>
             </div>
 
-            <button className="flex items-center px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700">
-              <Filter className="w-4 h-4 ml-1" />
-              מסננים
-            </button>
             <button 
               onClick={handleAddStudent}
               className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"

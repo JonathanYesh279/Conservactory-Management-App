@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Data Extraction Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; direction: rtl; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .test-section { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .success { color: #22c55e; font-weight: bold; }
+        .error { color: #ef4444; font-weight: bold; }
+        .warning { color: #f59e0b; font-weight: bold; }
+        .btn { background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #2563eb; }
+        .teacher-card { background: #f8fafc; padding: 15px; margin: 10px 0; border-radius: 6px; border-left: 4px solid #8b5cf6; }
+        .role-badge { background: #dbeafe; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; display: inline-block; margin: 2px; font-size: 12px; }
+        .time-block { background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 4px; display: inline-block; margin: 2px; font-size: 11px; }
+        .instrument-tag { background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 4px; display: inline-block; margin: 2px; font-size: 12px; }
+        .active-badge { background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; }
+        .inactive-badge { background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; }
+        pre { background: #1f2937; color: #f9fafb; padding: 15px; border-radius: 6px; overflow: auto; max-height: 400px; font-size: 12px; }
+        .schema-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .schema-box { background: #f1f5f9; padding: 15px; border-radius: 6px; }
+        .schema-title { font-weight: bold; color: #1e40af; margin-bottom: 10px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0; }
+        .stat-card { background: #f8fafc; padding: 15px; border-radius: 6px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #1f2937; }
+        .stat-label { color: #6b7280; font-size: 14px; }
+        .workload-info { display: flex; gap: 15px; margin-top: 10px; flex-wrap: wrap; }
+        .workload-item { background: #f0f9ff; padding: 5px 8px; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Teacher Data Extraction Schema Fix</h1>
+        <p>Testing the fix for teacher data schema mismatch between database and frontend expectations</p>
+
+        <div class="test-section">
+            <h2>📋 Teacher Schema Issues Fixed</h2>
+            <div class="schema-comparison">
+                <div class="schema-box">
+                    <div class="schema-title">❌ Previous Issues</div>
+                    <pre>// Problems with teacher data:
+- roles array not handled properly
+- timeBlocks structure not processed
+- isActive status from multiple levels
+- No availability summary
+- No workload calculations
+- Missing time block management</pre>
+                </div>
+                <div class="schema-box">
+                    <div class="schema-title">✅ Fixed Structure</div>
+                    <pre>// Now provides:
+teacher = {
+  // Original database fields preserved
+  roles: ["מורה"], 
+  teaching: { 
+    studentIds: [...],
+    timeBlocks: [...]
+  },
+  // New computed fields
+  primaryRole: "מורה",
+  studentCount: 12,
+  hasTimeBlocks: true,
+  isTeacherActive: true,
+  availabilityDays: ["שלישי"]
+}</pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test Teacher Data Processing</h2>
+            <div id="test-status">Press button to test teacher data extraction...</div>
+            <button class="btn" onclick="runTeacherTest()">Test Teacher Data Fix</button>
+            <button class="btn" onclick="testTimeBlocks()">Test Time Blocks</button>
+            <button class="btn" onclick="testTeacherWorkload()">Test Workload Analysis</button>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Test Results Summary</h2>
+            <div id="summary-display">No test run yet...</div>
+            <div id="stats-display" class="stats-grid"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>👨‍🏫 Teachers with Processed Data</h2>
+            <div id="teachers-display">No data loaded yet...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>⏰ Time Blocks & Availability</h2>
+            <div id="timeblocks-display">No time block data yet...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 Debug Console Output</h2>
+            <pre id="console-output">Console output will appear here...</pre>
+        </div>
+    </div>
+
+    <script type="module">
+        import apiService from './src/services/apiService.js';
+        
+        // Make functions globally available
+        window.apiService = apiService;
+        
+        let consoleMessages = [];
+        
+        // Intercept console messages
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = (...args) => {
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+            consoleMessages.push(`[LOG] ${message}`);
+            updateConsoleDisplay();
+            originalLog.apply(console, args);
+        };
+        
+        console.error = (...args) => {
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+            consoleMessages.push(`[ERROR] ${message}`);
+            updateConsoleDisplay();
+            originalError.apply(console, args);
+        };
+        
+        function updateConsoleDisplay() {
+            document.getElementById('console-output').textContent = consoleMessages.slice(-20).join('\n');
+        }
+
+        window.runTeacherTest = async () => {
+            const statusEl = document.getElementById('test-status');
+            const summaryEl = document.getElementById('summary-display');
+            const teachersEl = document.getElementById('teachers-display');
+            
+            try {
+                statusEl.innerHTML = '<span class="warning">🧪 Running teacher data extraction test...</span>';
+                summaryEl.innerHTML = 'Test in progress...';
+                teachersEl.innerHTML = 'Loading teachers...';
+                
+                console.log('🔧 Starting teacher data extraction fix test...');
+                
+                // Test the teacher data extraction
+                const result = await apiService.testTeacherDataExtraction();
+                
+                if (result.success) {
+                    statusEl.innerHTML = '<span class="success">✅ Teacher data extraction test completed successfully!</span>';
+                    
+                    // Display summary
+                    summaryEl.innerHTML = `
+                        <div class="success">✅ Test Results:</div>
+                        <ul>
+                            <li>Total Teachers: ${result.totalTeachers}</li>
+                            <li>Active Teachers: ${result.activeTeachers}</li>
+                            <li>Teachers with Time Blocks: ${result.teachersWithTimeBlocks}</li>
+                            <li>Data Processing: Working correctly</li>
+                        </ul>
+                    `;
+                    
+                    // Show stats
+                    const statsEl = document.getElementById('stats-display');
+                    statsEl.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-value">${result.totalTeachers}</div>
+                            <div class="stat-label">Total Teachers</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${result.activeTeachers}</div>
+                            <div class="stat-label">Active Teachers</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${result.teachersWithTimeBlocks}</div>
+                            <div class="stat-label">With Time Blocks</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${Math.round((result.activeTeachers / result.totalTeachers) * 100)}%</div>
+                            <div class="stat-label">Active Rate</div>
+                        </div>
+                    `;
+                    
+                    // Display detailed teachers
+                    await displayProcessedTeachers();
+                    
+                } else {
+                    statusEl.innerHTML = `<span class="error">❌ Teacher test failed: ${result.error}</span>`;
+                    summaryEl.innerHTML = `<span class="error">Test failed - check console for details</span>`;
+                }
+                
+            } catch (error) {
+                statusEl.innerHTML = `<span class="error">❌ Test error: ${error.message}</span>`;
+                summaryEl.innerHTML = `<span class="error">Unexpected error during test</span>`;
+                console.error('Teacher test failed:', error);
+            }
+        };
+
+        async function displayProcessedTeachers() {
+            try {
+                const teachers = await apiService.teachers.getTeachers();
+                const teachersEl = document.getElementById('teachers-display');
+                
+                if (teachers.length === 0) {
+                    teachersEl.innerHTML = '<div class="warning">⚠️ No teachers found (may require authentication)</div>';
+                    return;
+                }
+                
+                const teachersHtml = teachers.slice(0, 8).map((teacher, index) => {
+                    const workload = apiService.utils.teacher.getWorkload(teacher);
+                    const availability = apiService.utils.teacher.getAvailabilitySummary(teacher);
+                    
+                    return `
+                        <div class="teacher-card">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong>${teacher.personalInfo?.fullName || 'ללא שם'}</strong>
+                                <span class="${teacher.isTeacherActive ? 'active-badge' : 'inactive-badge'}">
+                                    ${teacher.isTeacherActive ? 'פעיל' : 'לא פעיל'}
+                                </span>
+                            </div>
+                            
+                            <div style="margin-top: 8px;">
+                                <span class="instrument-tag">${teacher.professionalInfo?.instrument || 'לא הוגדר'}</span>
+                                ${teacher.allRoles.map(role => `<span class="role-badge">${role}</span>`).join(' ')}
+                            </div>
+                            
+                            <div class="workload-info">
+                                <div class="workload-item">תלמידים: ${workload.studentCount}</div>
+                                <div class="workload-item">תזמורות: ${workload.orchestraCount}</div>
+                                <div class="workload-item">אנסמבלים: ${workload.ensembleCount}</div>
+                                <div class="workload-item">בלוקי זמן: ${workload.timeBlockCount}</div>
+                            </div>
+                            
+                            ${availability.hasAvailability ? `
+                                <div style="margin-top: 8px;">
+                                    <strong>זמינות:</strong>
+                                    ${availability.days.map(day => `<span class="time-block">${day}</span>`).join(' ')}
+                                    <span style="font-size: 12px; color: #6b7280;">(${availability.totalHours.toFixed(1)} שעות סה"כ)</span>
+                                </div>
+                            ` : '<div style="margin-top: 8px; color: #6b7280; font-size: 12px;">אין בלוקי זמן מוגדרים</div>'}
+                            
+                            ${availability.locations.length > 0 ? `
+                                <div style="margin-top: 5px; font-size: 12px; color: #6b7280;">
+                                    מקומות: ${availability.locations.join(', ')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+                
+                teachersEl.innerHTML = teachersHtml;
+                
+            } catch (error) {
+                document.getElementById('teachers-display').innerHTML = 
+                    `<div class="error">❌ Failed to load teachers: ${error.message}</div>`;
+            }
+        }
+
+        window.testTimeBlocks = async () => {
+            try {
+                console.log('⏰ Testing time blocks functionality...');
+                
+                const teachers = await apiService.teachers.getTeachers();
+                const teachersWithBlocks = teachers.filter(t => t.hasTimeBlocks);
+                
+                const timeblocksEl = document.getElementById('timeblocks-display');
+                
+                if (teachersWithBlocks.length === 0) {
+                    timeblocksEl.innerHTML = '<div class="warning">⚠️ No teachers with time blocks found</div>';
+                    return;
+                }
+                
+                let blocksHtml = '<h3>Time Blocks Analysis:</h3>';
+                
+                for (const teacher of teachersWithBlocks.slice(0, 3)) {
+                    try {
+                        const timeBlocks = await apiService.teacherSchedule.getTeacherTimeBlocks(teacher._id);
+                        blocksHtml += `
+                            <div class="teacher-card">
+                                <strong>${teacher.personalInfo?.fullName}</strong>
+                                <div style="margin-top: 10px;">
+                                    ${timeBlocks.map(block => `
+                                        <div style="padding: 8px; background: white; border-radius: 4px; margin: 5px 0;">
+                                            <div><strong>יום:</strong> ${block.day}</div>
+                                            <div><strong>שעות:</strong> ${block.timeRange} (${block.durationHours} שעות)</div>
+                                            <div><strong>מקום:</strong> ${block.location}</div>
+                                            ${block.notes ? `<div><strong>הערות:</strong> ${block.notes}</div>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    } catch (error) {
+                        blocksHtml += `<div style="color: #ef4444;">Error processing ${teacher.personalInfo?.fullName}: ${error.message}</div>`;
+                    }
+                }
+                
+                timeblocksEl.innerHTML = blocksHtml;
+                console.log('✅ Time blocks test completed');
+                
+            } catch (error) {
+                console.error('Time blocks test failed:', error);
+            }
+        };
+
+        window.testTeacherWorkload = async () => {
+            try {
+                console.log('📊 Testing teacher workload analysis...');
+                
+                const teachers = await apiService.teachers.getTeachers();
+                
+                const workloadStats = teachers.map(teacher => {
+                    const workload = apiService.utils.teacher.getWorkload(teacher);
+                    const availability = apiService.utils.teacher.getAvailabilitySummary(teacher);
+                    
+                    return {
+                        name: teacher.personalInfo?.fullName,
+                        ...workload,
+                        totalHours: availability.totalHours,
+                        efficiency: workload.studentCount > 0 ? (availability.totalHours / workload.studentCount).toFixed(2) : 0
+                    };
+                });
+                
+                // Sort by student count
+                workloadStats.sort((a, b) => b.studentCount - a.studentCount);
+                
+                console.log('👨‍🏫 Teacher Workload Analysis:', workloadStats.slice(0, 5));
+                
+            } catch (error) {
+                console.error('Workload test failed:', error);
+            }
+        };
+
+        // Auto-run basic test on page load if possible
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 Teacher data extraction fix test page loaded');
+            console.log('Available functions: runTeacherTest(), testTimeBlocks(), testTeacherWorkload()');
+            console.log('Teacher utils available:', Object.keys(apiService.utils.teacher || {}));
+        });
+    </script>
+</body>
+</html>

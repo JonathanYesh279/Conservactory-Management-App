@@ -31,9 +31,20 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
           instrumentName: 'פסנתר',
           isPrimary: true,
           currentStage: 1,
+          startDate: new Date(),
           tests: {
-            stageTest: { status: 'לא נבחן' },
-            technicalTest: { status: 'לא נבחן' }
+            stageTest: { 
+              status: 'לא נבחן',
+              lastTestDate: null,
+              nextTestDate: null,
+              notes: ''
+            },
+            technicalTest: { 
+              status: 'לא נבחן',
+              lastTestDate: null,
+              nextTestDate: null,
+              notes: ''
+            }
           }
         }
       ],
@@ -116,11 +127,36 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
 
     if (formData.academicInfo.instrumentProgress.length === 0) {
       newErrors.instruments = 'לפחות כלי נגינה אחד נדרש'
+    } else {
+      // Validate instrument progress
+      const primaryInstruments = formData.academicInfo.instrumentProgress.filter(inst => inst.isPrimary)
+      if (primaryInstruments.length !== 1) {
+        newErrors.instruments = 'חובה לבחור כלי נגינה עיקרי אחד בלבד'
+      }
+
+      // Validate each instrument has required fields
+      formData.academicInfo.instrumentProgress.forEach((instrument, index) => {
+        if (!instrument.instrumentName) {
+          newErrors[`instrument_${index}`] = `כלי נגינה ${index + 1}: חובה לבחור כלי נגינה`
+        }
+        if (!instrument.currentStage || instrument.currentStage < 1 || instrument.currentStage > 8) {
+          newErrors[`stage_${index}`] = `כלי נגינה ${index + 1}: שלב חייב להיות בין 1 ל-8`
+        }
+      })
     }
 
     // Parent phone validation if provided
     if (formData.personalInfo.parentPhone && !validatePhone(formData.personalInfo.parentPhone)) {
       newErrors.parentPhone = 'מספר טלפון הורה חייב להתחיל ב-05 ולהכיל 10 ספרות'
+    }
+
+    // Email validation if provided
+    if (formData.personalInfo.parentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.personalInfo.parentEmail)) {
+      newErrors.parentEmail = 'כתובת דואר אלקטרוני הורה לא תקינה'
+    }
+
+    if (formData.personalInfo.studentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.personalInfo.studentEmail)) {
+      newErrors.studentEmail = 'כתובת דואר אלקטרוני תלמיד לא תקינה'
     }
 
     setErrors(newErrors)
@@ -204,9 +240,20 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
             instrumentName: 'פסנתר',
             isPrimary: false,
             currentStage: 1,
+            startDate: new Date(),
             tests: {
-              stageTest: { status: 'לא נבחן' },
-              technicalTest: { status: 'לא נבחן' }
+              stageTest: { 
+                status: 'לא נבחן',
+                lastTestDate: null,
+                nextTestDate: null,
+                notes: ''
+              },
+              technicalTest: { 
+                status: 'לא נבחן',
+                lastTestDate: null,
+                nextTestDate: null,
+                notes: ''
+              }
             }
           }
         ]
@@ -467,12 +514,17 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                           <select
                             value={instrument.instrumentName}
                             onChange={(e) => updateInstrument(index, 'instrumentName', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                              errors[`instrument_${index}`] ? 'border-red-300' : 'border-gray-300'
+                            }`}
                           >
                             {VALID_INSTRUMENTS.map(inst => (
                               <option key={inst} value={inst}>{inst}</option>
                             ))}
                           </select>
+                          {errors[`instrument_${index}`] && (
+                            <p className="text-red-500 text-xs mt-1">{errors[`instrument_${index}`]}</p>
+                          )}
                         </div>
 
                         <div>
@@ -482,12 +534,17 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                           <select
                             value={instrument.currentStage}
                             onChange={(e) => updateInstrument(index, 'currentStage', parseInt(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                              errors[`stage_${index}`] ? 'border-red-300' : 'border-gray-300'
+                            }`}
                           >
                             {VALID_STAGES.map(stage => (
                               <option key={stage} value={stage}>שלב {stage}</option>
                             ))}
                           </select>
+                          {errors[`stage_${index}`] && (
+                            <p className="text-red-500 text-xs mt-1">{errors[`stage_${index}`]}</p>
+                          )}
                         </div>
 
                         <div className="flex items-center">
@@ -532,47 +589,146 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                       {/* Test Status Section */}
                       <div className="border-t pt-3 mt-3">
                         <h4 className="text-sm font-medium text-gray-700 mb-3">סטטוס בחינות</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">
-                              בחינת שלב
-                            </label>
-                            <select
-                              value={instrument.tests.stageTest.status}
-                              onChange={(e) => {
-                                const newTests = {
-                                  ...instrument.tests,
-                                  stageTest: { ...instrument.tests.stageTest, status: e.target.value }
-                                }
-                                updateInstrument(index, 'tests', newTests)
-                              }}
-                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                            >
-                              {TEST_STATUSES.map(status => (
-                                <option key={status} value={status}>{status}</option>
-                              ))}
-                            </select>
+                        
+                        {/* Stage Test */}
+                        <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">בחינת שלב</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">סטטוס</label>
+                              <select
+                                value={instrument.tests.stageTest.status}
+                                onChange={(e) => {
+                                  const newTests = {
+                                    ...instrument.tests,
+                                    stageTest: { ...instrument.tests.stageTest, status: e.target.value }
+                                  }
+                                  updateInstrument(index, 'tests', newTests)
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              >
+                                {TEST_STATUSES.map(status => (
+                                  <option key={status} value={status}>{status}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">תאריך בחינה אחרונה</label>
+                              <input
+                                type="date"
+                                value={instrument.tests.stageTest.lastTestDate || ''}
+                                onChange={(e) => {
+                                  const newTests = {
+                                    ...instrument.tests,
+                                    stageTest: { ...instrument.tests.stageTest, lastTestDate: e.target.value || null }
+                                  }
+                                  updateInstrument(index, 'tests', newTests)
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">תאריך בחינה הבאה</label>
+                              <input
+                                type="date"
+                                value={instrument.tests.stageTest.nextTestDate || ''}
+                                onChange={(e) => {
+                                  const newTests = {
+                                    ...instrument.tests,
+                                    stageTest: { ...instrument.tests.stageTest, nextTestDate: e.target.value || null }
+                                  }
+                                  updateInstrument(index, 'tests', newTests)
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              />
+                            </div>
                           </div>
-
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">
-                              בחינה טכנית
-                            </label>
-                            <select
-                              value={instrument.tests.technicalTest.status}
+                          <div className="mt-2">
+                            <label className="block text-xs text-gray-600 mb-1">הערות</label>
+                            <textarea
+                              value={instrument.tests.stageTest.notes || ''}
                               onChange={(e) => {
                                 const newTests = {
                                   ...instrument.tests,
-                                  technicalTest: { ...instrument.tests.technicalTest, status: e.target.value }
+                                  stageTest: { ...instrument.tests.stageTest, notes: e.target.value }
                                 }
                                 updateInstrument(index, 'tests', newTests)
                               }}
+                              rows={2}
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                            >
-                              {TEST_STATUSES.map(status => (
-                                <option key={status} value={status}>{status}</option>
-                              ))}
-                            </select>
+                              placeholder="הערות על בחינת השלב..."
+                            />
+                          </div>
+                        </div>
+
+                        {/* Technical Test */}
+                        <div className="mb-2 p-3 bg-gray-50 rounded-md">
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">בחינה טכנית</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">סטטוס</label>
+                              <select
+                                value={instrument.tests.technicalTest.status}
+                                onChange={(e) => {
+                                  const newTests = {
+                                    ...instrument.tests,
+                                    technicalTest: { ...instrument.tests.technicalTest, status: e.target.value }
+                                  }
+                                  updateInstrument(index, 'tests', newTests)
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              >
+                                {TEST_STATUSES.map(status => (
+                                  <option key={status} value={status}>{status}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">תאריך בחינה אחרונה</label>
+                              <input
+                                type="date"
+                                value={instrument.tests.technicalTest.lastTestDate || ''}
+                                onChange={(e) => {
+                                  const newTests = {
+                                    ...instrument.tests,
+                                    technicalTest: { ...instrument.tests.technicalTest, lastTestDate: e.target.value || null }
+                                  }
+                                  updateInstrument(index, 'tests', newTests)
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">תאריך בחינה הבאה</label>
+                              <input
+                                type="date"
+                                value={instrument.tests.technicalTest.nextTestDate || ''}
+                                onChange={(e) => {
+                                  const newTests = {
+                                    ...instrument.tests,
+                                    technicalTest: { ...instrument.tests.technicalTest, nextTestDate: e.target.value || null }
+                                  }
+                                  updateInstrument(index, 'tests', newTests)
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-2">
+                            <label className="block text-xs text-gray-600 mb-1">הערות</label>
+                            <textarea
+                              value={instrument.tests.technicalTest.notes || ''}
+                              onChange={(e) => {
+                                const newTests = {
+                                  ...instrument.tests,
+                                  technicalTest: { ...instrument.tests.technicalTest, notes: e.target.value }
+                                }
+                                updateInstrument(index, 'tests', newTests)
+                              }}
+                              rows={2}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              placeholder="הערות על הבחינה הטכנית..."
+                            />
                           </div>
                         </div>
                       </div>

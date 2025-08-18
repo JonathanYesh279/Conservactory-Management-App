@@ -51,9 +51,9 @@ export default function Table({ columns, data, className }: TableProps) {
                   className={clsx(
                     'px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider',
                     {
-                      'text-left': column.align === 'left',
+                      'text-start': column.align === 'left',
                       'text-center': column.align === 'center',
-                      'text-right': column.align === 'right' || !column.align,
+                      'text-end': column.align === 'right',
                     }
                   )}
                   style={column.width ? { width: column.width } : undefined}
@@ -72,10 +72,10 @@ export default function Table({ columns, data, className }: TableProps) {
                     className={clsx(
                       'px-6 py-4 whitespace-nowrap text-sm text-gray-900',
                       {
-                        'text-left': column.align === 'left',
+                        'text-start': column.align === 'left',
                         'text-center': column.align === 'center',
-                        'text-right': column.align === 'right' || !column.align,
-                      }
+                        'text-end': column.align === 'right',
+                      },
                     )}
                   >
                     {row[column.key]}

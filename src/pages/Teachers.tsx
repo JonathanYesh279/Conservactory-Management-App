@@ -1,10 +1,31 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Filter, Loader, Calendar, Users } from 'lucide-react'
+import { Search, Plus, Filter, Loader, Calendar, Users, X } from 'lucide-react'
 import Card from '../components/ui/Card'
 import apiService from '../services/apiService'
+import { useSchoolYear } from '../services/schoolYearContext'
+
+interface Teacher {
+  id: string
+  name: string
+  specialization: string
+  roles: string[]
+  primaryRole: string
+  studentCount: number
+  email: string
+  phone: string
+  isActive: boolean
+  hasTimeBlocks: boolean
+  timeBlockCount: number
+  orchestraCount: number
+  ensembleCount: number
+  availabilityDays: string[]
+  totalTeachingHours: number
+  rawData: any
+}
 
 export default function Teachers() {
-  const [teachers, setTeachers] = useState([])
+  const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
+  const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -15,33 +36,47 @@ export default function Teachers() {
   const [selectedTeacher, setSelectedTeacher] = useState(null)
   const [scheduleData, setScheduleData] = useState(null)
   const [scheduleLoading, setScheduleLoading] = useState(false)
+  const [instrumentSearchTerm, setInstrumentSearchTerm] = useState('')
+  const [showInstrumentDropdown, setShowInstrumentDropdown] = useState(false)
 
-  // Fetch teachers from real API
+  // Fetch teachers from real API when school year changes
   useEffect(() => {
-    loadTeachers()
-  }, [])
+    if (currentSchoolYear && !schoolYearLoading) {
+      loadTeachers()
+    }
+  }, [currentSchoolYear, schoolYearLoading])
 
   const loadTeachers = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      const teachersData = await apiService.teachers.getTeachers()
+      // Include schoolYearId in the request
+      const filters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
+      const teachersData = await apiService.teachers.getTeachers(filters)
       
-      // Transform API data using EXACT field names
+      // Use processed data from API service with computed fields
       const transformedTeachers = teachersData.map(teacher => ({
         id: teacher._id,
-        // Use exact field name: personalInfo.fullName
         name: teacher.personalInfo?.fullName || 'לא צוין',
-        // Use exact field name: professionalInfo.instrument
         specialization: teacher.professionalInfo?.instrument || 'לא צוין',
-        // Get roles from roles array
-        roles: teacher.roles || [],
-        // Use exact field name: teaching.studentIds
-        studentCount: teacher.teaching?.studentIds?.length || 0,
+        // Use roles array from database
+        roles: teacher.allRoles || teacher.roles || [],
+        primaryRole: teacher.primaryRole || 'לא מוגדר',
+        // Use computed student count
+        studentCount: teacher.studentCount || 0,
+        // Contact information
         email: teacher.personalInfo?.email || '',
         phone: teacher.personalInfo?.phone || '',
-        isActive: teacher.isActive,
+        // Use computed active status (checks both levels)
+        isActive: teacher.isTeacherActive,
+        // Additional computed fields
+        hasTimeBlocks: teacher.hasTimeBlocks || false,
+        timeBlockCount: teacher.timeBlockCount || 0,
+        orchestraCount: teacher.orchestraCount || 0,
+        ensembleCount: teacher.ensembleCount || 0,
+        availabilityDays: teacher.availabilityDays || [],
+        totalTeachingHours: Math.round((teacher.totalTeachingHours / 60) * 10) / 10 || 0, // Convert to hours
         rawData: teacher // Keep original data
       }))
       
@@ -97,9 +132,9 @@ export default function Teachers() {
     setScheduleData(null)
   }
 
-  const handleEditTeacher = (teacherId) => {
-    console.log('Edit teacher:', teacherId)
-    // Navigate to teacher edit page
+  const handleEditTeacher = (teacherId: string) => {
+    // Navigate to teacher management page with time blocks
+    window.location.href = `/teacher-management/${teacherId}`;
   }
 
   const handleAddTeacher = () => {
@@ -107,23 +142,60 @@ export default function Teachers() {
     // Navigate to add teacher page
   }
 
-  // Filter teachers based on search and filters
+  // Available instruments list
+  const allInstruments = [
+    'חלילית', 'חליל צד', 'אבוב', 'בסון', 'סקסופון', 'קלרינט',
+    'חצוצרה', 'קרן יער', 'טרומבון', 'טובה/בריטון', 'שירה',
+    'כינור', 'ויולה', "צ'לו", 'קונטרבס', 'פסנתר', 'גיטרה',
+    'גיטרה בס', 'תופים'
+  ]
+
+  // Filter instruments based on search term
+  const filteredInstruments = allInstruments.filter(instrument => 
+    instrument.toLowerCase().includes(instrumentSearchTerm.toLowerCase())
+  )
+
+  // Handle instrument selection
+  const handleInstrumentSelect = (instrument: string, instrumentName: string) => {
+    setFilters(prev => ({ ...prev, instrument: instrument }))
+    setInstrumentSearchTerm(instrumentName)
+    setShowInstrumentDropdown(false)
+  }
+
+  // Handle instrument search input
+  const handleInstrumentSearchChange = (value: string) => {
+    setInstrumentSearchTerm(value)
+    setShowInstrumentDropdown(true)
+    
+    // If the input is cleared, clear the filter
+    if (value === '') {
+      setFilters(prev => ({ ...prev, instrument: '' }))
+    }
+  }
+
+  // Filter teachers based on search and filters using correct database structure
   const filteredTeachers = teachers.filter(teacher => {
     const matchesSearch = !searchTerm || 
       teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       teacher.specialization.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesInstrument = !filters.instrument || teacher.specialization.includes(filters.instrument)
-    const matchesRole = !filters.role || teacher.roles.includes(filters.role)
+    // Handle roles array properly
+    const matchesRole = !filters.role || (teacher.roles && teacher.roles.includes(filters.role))
     
     return matchesSearch && matchesInstrument && matchesRole
   })
 
-  // Calculate statistics
+  // Calculate statistics using correct database structure
   const totalTeachers = teachers.length
   const activeTeachers = teachers.filter(t => t.isActive).length
   const totalStudents = teachers.reduce((sum, t) => sum + t.studentCount, 0)
   const avgStudentsPerTeacher = totalTeachers > 0 ? (totalStudents / totalTeachers).toFixed(1) : 0
+  
+  // Additional statistics from enhanced data
+  const teachersWithAvailability = teachers.filter(t => t.hasTimeBlocks).length
+  const totalTeachingHours = teachers.reduce((sum, t) => sum + t.totalTeachingHours, 0)
+  const teachersWithOrchestras = teachers.filter(t => t.orchestraCount > 0).length
 
   // Schedule display component
   const renderSchedule = () => {
@@ -237,32 +309,69 @@ export default function Teachers() {
             </div>
           </div>
           <div className="flex gap-3">
-            <select 
-              value={filters.instrument}
-              onChange={(e) => setFilters(prev => ({ ...prev, instrument: e.target.value }))}
-              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
-            >
-              <option value="">כל ההתמחויות</option>
-              <option value="חלילית">חלילית</option>
-              <option value="חליל צד">חליל צד</option>
-              <option value="אבוב">אבוב</option>
-              <option value="בסון">בסון</option>
-              <option value="סקסופון">סקסופון</option>
-              <option value="קלרינט">קלרינט</option>
-              <option value="חצוצרה">חצוצרה</option>
-              <option value="קרן יער">קרן יער</option>
-              <option value="טרומבון">טרומבון</option>
-              <option value="טובה/בריטון">טובה/בריטון</option>
-              <option value="שירה">שירה</option>
-              <option value="כינור">כינור</option>
-              <option value="ויולה">ויולה</option>
-              <option value="צ'לו">צ'לו</option>
-              <option value="קונטרבס">קונטרבס</option>
-              <option value="פסנתר">פסנתר</option>
-              <option value="גיטרה">גיטרה</option>
-              <option value="גיטרה בס">גיטרה בס</option>
-              <option value="תופים">תופים</option>
-            </select>
+            {/* Instrument Filter - Searchable */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="חפש כלי נגינה..."
+                value={instrumentSearchTerm}
+                onChange={(e) => handleInstrumentSearchChange(e.target.value)}
+                onFocus={() => setShowInstrumentDropdown(true)}
+                onBlur={() => {
+                  // Delay hiding dropdown to allow click events
+                  setTimeout(() => setShowInstrumentDropdown(false), 200)
+                }}
+                className="w-48 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 placeholder-gray-500"
+              />
+              
+              {/* Clear button */}
+              {instrumentSearchTerm && (
+                <button
+                  onClick={() => {
+                    setInstrumentSearchTerm('')
+                    setFilters(prev => ({ ...prev, instrument: '' }))
+                    setShowInstrumentDropdown(false)
+                  }}
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              
+              {/* Dropdown */}
+              {showInstrumentDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50 direction-rtl">
+                  {/* "All instruments" option */}
+                  <button
+                    onClick={() => handleInstrumentSelect('', 'כל הכלים')}
+                    className={`w-full text-right px-3 py-2 hover:bg-gray-50 border-b border-gray-100 direction-rtl ${
+                      filters.instrument === '' ? 'bg-primary-50 text-primary-600' : 'text-gray-900'
+                    }`}
+                  >
+                    כל הכלים
+                  </button>
+                  
+                  {/* Instrument options */}
+                  {filteredInstruments.map(instrument => (
+                    <button
+                      key={instrument}
+                      onClick={() => handleInstrumentSelect(instrument, instrument)}
+                      className={`w-full text-right px-3 py-2 hover:bg-gray-50 direction-rtl ${
+                        filters.instrument === instrument ? 'bg-primary-50 text-primary-600' : 'text-gray-900'
+                      }`}
+                    >
+                      {instrument}
+                    </button>
+                  ))}
+                  
+                  {filteredInstruments.length === 0 && instrumentSearchTerm && (
+                    <div className="px-3 py-2 text-gray-500 text-center">
+                      לא נמצאו כלים
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <select 
               value={filters.role}
               onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
@@ -276,10 +385,6 @@ export default function Teachers() {
               <option value="מורה תאוריה">מורה תאוריה</option>
               <option value="מגמה">מגמה</option>
             </select>
-            <button className="flex items-center px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700">
-              <Filter className="w-4 h-4 ml-1" />
-              מסננים
-            </button>
             <button 
               onClick={handleAddTeacher}
               className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
@@ -292,29 +397,41 @@ export default function Teachers() {
       </Card>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <Card padding="md">
           <div className="text-center">
-            <div className="text-3xl font-bold text-primary-600 mb-1">{totalTeachers}</div>
-            <div className="text-sm text-gray-600">סה״כ מורים</div>
+            <div className="text-2xl font-bold text-primary-600 mb-1">{totalTeachers}</div>
+            <div className="text-xs text-gray-600">סה״כ מורים</div>
           </div>
         </Card>
         <Card padding="md">
           <div className="text-center">
-            <div className="text-3xl font-bold text-success-600 mb-1">{activeTeachers}</div>
-            <div className="text-sm text-gray-600">פעילים</div>
+            <div className="text-2xl font-bold text-success-600 mb-1">{activeTeachers}</div>
+            <div className="text-xs text-gray-600">פעילים</div>
           </div>
         </Card>
         <Card padding="md">
           <div className="text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-1">{totalStudents}</div>
-            <div className="text-sm text-gray-600">סה״כ תלמידים</div>
+            <div className="text-2xl font-bold text-blue-600 mb-1">{totalStudents}</div>
+            <div className="text-xs text-gray-600">סה״כ תלמידים</div>
           </div>
         </Card>
         <Card padding="md">
           <div className="text-center">
-            <div className="text-3xl font-bold text-purple-600 mb-1">{avgStudentsPerTeacher}</div>
-            <div className="text-sm text-gray-600">ממוצע תלמידים למורה</div>
+            <div className="text-2xl font-bold text-purple-600 mb-1">{avgStudentsPerTeacher}</div>
+            <div className="text-xs text-gray-600">ממוצע תלמידים</div>
+          </div>
+        </Card>
+        <Card padding="md">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-orange-600 mb-1">{teachersWithAvailability}</div>
+            <div className="text-xs text-gray-600">עם זמינות</div>
+          </div>
+        </Card>
+        <Card padding="md">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-teal-600 mb-1">{Math.round(totalTeachingHours)}</div>
+            <div className="text-xs text-gray-600">שעות זמינות</div>
           </div>
         </Card>
       </div>
@@ -347,30 +464,84 @@ export default function Teachers() {
             </div>
             <div className="mb-4">
               <p className="text-sm text-gray-600 mb-2">{teacher.specialization}</p>
-              <div className="flex flex-wrap gap-1">
-                {teacher.roles.map((role, index) => (
-                  <span 
-                    key={index}
-                    className="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded"
-                  >
-                    {role}
+              
+              {/* Primary Role with Badge */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="inline-block bg-primary-100 text-primary-700 text-xs px-2 py-1 rounded font-medium">
+                  {teacher.primaryRole}
+                </span>
+                {teacher.roles.length > 1 && (
+                  <span className="text-xs text-gray-500">
+                    +{teacher.roles.length - 1} תפקידים
                   </span>
-                ))}
+                )}
               </div>
+              
+              {/* Additional Teacher Info */}
+              <div className="space-y-1 text-xs text-gray-500">
+                {/* Availability Info */}
+                {teacher.hasTimeBlocks && (
+                  <div className="flex items-center">
+                    <Calendar className="w-3 h-3 ml-1" />
+                    {teacher.availabilityDays.length > 0 ? (
+                      <span>{teacher.availabilityDays.slice(0, 2).join(', ')} {teacher.availabilityDays.length > 2 && `+${teacher.availabilityDays.length - 2}`}</span>
+                    ) : (
+                      <span>זמינות לא מוגדרת</span>
+                    )}
+                  </div>
+                )}
+                
+                {/* Teaching Hours */}
+                {teacher.totalTeachingHours > 0 && (
+                  <div>
+                    {teacher.totalTeachingHours} שעות זמינות בשבוע
+                  </div>
+                )}
+                
+                {/* Orchestra/Ensemble Count */}
+                {(teacher.orchestraCount > 0 || teacher.ensembleCount > 0) && (
+                  <div>
+                    {teacher.orchestraCount > 0 && `${teacher.orchestraCount} תזמורות`}
+                    {teacher.orchestraCount > 0 && teacher.ensembleCount > 0 && ' • '}
+                    {teacher.ensembleCount > 0 && `${teacher.ensembleCount} הרכבים`}
+                  </div>
+                )}
+              </div>
+              
+              {/* All Roles (collapsed) */}
+              {teacher.roles.length > 1 && (
+                <div className="mt-2">
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                      כל התפקידים
+                    </summary>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {teacher.roles.slice(1).map((role, index) => (
+                        <span 
+                          key={index}
+                          className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded"
+                        >
+                          {role}
+                        </span>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              )}
             </div>
             <div className="flex space-x-2">
               <button 
                 onClick={() => handleViewSchedule(teacher.id)}
-                className="flex-1 bg-primary-50 text-primary-600 px-3 py-2 rounded text-sm hover:bg-primary-100 flex items-center justify-center"
+                className="flex-1 bg-primary-50 text-primary-600 px-2 py-2 rounded text-sm hover:bg-primary-100 flex items-center justify-center"
               >
                 <Calendar className="w-4 h-4 ml-1" />
-                צפה בלו״ז
+                לו״ז
               </button>
               <button 
                 onClick={() => handleEditTeacher(teacher.id)}
-                className="flex-1 bg-secondary-50 text-secondary-600 px-3 py-2 rounded text-sm hover:bg-secondary-100"
+                className="flex-1 bg-blue-50 text-blue-600 px-2 py-2 rounded text-sm hover:bg-blue-100 flex items-center justify-center"
               >
-                ערוך פרופיל
+                ⚙️ ניהול
               </button>
             </div>
           </div>

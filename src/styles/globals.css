@@ -51,7 +51,6 @@ body {
 
 .text-english {
   font-family: 'Inter', system-ui, sans-serif;
-  text-align: left;
   direction: ltr;
 }
 
@@ -279,6 +278,12 @@ body {
 /* RTL-specific adjustments */
 [dir="rtl"] .table th,
 [dir="rtl"] .table td {
+  text-align: right;
+}
+
+/* Dropdown RTL support */
+.direction-rtl {
+  direction: rtl;
   text-align: right;
 }
 

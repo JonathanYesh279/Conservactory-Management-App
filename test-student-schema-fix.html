@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Schema Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; direction: rtl; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .test-section { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .success { color: #22c55e; font-weight: bold; }
+        .error { color: #ef4444; font-weight: bold; }
+        .warning { color: #f59e0b; font-weight: bold; }
+        .btn { background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #2563eb; }
+        .student-card { background: #f8fafc; padding: 15px; margin: 10px 0; border-radius: 6px; border-left: 4px solid #3b82f6; }
+        .instrument-tag { background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 4px; display: inline-block; margin: 2px; font-size: 12px; }
+        .stage-badge { background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; }
+        pre { background: #1f2937; color: #f9fafb; padding: 15px; border-radius: 6px; overflow: auto; max-height: 400px; font-size: 12px; }
+        .schema-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .schema-box { background: #f1f5f9; padding: 15px; border-radius: 6px; }
+        .schema-title { font-weight: bold; color: #1e40af; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Student Schema Fix Verification</h1>
+        <p>Testing the fix for student data extraction schema mismatch</p>
+
+        <div class="test-section">
+            <h2>📋 Schema Mismatch Problem</h2>
+            <div class="schema-comparison">
+                <div class="schema-box">
+                    <div class="schema-title">❌ Frontend Expected (Wrong)</div>
+                    <pre>student.academicInfo.instrumentProgress[0] = {
+  instrument: "אבוב",  // Frontend expects this
+  stage: 1            // Frontend expects this
+}</pre>
+                </div>
+                <div class="schema-box">
+                    <div class="schema-title">✅ Database Actual (Correct)</div>
+                    <pre>student.academicInfo.instrumentProgress[0] = {
+  instrumentName: "אבוב",  // Database has this
+  currentStage: 1         // Database has this
+  isPrimary: true
+}</pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test Student Data Extraction</h2>
+            <div id="test-status">Press button to test student data extraction...</div>
+            <button class="btn" onclick="runSchemaTest()">Test Schema Fix</button>
+            <button class="btn" onclick="showRawData()">Show Raw Data</button>
+        </div>
+
+        <div class="test-section">
+            <h2>👥 Processed Students Data</h2>
+            <div id="students-display">No data loaded yet...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Test Results Summary</h2>
+            <div id="summary-display">No test run yet...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 Debug Console Output</h2>
+            <pre id="console-output">Console output will appear here...</pre>
+        </div>
+    </div>
+
+    <script type="module">
+        import apiService from './src/services/apiService.js';
+        
+        // Make functions globally available
+        window.apiService = apiService;
+        
+        let consoleMessages = [];
+        
+        // Intercept console messages
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = (...args) => {
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+            consoleMessages.push(`[LOG] ${message}`);
+            updateConsoleDisplay();
+            originalLog.apply(console, args);
+        };
+        
+        console.error = (...args) => {
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+            consoleMessages.push(`[ERROR] ${message}`);
+            updateConsoleDisplay();
+            originalError.apply(console, args);
+        };
+        
+        function updateConsoleDisplay() {
+            document.getElementById('console-output').textContent = consoleMessages.slice(-20).join('\n');
+        }
+
+        window.runSchemaTest = async () => {
+            const statusEl = document.getElementById('test-status');
+            const studentsEl = document.getElementById('students-display');
+            const summaryEl = document.getElementById('summary-display');
+            
+            try {
+                statusEl.innerHTML = '<span class="warning">🧪 Running schema test...</span>';
+                studentsEl.innerHTML = 'Loading students...';
+                summaryEl.innerHTML = 'Test in progress...';
+                
+                console.log('🔧 Starting student schema fix test...');
+                
+                // Test the fixed student data extraction
+                const result = await apiService.testStudentDataExtraction();
+                
+                if (result.success) {
+                    statusEl.innerHTML = '<span class="success">✅ Schema test completed successfully!</span>';
+                    
+                    // Display summary
+                    summaryEl.innerHTML = `
+                        <div class="success">✅ Test Results:</div>
+                        <ul>
+                            <li>Total Students: ${result.totalStudents}</li>
+                            <li>Students with Instruments: ${result.studentsWithInstruments}</li>
+                            <li>Students without Instruments: ${result.totalStudents - result.studentsWithInstruments}</li>
+                            <li>Schema Processing: Working correctly</li>
+                        </ul>
+                    `;
+                    
+                    // Load and display students data
+                    await displayStudentsData();
+                    
+                } else {
+                    statusEl.innerHTML = `<span class="error">❌ Schema test failed: ${result.error}</span>`;
+                    summaryEl.innerHTML = `<span class="error">Test failed - check console for details</span>`;
+                }
+                
+            } catch (error) {
+                statusEl.innerHTML = `<span class="error">❌ Test error: ${error.message}</span>`;
+                summaryEl.innerHTML = `<span class="error">Unexpected error during test</span>`;
+                console.error('Schema test failed:', error);
+            }
+        };
+
+        async function displayStudentsData() {
+            try {
+                const students = await apiService.students.getStudents();
+                const studentsEl = document.getElementById('students-display');
+                
+                if (students.length === 0) {
+                    studentsEl.innerHTML = '<div class="warning">⚠️ No students found (may require authentication)</div>';
+                    return;
+                }
+                
+                const studentsHtml = students.slice(0, 10).map((student, index) => {
+                    const primaryInstrument = apiService.studentUtils.getPrimaryInstrument(student);
+                    const allInstruments = apiService.studentUtils.getAllInstruments(student);
+                    
+                    return `
+                        <div class="student-card">
+                            <strong>${student.personalInfo?.fullName || 'ללא שם'}</strong>
+                            <div style="margin-top: 8px;">
+                                <strong>כלי עיקרי:</strong> 
+                                ${primaryInstrument.hasInstrument ? 
+                                    `<span class="instrument-tag">${primaryInstrument.name}</span> <span class="stage-badge">שלב ${primaryInstrument.stage}</span>` :
+                                    '<span style="color: #ef4444;">ללא כלי</span>'
+                                }
+                            </div>
+                            ${allInstruments.length > 1 ? `
+                                <div style="margin-top: 5px;">
+                                    <strong>כל הכלים:</strong> 
+                                    ${allInstruments.map(inst => `<span class="instrument-tag">${inst.name} (${inst.stage})</span>`).join(' ')}
+                                </div>
+                            ` : ''}
+                            <div style="margin-top: 5px; font-size: 12px; color: #6b7280;">
+                                כיתה: ${student.academicInfo?.class || 'לא הוגדר'}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                studentsEl.innerHTML = studentsHtml;
+                
+            } catch (error) {
+                document.getElementById('students-display').innerHTML = 
+                    `<div class="error">❌ Failed to load students: ${error.message}</div>`;
+            }
+        }
+
+        window.showRawData = async () => {
+            try {
+                console.log('🔍 Fetching raw student data...');
+                
+                // This will show the raw API response before processing
+                const rawResponse = await fetch('http://localhost:3001/api/student', {
+                    headers: {
+                        'Authorization': `Bearer ${apiService.client.getStoredToken() || 'no-token'}`
+                    }
+                });
+                
+                const rawData = await rawResponse.json();
+                console.log('Raw API Response:', rawData);
+                
+                if (rawData.error) {
+                    console.log('⚠️ API requires authentication - showing mock example:');
+                    console.log('Expected raw student structure:', {
+                        "_id": "688136c194c6cd56db965dbc",
+                        "personalInfo": {
+                            "fullName": "האס גרמי"
+                        },
+                        "academicInfo": {
+                            "instrumentProgress": [
+                                {
+                                    "instrumentName": "אבוב",  // ← Database field name
+                                    "currentStage": 1,        // ← Database field name
+                                    "isPrimary": true
+                                }
+                            ],
+                            "class": "א"
+                        }
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Failed to fetch raw data:', error);
+            }
+        };
+
+        // Auto-run test on page load if possible
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 Student schema fix test page loaded');
+            console.log('Available functions: runSchemaTest(), showRawData()');
+        });
+    </script>
+</body>
+</html>

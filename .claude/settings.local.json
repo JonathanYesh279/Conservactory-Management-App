@@ -31,7 +31,11 @@
       "Bash(npx:*)",
       "Bash(mv:*)",
       "Bash(pkill:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(find:*)",
+      "Bash(sed:*)",
+      "Bash(npx react-scripts build:*)",
+      "Bash(npx vite build:*)"
     ],
     "deny": [],
     "ask": [],

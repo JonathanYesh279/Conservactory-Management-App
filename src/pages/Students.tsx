@@ -1,35 +1,58 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Eye, Edit, Filter, Loader } from 'lucide-react'
+import { Search, Plus, Eye, Edit, Filter, Loader, X } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Table, { StatusBadge } from '../components/ui/Table'
 import StudentForm from '../components/StudentForm'
 import apiService from '../services/apiService'
+import { useSchoolYear } from '../services/schoolYearContext'
 
 export default function Students() {
+  const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFilters] = useState({
     orchestra: '',
-    instrument: ''
+    instrument: '',
+    teacher: '',
+    stageLevel: ''
   })
   const [showForm, setShowForm] = useState(false)
   const [editingStudentId, setEditingStudentId] = useState(null)
+  const [teachers, setTeachers] = useState([])
+  const [teachersLoading, setTeachersLoading] = useState(false)
+  const [teacherSearchTerm, setTeacherSearchTerm] = useState('')
+  const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
 
-  // Fetch students from real API
+  // Fetch students and teachers from real API when school year changes
   useEffect(() => {
-    loadStudents()
-  }, [])
+    if (currentSchoolYear && !schoolYearLoading) {
+      loadStudents()
+      loadTeachers()
+    }
+  }, [currentSchoolYear, schoolYearLoading])
+
+  // Initialize teacher search term when teachers load and there's an existing filter
+  useEffect(() => {
+    if (filters.teacher && teachers.length > 0 && !teacherSearchTerm) {
+      const selectedTeacher = teachers.find(t => t._id === filters.teacher)
+      if (selectedTeacher) {
+        setTeacherSearchTerm(selectedTeacher.personalInfo?.fullName || '')
+      }
+    }
+  }, [filters.teacher, teachers, teacherSearchTerm])
 
   const loadStudents = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      const response = await apiService.students.getStudents()
+      // Include schoolYearId in the request
+      const filters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
+      const response = await apiService.students.getStudents(filters)
       
-      // Map response data using EXACT field names as specified
+      // Map response data using CORRECT database field names
       const students = response.map(student => ({
         id: student._id,
         fullName: student.personalInfo.fullName,
@@ -53,6 +76,7 @@ export default function Students() {
         id: student.id,
         name: student.fullName,
         instrument: student.primaryInstrument,
+        stageLevel: student.currentStage,
         orchestra: student.orchestraIds?.length > 0 ? 'תזמורת' : 'ללא תזמורת',
         grade: <StatusBadge status="completed">{student.class}</StatusBadge>,
         status: <StatusBadge status={student.isActive ? "active" : "inactive"}>
@@ -87,6 +111,20 @@ export default function Students() {
     }
   }
 
+  const loadTeachers = async () => {
+    try {
+      setTeachersLoading(true)
+      // Include schoolYearId in the request
+      const apiFilters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
+      const teachersData = await apiService.teachers.getTeachers(apiFilters)
+      setTeachers(teachersData)
+    } catch (err) {
+      console.error('Error loading teachers:', err)
+    } finally {
+      setTeachersLoading(false)
+    }
+  }
+
   const handleViewStudent = (studentId) => {
     console.log('View student:', studentId)
     // Navigate to student details page
@@ -111,6 +149,36 @@ export default function Students() {
     loadStudents() // Reload the students list
   }
 
+  // Filter teachers based on search term
+  const filteredTeachers = teachers.filter(teacher => 
+    teacher.personalInfo?.fullName?.toLowerCase().includes(teacherSearchTerm.toLowerCase()) || false
+  )
+
+  // Get selected teacher name for display
+  const getSelectedTeacherName = () => {
+    if (!filters.teacher) return ''
+    const teacher = teachers.find(t => t._id === filters.teacher)
+    return teacher?.personalInfo?.fullName || ''
+  }
+
+  // Handle teacher selection
+  const handleTeacherSelect = (teacherId: string, teacherName: string) => {
+    setFilters(prev => ({ ...prev, teacher: teacherId }))
+    setTeacherSearchTerm(teacherName)
+    setShowTeacherDropdown(false)
+  }
+
+  // Handle teacher search input
+  const handleTeacherSearchChange = (value: string) => {
+    setTeacherSearchTerm(value)
+    setShowTeacherDropdown(true)
+    
+    // If the input is cleared, clear the filter
+    if (value === '') {
+      setFilters(prev => ({ ...prev, teacher: '' }))
+    }
+  }
+
   // Filter students based on search and filters
   const filteredStudents = students.filter(student => {
     const matchesSearch = !searchTerm || 
@@ -119,8 +187,14 @@ export default function Students() {
     
     const matchesOrchestra = !filters.orchestra || student.orchestra === filters.orchestra
     const matchesInstrument = !filters.instrument || student.instrument === filters.instrument
+    const matchesStageLevel = !filters.stageLevel || student.stageLevel === parseInt(filters.stageLevel)
     
-    return matchesSearch && matchesOrchestra && matchesInstrument
+    // Teacher filter: check if student has teacher assignment matching the selected teacher
+    const matchesTeacher = !filters.teacher || 
+      (student.rawData.teacherAssignments && 
+       student.rawData.teacherAssignments.some(assignment => assignment.teacherId === filters.teacher))
+    
+    return matchesSearch && matchesOrchestra && matchesInstrument && matchesStageLevel && matchesTeacher
   })
 
   // Calculate statistics
@@ -132,6 +206,7 @@ export default function Students() {
   const columns = [
     { key: 'name', header: 'שם התלמיד' },
     { key: 'instrument', header: 'כלי נגינה' },
+    { key: 'stageLevel', header: 'שלב', align: 'center' as const },
     { key: 'orchestra', header: 'תזמורת' },
     { key: 'grade', header: 'כיתה', align: 'center' as const },
     { key: 'status', header: 'סטטוס', align: 'center' as const },
@@ -188,7 +263,7 @@ export default function Students() {
               />
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <select 
               value={filters.orchestra}
               onChange={(e) => setFilters(prev => ({ ...prev, orchestra: e.target.value }))}
@@ -198,6 +273,7 @@ export default function Students() {
               <option value="תזמורת">תזמורת</option>
               <option value="ללא תזמורת">ללא תזמורת</option>
             </select>
+            
             <select 
               value={filters.instrument}
               onChange={(e) => setFilters(prev => ({ ...prev, instrument: e.target.value }))}
@@ -224,10 +300,91 @@ export default function Students() {
               <option value="גיטרה בס">גיטרה בס</option>
               <option value="תופים">תופים</option>
             </select>
-            <button className="flex items-center px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700">
-              <Filter className="w-4 h-4 ml-1" />
-              מסננים
-            </button>
+
+            {/* Teacher Filter - Searchable */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="חפש מורה..."
+                value={teacherSearchTerm}
+                onChange={(e) => handleTeacherSearchChange(e.target.value)}
+                onFocus={() => setShowTeacherDropdown(true)}
+                onBlur={() => {
+                  // Delay hiding dropdown to allow click events
+                  setTimeout(() => setShowTeacherDropdown(false), 200)
+                }}
+                disabled={teachersLoading}
+                className="w-48 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 placeholder-gray-500"
+              />
+              
+              {/* Clear button */}
+              {teacherSearchTerm && (
+                <button
+                  onClick={() => {
+                    setTeacherSearchTerm('')
+                    setFilters(prev => ({ ...prev, teacher: '' }))
+                    setShowTeacherDropdown(false)
+                  }}
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              
+              {/* Dropdown */}
+              {showTeacherDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
+                  {teachersLoading ? (
+                    <div className="px-3 py-2 text-gray-500 text-center">
+                      <Loader className="w-4 h-4 animate-spin mx-auto mb-1" />
+                      טוען מורים...
+                    </div>
+                  ) : filteredTeachers.length > 0 ? (
+                    <>
+                      {/* "All teachers" option */}
+                      <button
+                        onClick={() => handleTeacherSelect('', 'כל המורים')}
+                        className={`w-full text-right px-3 py-2 hover:bg-gray-50 border-b border-gray-100 ${
+                          filters.teacher === '' ? 'bg-primary-50 text-primary-600' : 'text-gray-900'
+                        }`}
+                      >
+                        כל המורים
+                      </button>
+                      
+                      {/* Teacher options */}
+                      {filteredTeachers.map(teacher => (
+                        <button
+                          key={teacher._id}
+                          onClick={() => handleTeacherSelect(teacher._id, teacher.personalInfo?.fullName || 'מורה ללא שם')}
+                          className={`w-full text-right px-3 py-2 hover:bg-gray-50 ${
+                            filters.teacher === teacher._id ? 'bg-primary-50 text-primary-600' : 'text-gray-900'
+                          }`}
+                        >
+                          {teacher.personalInfo?.fullName || 'מורה ללא שם'}
+                        </button>
+                      ))}
+                    </>
+                  ) : (
+                    <div className="px-3 py-2 text-gray-500 text-center">
+                      לא נמצאו מורים
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Stage Level Filter */}
+            <select 
+              value={filters.stageLevel}
+              onChange={(e) => setFilters(prev => ({ ...prev, stageLevel: e.target.value }))}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
+            >
+              <option value="">כל השלבים</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(level => (
+                <option key={level} value={level}>שלב {level}</option>
+              ))}
+            </select>
+
             <button 
               onClick={handleAddStudent}
               className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
@@ -268,7 +425,7 @@ export default function Students() {
       </div>
 
       {/* Results Info */}
-      {searchTerm || filters.orchestra || filters.instrument ? (
+      {searchTerm || filters.orchestra || filters.instrument || filters.teacher || filters.stageLevel ? (
         <div className="mb-4 text-sm text-gray-600">
           מציג {filteredStudents.length} מתוך {totalStudents} תלמידים
         </div>

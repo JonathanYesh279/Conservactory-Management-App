@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Assignments Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; direction: rtl; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .test-section { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .success { color: #22c55e; font-weight: bold; }
+        .error { color: #ef4444; font-weight: bold; }
+        .warning { color: #f59e0b; font-weight: bold; }
+        .btn { background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #2563eb; }
+        .assignment-card { background: #f8fafc; padding: 15px; margin: 10px 0; border-radius: 6px; border-left: 4px solid #10b981; }
+        .day-badge { background: #dbeafe; color: #1d4ed8; padding: 4px 8px; border-radius: 4px; display: inline-block; margin: 2px; font-size: 12px; }
+        .time-badge { background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; }
+        .teacher-tag { background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 4px; display: inline-block; margin: 2px; font-size: 12px; }
+        pre { background: #1f2937; color: #f9fafb; padding: 15px; border-radius: 6px; overflow: auto; max-height: 400px; font-size: 12px; }
+        .schema-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .schema-box { background: #f1f5f9; padding: 15px; border-radius: 6px; }
+        .schema-title { font-weight: bold; color: #1e40af; margin-bottom: 10px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0; }
+        .stat-card { background: #f8fafc; padding: 15px; border-radius: 6px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #1f2937; }
+        .stat-label { color: #6b7280; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Teacher Assignment Data Structure Fix</h1>
+        <p>Testing the fix for teacher assignment schema mismatch between database and frontend</p>
+
+        <div class="test-section">
+            <h2>📋 Schema Mismatch Problem</h2>
+            <div class="schema-comparison">
+                <div class="schema-box">
+                    <div class="schema-title">❌ Frontend Expected (Wrong)</div>
+                    <pre>teacherAssignments[0] = {
+  teacherId: "...",
+  instrument: "פסנתר",      // Missing in DB
+  lessonDuration: 45,       // Different field
+  frequency: "weekly"       // Missing in DB
+}</pre>
+                </div>
+                <div class="schema-box">
+                    <div class="schema-title">✅ Database Actual (Real)</div>
+                    <pre>teacherAssignments[0] = {
+  teacherId: "688136c194c6cd56db965db9",
+  day: "ראשון",
+  time: "14:00",
+  duration: 30,            // Correct field
+  scheduleInfo: {
+    startTime: "14:00",
+    endTime: "14:30",
+    isActive: true
+  }
+}</pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test Teacher Assignment Processing</h2>
+            <div id="test-status">Press button to test teacher assignment data processing...</div>
+            <button class="btn" onclick="runAssignmentTest()">Test Assignment Fix</button>
+            <button class="btn" onclick="showTeacherStats()">Show Teacher Stats</button>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Test Results Summary</h2>
+            <div id="summary-display">No test run yet...</div>
+            <div id="stats-display" class="stats-grid"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>👥 Students with Teacher Assignments</h2>
+            <div id="assignments-display">No data loaded yet...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>👨‍🏫 Teacher Assignment Details</h2>
+            <div id="details-display">No detailed data yet...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 Debug Console Output</h2>
+            <pre id="console-output">Console output will appear here...</pre>
+        </div>
+    </div>
+
+    <script type="module">
+        import apiService from './src/services/apiService.js';
+        
+        // Make functions globally available
+        window.apiService = apiService;
+        
+        let consoleMessages = [];
+        
+        // Intercept console messages
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = (...args) => {
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+            consoleMessages.push(`[LOG] ${message}`);
+            updateConsoleDisplay();
+            originalLog.apply(console, args);
+        };
+        
+        console.error = (...args) => {
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+            consoleMessages.push(`[ERROR] ${message}`);
+            updateConsoleDisplay();
+            originalError.apply(console, args);
+        };
+        
+        function updateConsoleDisplay() {
+            document.getElementById('console-output').textContent = consoleMessages.slice(-20).join('\n');
+        }
+
+        window.runAssignmentTest = async () => {
+            const statusEl = document.getElementById('test-status');
+            const summaryEl = document.getElementById('summary-display');
+            const assignmentsEl = document.getElementById('assignments-display');
+            
+            try {
+                statusEl.innerHTML = '<span class="warning">🧪 Running teacher assignment test...</span>';
+                summaryEl.innerHTML = 'Test in progress...';
+                assignmentsEl.innerHTML = 'Loading assignments...';
+                
+                console.log('🔧 Starting teacher assignment fix test...');
+                
+                // Test the teacher assignment processing
+                const result = await apiService.testTeacherAssignments();
+                
+                if (result.success) {
+                    statusEl.innerHTML = '<span class="success">✅ Teacher assignment test completed successfully!</span>';
+                    
+                    // Display summary
+                    summaryEl.innerHTML = `
+                        <div class="success">✅ Test Results:</div>
+                        <ul>
+                            <li>Total Students: ${result.totalStudents}</li>
+                            <li>Students with Assignments: ${result.studentsWithAssignments}</li>
+                            <li>Sample Processed: ${result.sampleProcessed}</li>
+                            <li>Assignment Processing: Working correctly</li>
+                        </ul>
+                    `;
+                    
+                    // Show stats
+                    const statsEl = document.getElementById('stats-display');
+                    statsEl.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-value">${result.totalStudents}</div>
+                            <div class="stat-label">Total Students</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${result.studentsWithAssignments}</div>
+                            <div class="stat-label">With Assignments</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${Math.round((result.studentsWithAssignments / result.totalStudents) * 100)}%</div>
+                            <div class="stat-label">Assignment Rate</div>
+                        </div>
+                    `;
+                    
+                    // Display detailed assignments
+                    await displayStudentAssignments();
+                    
+                } else {
+                    statusEl.innerHTML = `<span class="error">❌ Assignment test failed: ${result.error}</span>`;
+                    summaryEl.innerHTML = `<span class="error">Test failed - check console for details</span>`;
+                }
+                
+            } catch (error) {
+                statusEl.innerHTML = `<span class="error">❌ Test error: ${error.message}</span>`;
+                summaryEl.innerHTML = `<span class="error">Unexpected error during test</span>`;
+                console.error('Assignment test failed:', error);
+            }
+        };
+
+        async function displayStudentAssignments() {
+            try {
+                const students = await apiService.students.getStudents();
+                const studentsWithAssignments = students.filter(s => s.teacherAssignments?.length > 0);
+                const assignmentsEl = document.getElementById('assignments-display');
+                const detailsEl = document.getElementById('details-display');
+                
+                if (studentsWithAssignments.length === 0) {
+                    assignmentsEl.innerHTML = '<div class="warning">⚠️ No students with assignments found (may require authentication)</div>';
+                    return;
+                }
+                
+                // Display student assignments
+                const assignmentsHtml = studentsWithAssignments.slice(0, 10).map((student, index) => {
+                    const assignments = student.teacherAssignments || [];
+                    return `
+                        <div class="assignment-card">
+                            <strong>${student.personalInfo?.fullName || 'ללא שם'}</strong>
+                            <div style="margin-top: 8px;">
+                                <strong>מספר שיעורים:</strong> ${assignments.length}
+                            </div>
+                            ${assignments.map((assignment, idx) => `
+                                <div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px;">
+                                    <span class="day-badge">${assignment.day}</span>
+                                    <span class="time-badge">${assignment.time} (${assignment.duration} דק')</span>
+                                    ${assignment.scheduleInfo?.endTime ? 
+                                        `<span style="font-size: 12px; color: #6b7280;">עד ${assignment.scheduleInfo.endTime}</span>` : 
+                                        ''
+                                    }
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }).join('');
+                
+                assignmentsEl.innerHTML = assignmentsHtml;
+                
+                // Display processed assignment details
+                console.log('📋 Processing teacher assignment details...');
+                let detailsHtml = '<h3>Teacher Assignment Processing Results:</h3>';
+                
+                for (const student of studentsWithAssignments.slice(0, 3)) {
+                    try {
+                        const processedTeachers = await apiService.utils.studentTeacher.getStudentTeachers(student);
+                        detailsHtml += `
+                            <div class="assignment-card">
+                                <strong>${student.personalInfo?.fullName}</strong>
+                                <div style="margin-top: 10px;">
+                                    ${processedTeachers.map(teacher => `
+                                        <div style="padding: 8px; background: white; border-radius: 4px; margin: 5px 0;">
+                                            <div><strong>מורה:</strong> <span class="teacher-tag">${teacher.teacherName}</span></div>
+                                            <div><strong>יום:</strong> ${teacher.day} <strong>שעה:</strong> ${teacher.time}-${teacher.endTime}</div>
+                                            <div><strong>משך:</strong> ${teacher.duration} דק' <strong>כלי:</strong> ${teacher.instrument || 'לא הוגדר'}</div>
+                                            <div style="font-size: 12px; color: #6b7280;">
+                                                Processed fields: lessonDuration=${teacher.lessonDuration}, frequency=${teacher.frequency}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    } catch (error) {
+                        detailsHtml += `<div style="color: #ef4444;">Error processing ${student.personalInfo?.fullName}: ${error.message}</div>`;
+                    }
+                }
+                
+                detailsEl.innerHTML = detailsHtml;
+                
+            } catch (error) {
+                document.getElementById('assignments-display').innerHTML = 
+                    `<div class="error">❌ Failed to load assignments: ${error.message}</div>`;
+            }
+        }
+
+        window.showTeacherStats = async () => {
+            try {
+                console.log('👨‍🏫 Loading teacher statistics...');
+                
+                const teachers = await apiService.teachers.getTeachers();
+                
+                console.log('Teacher stats:', {
+                    total: teachers.length,
+                    sample: teachers.slice(0, 3).map(t => ({
+                        name: t.personalInfo?.fullName,
+                        assignmentCount: t.assignmentCount,
+                        activeStudents: t.activeStudents,
+                        instrument: t.primaryInstrument
+                    }))
+                });
+                
+            } catch (error) {
+                console.error('Failed to load teacher stats:', error);
+            }
+        };
+
+        // Auto-run basic test on page load if possible
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 Teacher assignment fix test page loaded');
+            console.log('Available functions: runAssignmentTest(), showTeacherStats()');
+            console.log('API Service utils available:', Object.keys(apiService.utils || {}));
+        });
+    </script>
+</body>
+</html>
