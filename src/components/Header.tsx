@@ -1,5 +1,6 @@
 import { Bell, Calendar, Settings, Music, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import SchoolYearSelector from './SchoolYearSelector'
 
 export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -38,12 +39,15 @@ export default function Header() {
   return (
     <header className="fixed top-0 right-0 left-0 md:right-[280px] h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 pr-16 md:pr-6 z-[999]" style={{ direction: 'rtl' }}>
       {/* Right side (RTL) - Brand/Logo */}
-      <div className="flex items-center">
+      <div className="flex items-center gap-4">
         <img 
           src="/logo.png" 
           alt="Logo" 
           className="h-10 w-auto object-contain"
         />
+        
+        {/* School Year Selector */}
+        <SchoolYearSelector />
       </div>
 
       {/* Left side (RTL) - User Controls */}
