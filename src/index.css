@@ -333,6 +333,52 @@ body {
   text-align: left;
 }
 
+/* Flexbox RTL adjustments */
+[dir="rtl"] .space-x-2 > * + * {
+  margin-right: 0.5rem;
+  margin-left: 0;
+}
+
+[dir="rtl"] .space-x-3 > * + * {
+  margin-right: 0.75rem;
+  margin-left: 0;
+}
+
+[dir="rtl"] .space-x-4 > * + * {
+  margin-right: 1rem;
+  margin-left: 0;
+}
+
+/* Form input RTL improvements */
+[dir="rtl"] input,
+[dir="rtl"] textarea,
+[dir="rtl"] select {
+  text-align: right;
+}
+
+[dir="rtl"] input[type="email"],
+[dir="rtl"] input[type="url"] {
+  text-align: left;
+  direction: ltr;
+}
+
+/* Button and icon RTL improvements */
+[dir="rtl"] .flex.items-center > svg {
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
+
+/* Badge and status indicators RTL */
+[dir="rtl"] .inline-flex.items-center {
+  direction: rtl;
+}
+
+/* Hebrew number formatting */
+.hebrew-number {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
 /* Form validation styles */
 .field-error {
   @apply text-sm text-red-600 mt-1;

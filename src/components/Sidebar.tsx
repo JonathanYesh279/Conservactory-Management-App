@@ -4,25 +4,37 @@ import {
   Home,
   Users, 
   GraduationCap, 
+  BookOpen,
   Music, 
   Calendar, 
   ClipboardList,
   BarChart3,
+  UserCheck,
   Settings,
   Search,
   Menu,
-  X
+  X,
+  Plus,
+  Filter
 } from 'lucide-react'
 
 const navigation = [
   { name: 'מידע כללי', href: '/dashboard', icon: Home },
   { name: 'תלמידים', href: '/students', icon: Users },
   { name: 'מורים', href: '/teachers', icon: GraduationCap },
+  { name: 'שיעורי תיאוריה', href: '/theory-lessons', icon: BookOpen },
   { name: 'תזמורות', href: '/orchestras', icon: Music },
   { name: 'חזרות', href: '/rehearsals', icon: Calendar },
-  { name: 'בגרות', href: '/bagrut', icon: ClipboardList },
+  { name: 'נוכחות', href: '/attendance', icon: UserCheck },
   { name: 'דוחות', href: '/reports', icon: BarChart3 },
   { name: 'הגדרות', href: '/settings', icon: Settings },
+]
+
+const quickActions = [
+  { name: 'הוסף תלמיד חדש', href: '/students/new', icon: Users },
+  { name: 'הוסף מורה חדש', href: '/teachers/new', icon: GraduationCap },
+  { name: 'צור שיעור תיאוריה', href: '/theory-lessons/new', icon: BookOpen },
+  { name: 'תזמן חזרה', href: '/rehearsals/new', icon: Calendar },
 ]
 
 export default function Sidebar() {
@@ -133,8 +145,12 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4">
-          <div className="space-y-1">
+        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+          {/* Main Navigation */}
+          <div className="space-y-1 mb-6">
+            <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              תפריט ראשי
+            </h3>
             {navigation.map((item) => {
               const Icon = item.icon
               const active = isActive(item.href)
@@ -146,12 +162,37 @@ export default function Sidebar() {
                   onClick={closeMobileMenu}
                   className={`flex items-center justify-between px-4 py-3 mx-3 rounded-lg text-sm font-medium transition-all duration-150 rtl font-reisinger-michal ${
                     active
-                      ? 'bg-blue-50 text-blue-700'
+                      ? 'bg-primary-50 text-primary-700 border border-primary-200'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
                   }`}
                 >
                   <span className="text-right">{item.name}</span>
                   <Icon className="w-5 h-5" />
+                </Link>
+              )
+            })}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="space-y-1 border-t border-gray-200 pt-6">
+            <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              פעולות מהירות
+            </h3>
+            {quickActions.map((action) => {
+              const Icon = action.icon
+              
+              return (
+                <Link
+                  key={action.name}
+                  to={action.href}
+                  onClick={closeMobileMenu}
+                  className="flex items-center justify-between px-4 py-2 mx-3 rounded-lg text-sm font-medium transition-all duration-150 rtl font-reisinger-michal text-gray-600 hover:bg-green-50 hover:text-green-700 group"
+                >
+                  <span className="text-right">{action.name}</span>
+                  <div className="flex items-center space-x-1 space-x-reverse">
+                    <Plus className="w-3 h-3 group-hover:text-green-500" />
+                    <Icon className="w-4 h-4" />
+                  </div>
                 </Link>
               )
             })}

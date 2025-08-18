@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Eye, Edit, Filter, Loader } from 'lucide-react'
+import { Search, Plus, Filter, Loader, Grid, List, Eye } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Table, { StatusBadge } from '../components/ui/Table'
+import StudentCard from '../components/StudentCard'
 import StudentForm from '../components/StudentForm'
 import apiService from '../services/apiService'
 
-export default function Students() {
+export default function StudentsGrid() {
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [filters, setFilters] = useState({
     orchestra: '',
     instrument: ''
@@ -29,32 +31,18 @@ export default function Students() {
       
       const response = await apiService.students.getStudents()
       
-      // Map response data using EXACT field names as specified
-      const students = response.map(student => ({
+      // Transform API response to include both original and processed data
+      const transformedStudents = response.map(student => ({
+        // Original backend data structure for StudentCard
+        original: student,
+        // Processed data for Table view (legacy compatibility)
         id: student._id,
-        fullName: student.personalInfo.fullName,
-        phone: student.personalInfo.phone,
-        age: student.personalInfo.age,
-        class: student.academicInfo.class,
-        primaryInstrument: student.academicInfo.instrumentProgress
-          .find(inst => inst.isPrimary)?.instrumentName || 
-          student.academicInfo.instrumentProgress[0]?.instrumentName || 'ללא כלי',
-        currentStage: student.academicInfo.instrumentProgress
-          .find(inst => inst.isPrimary)?.currentStage || 1,
-        teacherAssignments: student.teacherAssignments,
-        parentName: student.personalInfo.parentName,
-        parentPhone: student.personalInfo.parentPhone,
-        orchestraIds: student.enrollments.orchestraIds,
-        isActive: student.isActive
-      }))
-      
-      // Transform for table display
-      const transformedStudents = students.map(student => ({
-        id: student.id,
-        name: student.fullName,
-        instrument: student.primaryInstrument,
-        orchestra: student.orchestraIds?.length > 0 ? 'תזמורת' : 'ללא תזמורת',
-        grade: <StatusBadge status="completed">{student.class}</StatusBadge>,
+        name: student.personalInfo.fullName,
+        instrument: student.academicInfo.instrumentProgress
+          ?.find(inst => inst.isPrimary)?.instrumentName || 
+          student.academicInfo.instrumentProgress?.[0]?.instrumentName || 'ללא כלי',
+        orchestra: student.enrollments?.orchestraIds?.length > 0 ? 'תזמורת' : 'ללא תזמורת',
+        grade: <StatusBadge status="completed">{student.academicInfo.class}</StatusBadge>,
         status: <StatusBadge status={student.isActive ? "active" : "inactive"}>
           {student.isActive ? 'פעיל' : 'לא פעיל'}
         </StatusBadge>,
@@ -64,15 +52,9 @@ export default function Students() {
           <div className="flex space-x-2 space-x-reverse">
             <button 
               className="p-1 text-primary-600 hover:text-primary-900"
-              onClick={() => handleViewStudent(student.id)}
+              onClick={() => handleViewStudent(student._id)}
             >
               <Eye className="w-4 h-4" />
-            </button>
-            <button 
-              className="p-1 text-gray-600 hover:text-gray-900"
-              onClick={() => handleEditStudent(student.id)}
-            >
-              <Edit className="w-4 h-4" />
             </button>
           </div>
         )
@@ -114,8 +96,8 @@ export default function Students() {
   // Filter students based on search and filters
   const filteredStudents = students.filter(student => {
     const matchesSearch = !searchTerm || 
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.instrument.toLowerCase().includes(searchTerm.toLowerCase())
+      student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.instrument?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesOrchestra = !filters.orchestra || student.orchestra === filters.orchestra
     const matchesInstrument = !filters.instrument || student.instrument === filters.instrument
@@ -173,6 +155,7 @@ export default function Students() {
           onSave={handleFormSave}
         />
       )}
+      
       {/* Filters and Search */}
       <Card className="mb-6" padding="md">
         <div className="flex flex-col md:flex-row gap-4">
@@ -224,6 +207,29 @@ export default function Students() {
               <option value="גיטרה בס">גיטרה בס</option>
               <option value="תופים">תופים</option>
             </select>
+            
+            {/* View Mode Toggle */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 ${viewMode === 'grid' 
+                  ? 'bg-primary-500 text-white' 
+                  : 'bg-white text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Grid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-2 ${viewMode === 'table' 
+                  ? 'bg-primary-500 text-white' 
+                  : 'bg-white text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+
             <button className="flex items-center px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700">
               <Filter className="w-4 h-4 ml-1" />
               מסננים
@@ -274,8 +280,33 @@ export default function Students() {
         </div>
       ) : null}
 
-      {/* Students Table */}
-      <Table columns={columns} data={filteredStudents} />
+      {/* Grid View with StudentCard */}
+      {viewMode === 'grid' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredStudents.map((student) => (
+            <StudentCard
+              key={student.id}
+              student={student.original}
+              showInstruments={true}
+              showTeacherAssignments={true}
+              showParentContact={false}
+              onClick={() => handleViewStudent(student.id)}
+              className="hover:shadow-lg transition-shadow duration-200"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Table View (Legacy) */}
+      {viewMode === 'table' && (
+        <Table columns={columns} data={filteredStudents} />
+      )}
+
+      {filteredStudents.length === 0 && !loading && (
+        <div className="text-center py-12 text-gray-500">
+          לא נמצאו תלמידים התואמים לחיפוש
+        </div>
+      )}
     </div>
   )
 }
