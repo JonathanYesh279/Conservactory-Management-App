@@ -189,12 +189,15 @@ export const authService = {
     try {
       const response = await apiClient.post('/auth/login', { email, password });
       
-      // Handle both old and new response formats
-      const token = response.accessToken || response.data?.accessToken;
-      const teacher = response.teacher || response.data?.teacher;
+      // Handle both old and new response formats from backend
+      // Backend sends: { data: { accessToken, teacher }, success: true }
+      const token = response.data?.accessToken || response.accessToken;
+      const teacher = response.data?.teacher || response.teacher;
       
       if (token) {
         apiClient.setToken(token);
+        // Update the token in the apiClient instance immediately
+        apiClient.token = token;
       }
       
       return { token, teacher, success: true };

@@ -6,6 +6,7 @@
 
 import { createContext, useContext, useState, useEffect } from 'react'
 import apiService from './apiService'
+import { useAuth } from './authContext'
 
 const SchoolYearContext = createContext(null)
 
@@ -18,15 +19,24 @@ export const useSchoolYear = () => {
 }
 
 export const SchoolYearProvider = ({ children }) => {
+  const { isAuthenticated } = useAuth()
   const [currentSchoolYear, setCurrentSchoolYear] = useState(null)
   const [schoolYears, setSchoolYears] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Load school years and set current one on app start
+  // Load school years only when authenticated
   useEffect(() => {
-    loadSchoolYears()
-  }, [])
+    if (isAuthenticated) {
+      loadSchoolYears()
+    } else {
+      // Clear data when not authenticated
+      setCurrentSchoolYear(null)
+      setSchoolYears([])
+      setIsLoading(false)
+      setError(null)
+    }
+  }, [isAuthenticated])
 
   const loadSchoolYears = async () => {
     try {
