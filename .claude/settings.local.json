@@ -35,13 +35,16 @@
       "Bash(find:*)",
       "Bash(sed:*)",
       "Bash(npx react-scripts build:*)",
-      "Bash(npx vite build:*)"
+      "Bash(npx vite build:*)",
+      "Bash(lsof:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": [],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
-      "/mnt/c/Projects/conservatory-app/Frontend"
+      "/mnt/c/Projects/conservatory-app/Frontend",
+      "/mnt/c/Projects/conservatory-app/Backend"
     ]
   }
 }
