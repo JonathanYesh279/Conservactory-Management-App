@@ -27,7 +27,8 @@ export default function Students() {
 
   // Fetch students and teachers from real API when school year changes
   useEffect(() => {
-    if (currentSchoolYear && !schoolYearLoading) {
+    if (!schoolYearLoading) {
+      // Load even if no school year is selected, backend will handle it
       loadStudents()
       loadTeachers()
     }
