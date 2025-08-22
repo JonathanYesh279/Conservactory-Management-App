@@ -408,6 +408,48 @@ export const studentService = {
       console.error('Error deleting student:', error);
       throw error;
     }
+  },
+
+  /**
+   * Get single student by ID (alias for getStudent)
+   * @param {string} studentId - Student ID
+   * @returns {Promise<Object>} Student object with processed schema
+   */
+  async getStudentById(studentId) {
+    try {
+      const student = await this.getStudent(studentId);
+      
+      // Process student data similar to getStudents for consistency
+      const processedStudent = {
+        ...student,
+        // Add computed fields for frontend compatibility
+        primaryInstrument: student.academicInfo?.instrumentProgress?.find(
+          progress => progress.isPrimary === true
+        )?.instrumentName || null,
+        
+        primaryStage: student.academicInfo?.instrumentProgress?.find(
+          progress => progress.isPrimary === true
+        )?.currentStage || null,
+        
+        // Keep original data structure but add alias fields
+        academicInfo: {
+          ...student.academicInfo,
+          instrumentProgress: student.academicInfo?.instrumentProgress?.map(progress => ({
+            ...progress,
+            // Add alias fields for backward compatibility
+            instrument: progress.instrumentName, // Frontend expects 'instrument'
+            stage: progress.currentStage        // Frontend expects 'stage'
+          })) || []
+        }
+      };
+      
+      console.log(`👤 Retrieved and processed student by ID: ${processedStudent.personalInfo?.fullName}`);
+      
+      return processedStudent;
+    } catch (error) {
+      console.error('Error fetching student by ID:', error);
+      throw error;
+    }
   }
 };
 

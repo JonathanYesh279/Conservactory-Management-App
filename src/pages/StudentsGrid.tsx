@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Search, Plus, Filter, Loader, Grid, List, Eye } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Table, { StatusBadge } from '../components/ui/Table'
@@ -7,6 +8,7 @@ import StudentForm from '../components/StudentForm'
 import apiService from '../services/apiService'
 
 export default function StudentsGrid() {
+  const navigate = useNavigate()
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -51,8 +53,12 @@ export default function StudentsGrid() {
         actions: (
           <div className="flex space-x-2 space-x-reverse">
             <button 
-              className="p-1 text-primary-600 hover:text-primary-900"
-              onClick={() => handleViewStudent(student._id)}
+              className="p-2 text-primary-600 hover:text-primary-900 hover:bg-primary-50 rounded-lg transition-colors"
+              onClick={(e) => {
+                e.stopPropagation() // Prevent row click when clicking the button
+                handleViewStudent(student._id)
+              }}
+              title="צפה בפרטי התלמיד"
             >
               <Eye className="w-4 h-4" />
             </button>
@@ -70,8 +76,16 @@ export default function StudentsGrid() {
   }
 
   const handleViewStudent = (studentId) => {
-    console.log('View student:', studentId)
-    // Navigate to student details page
+    // Clean the student ID and ensure it's valid
+    const cleanStudentId = studentId?.toString().trim()
+    
+    if (!cleanStudentId) {
+      console.error('Invalid student ID:', studentId)
+      return
+    }
+    
+    console.log('Navigating to student:', cleanStudentId)
+    navigate(`/students/${cleanStudentId}`)
   }
 
   const handleEditStudent = (studentId) => {
@@ -208,25 +222,39 @@ export default function StudentsGrid() {
               <option value="תופים">תופים</option>
             </select>
             
-            {/* View Mode Toggle */}
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            {/* View Mode Toggle - Enhanced */}
+            <div className="flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200 shadow-sm">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 ${viewMode === 'grid' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-white text-gray-500 hover:text-gray-700'
+                className={`relative px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out flex items-center gap-2 ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-primary-700 shadow-sm border border-gray-200 ring-1 ring-primary-500/20'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100/50'
                 }`}
+                aria-pressed={viewMode === 'grid'}
+                aria-label="תצוגת רשת"
               >
                 <Grid className="w-4 h-4" />
+                <span className="hidden sm:inline">רשת</span>
+                {viewMode === 'grid' && (
+                  <div className="absolute inset-0 rounded-md bg-gradient-to-r from-primary-500/5 to-primary-600/5 pointer-events-none" />
+                )}
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`p-2 ${viewMode === 'table' 
-                  ? 'bg-primary-500 text-white' 
-                  : 'bg-white text-gray-500 hover:text-gray-700'
+                className={`relative px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out flex items-center gap-2 ${
+                  viewMode === 'table'
+                    ? 'bg-white text-primary-700 shadow-sm border border-gray-200 ring-1 ring-primary-500/20'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100/50'
                 }`}
+                aria-pressed={viewMode === 'table'}
+                aria-label="תצוגת טבלה"
               >
                 <List className="w-4 h-4" />
+                <span className="hidden sm:inline">טבלה</span>
+                {viewMode === 'table' && (
+                  <div className="absolute inset-0 rounded-md bg-gradient-to-r from-primary-500/5 to-primary-600/5 pointer-events-none" />
+                )}
               </button>
             </div>
 
@@ -269,16 +297,30 @@ export default function StudentsGrid() {
         </Card>
       </div>
 
-      {/* Results Info */}
-      {searchTerm || filters.orchestra || filters.instrument ? (
-        <div className="mb-4 text-sm text-gray-600">
-          מציג {filteredStudents.length} מתוך {totalStudents} תלמידים
+      {/* Results Info and View Mode Indicator */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          {searchTerm || filters.orchestra || filters.instrument ? (
+            <div className="text-sm text-gray-600">
+              מציג {filteredStudents.length} מתוך {totalStudents} תלמידים
+            </div>
+          ) : (
+            <div className="text-sm text-gray-600">
+              {totalStudents} תלמידים
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span>תצוגה:</span>
+            <span className="px-2 py-1 bg-gray-100 rounded-full font-medium">
+              {viewMode === 'grid' ? 'רשת' : 'טבלה'}
+            </span>
+          </div>
         </div>
-      ) : null}
+      </div>
 
       {/* Grid View with StudentCard */}
       {viewMode === 'grid' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
           {filteredStudents.map((student) => (
             <StudentCard
               key={student.id}
@@ -287,15 +329,24 @@ export default function StudentsGrid() {
               showTeacherAssignments={true}
               showParentContact={false}
               onClick={() => handleViewStudent(student.id)}
-              className="hover:shadow-lg transition-shadow duration-200"
+              className="h-full hover:shadow-lg transition-all duration-200 hover:scale-[1.02] hover:-translate-y-1"
             />
           ))}
         </div>
       )}
 
-      {/* Table View (Legacy) */}
+      {/* Table View with clickable rows */}
       {viewMode === 'table' && (
-        <Table columns={columns} data={filteredStudents} />
+        <Table 
+          columns={columns} 
+          data={filteredStudents}
+          onRowClick={(row) => {
+            // Use the raw data's _id to ensure we have the correct ID
+            const studentId = row.rawData?._id || row.id
+            handleViewStudent(studentId)
+          }}
+          rowClassName="hover:bg-primary-50 cursor-pointer"
+        />
       )}
 
       {filteredStudents.length === 0 && !loading && (

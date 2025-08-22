@@ -12,6 +12,8 @@ interface TableProps {
   columns: Column[]
   data: Record<string, ReactNode>[]
   className?: string
+  onRowClick?: (row: Record<string, ReactNode>, index: number) => void
+  rowClassName?: string | ((row: Record<string, ReactNode>, index: number) => string)
 }
 
 interface StatusBadgeProps {
@@ -38,7 +40,7 @@ export function StatusBadge({ status, children }: StatusBadgeProps) {
   )
 }
 
-export default function Table({ columns, data, className }: TableProps) {
+export default function Table({ columns, data, className, onRowClick, rowClassName }: TableProps) {
   return (
     <div className={clsx('overflow-hidden bg-white rounded-xl shadow-card border border-gray-100', className)}>
       <div className="overflow-x-auto">
@@ -64,25 +66,51 @@ export default function Table({ columns, data, className }: TableProps) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {data.map((row, index) => (
-              <tr key={index} className="hover:bg-gray-50 transition-colors">
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={clsx(
-                      'px-6 py-4 whitespace-nowrap text-sm text-gray-900',
-                      {
-                        'text-start': column.align === 'left',
-                        'text-center': column.align === 'center',
-                        'text-end': column.align === 'right',
-                      },
-                    )}
-                  >
-                    {row[column.key]}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {data.map((row, index) => {
+              const computedRowClassName = typeof rowClassName === 'function' 
+                ? rowClassName(row, index) 
+                : rowClassName || ''
+              
+              const isClickable = !!onRowClick
+              
+              return (
+                <tr 
+                  key={index} 
+                  className={clsx(
+                    'transition-colors',
+                    isClickable && 'cursor-pointer hover:bg-gray-50',
+                    !isClickable && 'hover:bg-gray-50',
+                    computedRowClassName
+                  )}
+                  onClick={isClickable ? () => onRowClick(row, index) : undefined}
+                  onKeyDown={isClickable ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onRowClick(row, index)
+                    }
+                  } : undefined}
+                  tabIndex={isClickable ? 0 : undefined}
+                  role={isClickable ? 'button' : undefined}
+                  aria-label={isClickable ? `צפה בפרטי ${row.name || 'הפריט'}` : undefined}
+                >
+                  {columns.map((column) => (
+                    <td
+                      key={column.key}
+                      className={clsx(
+                        'px-6 py-4 whitespace-nowrap text-sm text-gray-900',
+                        {
+                          'text-start': column.align === 'left',
+                          'text-center': column.align === 'center',
+                          'text-end': column.align === 'right',
+                        },
+                      )}
+                    >
+                      {row[column.key]}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

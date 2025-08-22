@@ -15,6 +15,8 @@ color: yellow
 
 Role: Backend-frontend integration and data management
 
+Avoid: DO NOT CHANGE PORT - THE BACKEND SERVING IT TO 5173. DO NOT CHANGE TO OTHER PORT.
+
 Responsibilities:
 - Create comprehensive API service layer with proper error handling
 - Implement real-time features using WebSockets for live updates

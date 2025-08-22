@@ -54,6 +54,8 @@ Security Requirements:
 - Rate limiting for authentication endpoints
 - Data privacy compliance (GDPR considerations)
 
+Avoid: DO NOT CHANGE PORT - THE BACKEND SERVING IT TO 5173. DO NOT CHANGE TO OTHER PORT.
+
 Production Monitoring:
 - Application performance metrics
 - User authentication success rates
