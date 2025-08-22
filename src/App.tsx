@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import React, { Suspense } from 'react'
 import { AuthProvider, useAuth } from './services/authContext.jsx'
 import { SchoolYearProvider } from './services/schoolYearContext.jsx'
 import Layout from './components/Layout'
@@ -10,10 +11,17 @@ import TheoryLessons from './pages/TheoryLessons'
 import Orchestras from './pages/Orchestras'
 import OrchestraDetails from './pages/OrchestraDetails'
 import Rehearsals from './pages/Rehearsals'
-import CalendarDemo from './pages/CalendarDemo'
+import { lazy } from 'react'
+
+// Lazy load StudentDetailsPage for code splitting
+const StudentDetailsPage = lazy(() => import('./features/students/details/components/StudentDetailsPageSimple'))
 
 // Protected Route Component
-function ProtectedRoute({ children }) {
+interface ProtectedRouteProps {
+  children: React.ReactNode
+}
+
+function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth()
 
   if (isLoading) {
@@ -56,6 +64,25 @@ function AppRoutes() {
             <ProtectedRoute>
               <Layout>
                 <Students />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/students/:studentId"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Suspense fallback={
+                  <div className="flex items-center justify-center min-h-96">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                      <div className="text-gray-600">טוען פרטי תלמיד...</div>
+                    </div>
+                  </div>
+                }>
+                  <StudentDetailsPage />
+                </Suspense>
               </Layout>
             </ProtectedRoute>
           }

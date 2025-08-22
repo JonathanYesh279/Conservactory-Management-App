@@ -21,6 +21,11 @@ export { default as Table } from './ui/Table'
 export { default as StatsCard } from './ui/StatsCard'
 export { default as Calendar } from './ui/Calendar'
 
+// Schedule Components
+export { default as WeeklyStudentCalendar } from './schedule/WeeklyStudentCalendar'
+export { default as StudentCalendarDemo } from './schedule/StudentCalendarDemo'
+export { default as WeeklyCalendarGrid } from './schedule/WeeklyCalendarGrid'
+
 // Layout Components
 export { default as Layout } from './Layout'
 export { default as Header } from './Header'

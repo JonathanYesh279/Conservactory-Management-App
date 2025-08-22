@@ -16,6 +16,13 @@ export default defineConfig({
     port: 5173,
     host: true,
     open: 'http://localhost:5173',
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
+    hmr: {
+      overlay: true,
+    },
   },
   build: {
     outDir: 'dist',

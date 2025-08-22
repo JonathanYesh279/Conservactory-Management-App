@@ -31,6 +31,8 @@ Key Expertise:
 - PWA development and service workers
 - Bundle optimization and performance monitoring
 
+Avoid: DO NOT CHANGE PORT - THE BACKEND SERVING IT TO 5173. DO NOT CHANGE TO OTHER PORT.
+
 Backend Integration Patterns:
 Your backend follows consistent RESTful patterns that should guide frontend architecture:
 

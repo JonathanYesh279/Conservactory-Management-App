@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Eye, Edit, Filter, Loader, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, Plus, Eye, Edit, Filter, Loader, X, Grid, List } from 'lucide-react'
+import { clsx } from 'clsx'
 import Card from '../components/ui/Card'
 import Table, { StatusBadge } from '../components/ui/Table'
+import StudentCard from '../components/StudentCard'
 import StudentForm from '../components/StudentForm'
 import apiService from '../services/apiService'
 import { useSchoolYear } from '../services/schoolYearContext'
 
 export default function Students() {
+  const navigate = useNavigate()
   const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -24,6 +28,7 @@ export default function Students() {
   const [teachersLoading, setTeachersLoading] = useState(false)
   const [teacherSearchTerm, setTeacherSearchTerm] = useState('')
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
 
   // Fetch students and teachers from real API when school year changes
   useEffect(() => {
@@ -85,17 +90,28 @@ export default function Students() {
         </StatusBadge>,
         teacherAssignments: student.teacherAssignments?.length || 0,
         rawData: student,
+        // Add the original API response data for StudentCard compatibility
+        originalStudent: response.find(s => s._id === student.id),
         actions: (
           <div className="flex space-x-2 space-x-reverse">
             <button 
-              className="p-1 text-primary-600 hover:text-primary-900"
-              onClick={() => handleViewStudent(student.id)}
+              className="p-1.5 text-primary-600 hover:text-primary-900 hover:bg-primary-100 rounded transition-colors"
+              onClick={(e) => {
+                e.stopPropagation() // Prevent row click
+                console.log('Eye icon clicked for student:', student.id)
+                handleViewStudent(student.id)
+              }}
+              title="צפה בפרטי התלמיד"
             >
               <Eye className="w-4 h-4" />
             </button>
             <button 
-              className="p-1 text-gray-600 hover:text-gray-900"
-              onClick={() => handleEditStudent(student.id)}
+              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+              onClick={(e) => {
+                e.stopPropagation() // Prevent row click
+                handleEditStudent(student.id)
+              }}
+              title="ערוך פרטי התלמיד"
             >
               <Edit className="w-4 h-4" />
             </button>
@@ -127,8 +143,22 @@ export default function Students() {
   }
 
   const handleViewStudent = (studentId) => {
-    console.log('View student:', studentId)
-    // Navigate to student details page
+    console.log('=== NAVIGATION DEBUG ===')
+    console.log('Student ID:', studentId)
+    console.log('Target path:', `/students/${studentId}`)
+    console.log('Current location:', window.location.pathname)
+    
+    // Direct navigation without async
+    const targetPath = `/students/${studentId}`
+    
+    // Force navigation with window.location as fallback
+    try {
+      navigate(targetPath)
+      console.log('Navigate function called successfully')
+    } catch (error) {
+      console.error('Navigate failed, using window.location:', error)
+      window.location.href = targetPath
+    }
   }
 
   const handleEditStudent = (studentId) => {
@@ -241,7 +271,8 @@ export default function Students() {
   }
 
   return (
-    <div>
+    <div className="relative">
+      
       {showForm && (
         <StudentForm
           studentId={editingStudentId}
@@ -426,14 +457,86 @@ export default function Students() {
       </div>
 
       {/* Results Info */}
-      {searchTerm || filters.orchestra || filters.instrument || filters.teacher || filters.stageLevel ? (
-        <div className="mb-4 text-sm text-gray-600">
-          מציג {filteredStudents.length} מתוך {totalStudents} תלמידים
+      <div className="mb-4 flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          {searchTerm || filters.orchestra || filters.instrument || filters.teacher || filters.stageLevel ? (
+            <span>מציג {filteredStudents.length} מתוך {totalStudents} תלמידים</span>
+          ) : (
+            <span>סה"כ {totalStudents} תלמידים</span>
+          )}
         </div>
-      ) : null}
+        
+        {/* View Mode Toggle */}
+        <div className="flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200 shadow-sm">
+          <button
+            onClick={() => setViewMode('table')}
+            className={`relative px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out flex items-center gap-2 ${
+              viewMode === 'table'
+                ? 'bg-white text-primary-700 shadow-sm border border-gray-200 ring-1 ring-primary-500/20'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100/50'
+            }`}
+            aria-pressed={viewMode === 'table'}
+            aria-label="תצוגת טבלה"
+          >
+            <List className="w-4 h-4" />
+            <span className="hidden sm:inline">טבלה</span>
+            {viewMode === 'table' && (
+              <div className="absolute inset-0 rounded-md bg-gradient-to-r from-primary-500/5 to-primary-600/5 pointer-events-none" />
+            )}
+          </button>
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`relative px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out flex items-center gap-2 ${
+              viewMode === 'grid'
+                ? 'bg-white text-primary-700 shadow-sm border border-gray-200 ring-1 ring-primary-500/20'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100/50'
+            }`}
+            aria-pressed={viewMode === 'grid'}
+            aria-label="תצוגת רשת"
+          >
+            <Grid className="w-4 h-4" />
+            <span className="hidden sm:inline">רשת</span>
+            {viewMode === 'grid' && (
+              <div className="absolute inset-0 rounded-md bg-gradient-to-r from-primary-500/5 to-primary-600/5 pointer-events-none" />
+            )}
+          </button>
+        </div>
+      </div>
 
-      {/* Students Table */}
-      <Table columns={columns} data={filteredStudents} />
+      {/* Students Display */}
+      {viewMode === 'table' ? (
+        <Table 
+          columns={columns} 
+          data={filteredStudents}
+          onRowClick={(row) => {
+            console.log('=== ROW CLICKED ===')
+            console.log('Row data:', row)
+            console.log('Student ID from row:', row.id)
+            handleViewStudent(row.id)
+          }}
+          rowClassName="hover:bg-gray-50 cursor-pointer transition-colors"
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+          {filteredStudents.map((student) => (
+            <StudentCard
+              key={student.id}
+              student={student.originalStudent}
+              showInstruments={true}
+              showTeacherAssignments={true}
+              showParentContact={false}
+              onClick={() => handleViewStudent(student.id)}
+              className="h-full hover:shadow-lg transition-all duration-200 hover:scale-[1.02] hover:-translate-y-1"
+            />
+          ))}
+        </div>
+      )}
+
+      {filteredStudents.length === 0 && !loading && (
+        <div className="text-center py-12 text-gray-500">
+          לא נמצאו תלמידים התואמים לחיפוש
+        </div>
+      )}
     </div>
   )
 }
