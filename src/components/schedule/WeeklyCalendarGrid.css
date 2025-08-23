@@ -2,6 +2,9 @@
 .weekly-calendar-grid {
   direction: rtl;
   text-align: right;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .calendar-container {
@@ -10,12 +13,18 @@
   border: 1px solid #e5e7eb;
   overflow: hidden;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Override react-big-calendar styles for RTL and Hebrew */
 .rbc-calendar {
   direction: rtl !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: white !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
 }
 
 /* Header styles */
@@ -63,17 +72,24 @@
 .rbc-time-content {
   border-right: none !important;
   border-left: 2px solid #e5e7eb !important;
+  background: white !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
 }
 
 .rbc-time-header {
   border-bottom: 2px solid #e5e7eb !important;
   background-color: #f8fafc !important;
+  width: 100% !important;
+  overflow: hidden !important;
 }
 
 .rbc-time-header-gutter {
   background-color: #f8fafc !important;
   border-left: 2px solid #e5e7eb !important;
   border-right: none !important;
+  overflow: hidden !important;
 }
 
 /* Day columns */
@@ -433,10 +449,29 @@
 /* Ensure 6 equal width columns for Sunday-Friday */
 .rbc-time-view .rbc-time-content .rbc-day-slot {
   width: 16.666%;
+  max-width: 16.666%;
+  overflow: hidden;
 }
 
 .rbc-time-view .rbc-time-header .rbc-header {
   width: 16.666%;
+  max-width: 16.666%;
+  overflow: hidden;
+}
+
+/* Prevent any container overflow */
+.weekly-calendar-grid,
+.weekly-calendar-grid * {
+  box-sizing: border-box;
+}
+
+/* Fix any potential negative margins */
+.rbc-calendar,
+.rbc-time-view,
+.rbc-time-content,
+.rbc-time-header {
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* Fix Hebrew RTL alignment */
@@ -485,6 +520,11 @@
 /* Ensure proper time slot sizing for detailed events */
 .rbc-time-view {
   min-height: 800px !important;
+  background: white !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  border: 1px solid #e5e7eb !important;
 }
 
 /* Increase row height for each half hour */

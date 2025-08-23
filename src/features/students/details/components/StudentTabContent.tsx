@@ -19,6 +19,7 @@ import AcademicInfoTab from './tabs/AcademicInfoTabSimple'
 // Import working components
 import TheoryTab from './tabs/TheoryTab'
 import ScheduleTab from './tabs/ScheduleTab'
+import OrchestraTab from './tabs/OrchestraTab'
 
 // Simple placeholder components for tabs that need more work
 
@@ -26,13 +27,6 @@ const AttendanceTab = ({ student }: { student: any }) => (
   <div className="p-6 text-center text-gray-500">
     <div className="text-4xl mb-4">✅</div>
     <div>נוכחות - בפיתוח</div>
-  </div>
-)
-
-const OrchestraTab = ({ student }: { student: any }) => (
-  <div className="p-6 text-center text-gray-500">
-    <div className="text-4xl mb-4">🎼</div>
-    <div>תזמורות - בפיתוח</div>
   </div>
 )
 
@@ -238,7 +232,11 @@ const StudentTabContent: React.FC<EnhancedStudentTabContentProps> = ({
         return (
           <TabErrorBoundary tabName="תזמורות">
             <Suspense fallback={<TabLoadingFallback />}>
-              <OrchestraTab student={student} />
+              <OrchestraTab 
+                student={student}
+                studentId={studentId}
+                isLoading={isCurrentTabLoading}
+              />
             </Suspense>
           </TabErrorBoundary>
         )

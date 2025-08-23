@@ -64,7 +64,8 @@ const TeacherCard: React.FC<TeacherCardProps> = ({
   // Get primary role for avatar color
   const getPrimaryRole = (): string => {
     const roleOrder = ['מנהל', 'מנצח', 'מדריך הרכב', 'מורה תאוריה', 'מגמה', 'מורה']
-    return teacher.roles.find(role => roleOrder.includes(role)) || teacher.roles[0] || 'מורה'
+    const roles = teacher.roles || []
+    return roles.find(role => roleOrder.includes(role)) || roles[0] || 'מורה'
   }
 
   // Get avatar background color based on primary role
@@ -120,7 +121,7 @@ const TeacherCard: React.FC<TeacherCardProps> = ({
               {/* Active status indicator */}
               <div className={`w-3 h-3 rounded-full ${teacher.isActive ? 'bg-green-400' : 'bg-gray-300'}`} />
               {/* Professional status */}
-              {!teacher.professionalInfo.isActive && (
+              {!teacher.professionalInfo?.isActive && (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                   לא פעיל מקצועית
                 </span>
@@ -131,7 +132,7 @@ const TeacherCard: React.FC<TeacherCardProps> = ({
           {/* Roles */}
           <div className="mb-3">
             <div className="flex flex-wrap gap-1">
-              {teacher.roles.map((role, index) => (
+              {(teacher.roles || []).map((role, index) => (
                 <span 
                   key={index}
                   className={`
@@ -146,7 +147,7 @@ const TeacherCard: React.FC<TeacherCardProps> = ({
           </div>
 
           {/* Instrument specialization */}
-          {teacher.professionalInfo.instrument && (
+          {teacher.professionalInfo?.instrument && (
             <div className="mb-3">
               <div className="flex items-center space-x-2 space-x-reverse text-sm">
                 <span className="text-gray-600">התמחות:</span>
@@ -209,7 +210,7 @@ const TeacherCard: React.FC<TeacherCardProps> = ({
               <span>
                 {teacher.isActive ? 'פעיל במערכת' : 'לא פעיל במערכת'}
               </span>
-              {teacher.professionalInfo.isActive && (
+              {teacher.professionalInfo?.isActive && (
                 <span className="text-green-600">
                   פעיל מקצועית
                 </span>

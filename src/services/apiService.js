@@ -515,7 +515,37 @@ export const teacherService = {
    */
   async getTeacher(teacherId) {
     try {
-      const teacher = await apiClient.get(`/teacher/${teacherId}`);
+      const response = await apiClient.get(`/teacher/${teacherId}`);
+      
+      console.log('🔍 Raw API Response for teacher:', response);
+      console.log('🔍 Response type:', typeof response);
+      console.log('🔍 Response keys:', Object.keys(response || {}));
+      
+      // Handle different response structures
+      let teacher;
+      if (response.data) {
+        // Backend returns { data: teacher, success: true }
+        teacher = response.data;
+        console.log('📦 Extracted teacher from response.data:', teacher);
+      } else if (response.teacher) {
+        // Backend returns { teacher: teacher, success: true }
+        teacher = response.teacher;
+        console.log('📦 Extracted teacher from response.teacher:', teacher);
+      } else {
+        // Direct teacher object
+        teacher = response;
+        console.log('📦 Using direct response as teacher:', teacher);
+      }
+      
+      console.log('📋 Teacher structure check:', {
+        hasPersonalInfo: !!teacher.personalInfo,
+        fullName: teacher.personalInfo?.fullName,
+        hasRoles: !!teacher.roles,
+        roles: teacher.roles,
+        hasProfessionalInfo: !!teacher.professionalInfo,
+        instrument: teacher.professionalInfo?.instrument,
+        isActive: teacher.isActive
+      });
       
       console.log(`👤 Retrieved teacher: ${teacher.personalInfo?.fullName}`);
       
@@ -734,6 +764,49 @@ export const teacherService = {
       return Array.isArray(students) ? students : [];
     } catch (error) {
       console.error('Error fetching teacher students:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Alias for getTeacher - for component compatibility
+   * @param {string} teacherId - Teacher ID
+   * @returns {Promise<Object>} Teacher object with exact backend schema
+   */
+  async getTeacherById(teacherId) {
+    return this.getTeacher(teacherId);
+  },
+
+  /**
+   * Add student to teacher
+   * @param {string} teacherId - Teacher ID
+   * @param {string} studentId - Student ID
+   * @returns {Promise<Object>} Updated teacher
+   */
+  async addStudentToTeacher(teacherId, studentId) {
+    try {
+      const result = await apiClient.post(`/teacher/${teacherId}/student/${studentId}`);
+      console.log(`➕ Added student ${studentId} to teacher ${teacherId}`);
+      return result;
+    } catch (error) {
+      console.error('Error adding student to teacher:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove student from teacher
+   * @param {string} teacherId - Teacher ID
+   * @param {string} studentId - Student ID
+   * @returns {Promise<Object>} Updated teacher
+   */
+  async removeStudentFromTeacher(teacherId, studentId) {
+    try {
+      const result = await apiClient.delete(`/teacher/${teacherId}/student/${studentId}`);
+      console.log(`➖ Removed student ${studentId} from teacher ${teacherId}`);
+      return result;
+    } catch (error) {
+      console.error('Error removing student from teacher:', error);
       throw error;
     }
   }
