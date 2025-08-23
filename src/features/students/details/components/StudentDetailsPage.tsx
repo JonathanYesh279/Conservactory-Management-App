@@ -194,7 +194,7 @@ const StudentDetailsPage: React.FC = () => {
 
   return (
     <StudentDetailsErrorBoundary>
-      <div className="space-y-6">
+      <div className="space-y-6 bg-white min-h-screen student-details-container student-content-area">
         {/* Connection Status Indicator - only show if WebSocket is available and relevant */}
         {wsStatus && !wsError && wsStatus.isConnected && (
           <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm">
@@ -250,7 +250,7 @@ const StudentDetailsPage: React.FC = () => {
         </div>
 
         {/* Tab Navigation and Content */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 w-full overflow-hidden">
           <StudentTabNavigation
             activeTab={activeTab}
             onTabChange={(tab) => {

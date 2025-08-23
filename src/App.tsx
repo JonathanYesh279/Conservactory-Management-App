@@ -16,6 +16,9 @@ import { lazy } from 'react'
 // Lazy load StudentDetailsPage for code splitting
 const StudentDetailsPage = lazy(() => import('./features/students/details/components/StudentDetailsPageSimple'))
 
+// Lazy load TeacherDetailsPage for code splitting
+const TeacherDetailsPage = lazy(() => import('./features/teachers/details/components/TeacherDetailsPage'))
+
 // Protected Route Component
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -93,6 +96,25 @@ function AppRoutes() {
             <ProtectedRoute>
               <Layout>
                 <Teachers />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teachers/:teacherId"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Suspense fallback={
+                  <div className="flex items-center justify-center min-h-96">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                      <div className="text-gray-600">טוען פרטי מורה...</div>
+                    </div>
+                  </div>
+                }>
+                  <TeacherDetailsPage />
+                </Suspense>
               </Layout>
             </ProtectedRoute>
           }

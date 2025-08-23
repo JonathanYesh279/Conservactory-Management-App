@@ -2,6 +2,15 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
+/* Import tab navigation fix styles */
+@import './styles/tab-navigation-fix.css';
+
+/* Import teacher modal fix styles */
+@import './styles/teacher-modal-fixes.css';
+
+/* Import simple weekly grid styles */
+@import './styles/simple-weekly-grid.css';
+
 /* Import Inter font from Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 

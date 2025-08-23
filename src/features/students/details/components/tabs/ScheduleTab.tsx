@@ -8,6 +8,7 @@
 import { useMemo } from 'react'
 import { Calendar, Clock, MapPin, Music, Users } from 'lucide-react'
 import WeeklyCalendarGrid from '../../../../../components/schedule/WeeklyCalendarGrid'
+import SimpleWeeklyGrid from '../../../../../components/schedule/SimpleWeeklyGrid'
 
 interface ScheduleTabProps {
   student: any
@@ -20,30 +21,57 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
   const lessons = useMemo(() => {
     const calendarLessons: any[] = []
     
+    console.log('Processing student data:', student) // Debug log
+    
     // Process teacher assignments into lesson data
-    if (student?.teacherAssignments) {
-      student.teacherAssignments.forEach((assignment: any) => {
-        // Use the actual lesson data: Tuesday 14:30-15:15 for trumpet
-        const dayOfWeek = 2 // Tuesday (0=Sunday, 1=Monday, 2=Tuesday...)
-        const startTime = '14:30'
-        const endTime = '15:15'
+    if (student?.teacherAssignments && student.teacherAssignments.length > 0) {
+      student.teacherAssignments.forEach((assignment: any, index: number) => {
+        console.log(`Processing assignment ${index}:`, assignment) // Debug log
+        
+        // Try to get real schedule data or use defaults
+        const dayOfWeek = assignment.dayOfWeek ?? 2 // Default to Tuesday if not specified
+        const startTime = assignment.startTime || assignment.timeSlot?.startTime || '14:30'
+        const endTime = assignment.endTime || assignment.timeSlot?.endTime || '15:15'
+        const instrument = assignment.instrument || assignment.instrumentName || 'חצוצרה'
+        const teacher = assignment.teacherName || assignment.teacher?.personalInfo?.fullName || 'יונתן ישעיהו'
         
         calendarLessons.push({
-          id: assignment._id || assignment.teacherId || 'lesson-1',
-          instrumentName: assignment.instrument || 'חצוצרה',
-          teacherName: assignment.teacherName || 'יונתן ישעיהו',
+          id: assignment._id || assignment.teacherId || `lesson-${index}`,
+          instrumentName: instrument,
+          teacherName: teacher,
           startTime,
           endTime,
           dayOfWeek,
-          location: assignment.location,
-          roomNumber: assignment.roomNumber || 'מחשבים',
-          lessonType: 'individual'
+          location: assignment.location || assignment.classroom,
+          roomNumber: assignment.roomNumber || assignment.room || 'מחשבים',
+          lessonType: assignment.lessonType || 'individual'
         })
       })
     }
     
-    // If no teacher assignments, show the default lesson from requirements
+    // Process any additional lessons from other sources
+    if (student?.lessons && student.lessons.length > 0) {
+      student.lessons.forEach((lesson: any, index: number) => {
+        console.log(`Processing lesson ${index}:`, lesson) // Debug log
+        
+        calendarLessons.push({
+          id: lesson._id || `lesson-direct-${index}`,
+          instrumentName: lesson.instrument || lesson.instrumentName || 'כלי נגינה',
+          teacherName: lesson.teacherName || lesson.teacher?.personalInfo?.fullName || 'מורה',
+          startTime: lesson.startTime || '14:30',
+          endTime: lesson.endTime || '15:15',
+          dayOfWeek: lesson.dayOfWeek ?? 2,
+          location: lesson.location,
+          roomNumber: lesson.roomNumber || lesson.room,
+          lessonType: lesson.lessonType || 'individual'
+        })
+      })
+    }
+    
+    // If no lessons found, show the default trumpet lesson
     if (calendarLessons.length === 0) {
+      console.log('No lessons found, using default trumpet lesson') // Debug log
+      
       calendarLessons.push({
         id: 'default-lesson',
         instrumentName: 'חצוצרה',
@@ -57,8 +85,9 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
       })
     }
     
+    console.log('Final lessons array:', calendarLessons) // Debug log
     return calendarLessons
-  }, [student?.teacherAssignments])
+  }, [student?.teacherAssignments, student?.lessons])
 
   // Process orchestra enrollments for display (not as calendar events yet since no schedule)
   const orchestraActivities = useMemo(() => {
@@ -83,7 +112,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-white min-h-screen w-full max-w-full overflow-hidden student-content-area">
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">לוח זמנים שבועי</h2>
@@ -92,9 +121,9 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
         </p>
       </div>
 
-      {/* Weekly Calendar Grid */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <WeeklyCalendarGrid lessons={lessons} />
+      {/* Weekly Schedule Grid */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 w-full max-w-full overflow-hidden">
+        <SimpleWeeklyGrid lessons={lessons} />
       </div>
 
       {/* Summary Info */}

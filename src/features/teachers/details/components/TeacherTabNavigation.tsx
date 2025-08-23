@@ -1,25 +1,22 @@
 /**
- * Student Tab Navigation Component
+ * Teacher Tab Navigation Component
  * 
- * Provides horizontal tab navigation for different sections of student details.
+ * Provides horizontal tab navigation for different sections of teacher details.
  * Responsive design with mobile-friendly scrolling.
  */
 
-import { User, GraduationCap, Calendar, CheckCircle, Music, BookOpen, FileText } from 'lucide-react'
-import { StudentTabNavigationProps, TabType } from '../types'
+import { User, Users, Calendar, Music } from 'lucide-react'
+import { TeacherTabNavigationProps, TeacherTabType } from '../types'
 
 // Tab configuration with icons
 const tabConfig = {
-  personal: { label: 'פרטים אישיים', icon: User },
-  academic: { label: 'מידע אקדמי', icon: GraduationCap },
+  personal: { label: 'מידע אישי', icon: User },
+  students: { label: 'ניהול תלמידים', icon: Users },
   schedule: { label: 'לוח זמנים', icon: Calendar },
-  attendance: { label: 'נוכחות', icon: CheckCircle },
-  orchestra: { label: 'תזמורות', icon: Music },
-  theory: { label: 'תאוריה', icon: BookOpen },
-  documents: { label: 'מסמכים', icon: FileText },
+  conducting: { label: 'ניצוח', icon: Music },
 }
 
-const StudentTabNavigation: React.FC<StudentTabNavigationProps> = ({
+const TeacherTabNavigation: React.FC<TeacherTabNavigationProps> = ({
   activeTab,
   onTabChange,
   tabs = []
@@ -30,7 +27,7 @@ const StudentTabNavigation: React.FC<StudentTabNavigationProps> = ({
   }
 
   return (
-    <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm w-full overflow-hidden student-tab-navigation">
+    <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm w-full overflow-hidden teacher-tab-navigation">
       {/* Desktop Tab Navigation */}
       <div className="hidden md:flex w-full overflow-x-auto desktop-tab-nav">
         <nav className="flex gap-8 px-6 relative min-w-full" aria-label="Tabs">
@@ -128,4 +125,4 @@ const StudentTabNavigation: React.FC<StudentTabNavigationProps> = ({
   )
 }
 
-export default StudentTabNavigation
+export default TeacherTabNavigation

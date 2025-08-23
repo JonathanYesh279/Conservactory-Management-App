@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Filter, Loader, Calendar, Users, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, Plus, Filter, Loader, Calendar, Users, X, Grid, List, Eye, Edit } from 'lucide-react'
 import Card from '../components/ui/Card'
+import Table, { StatusBadge } from '../components/ui/Table'
+import TeacherCard from '../components/TeacherCard'
 import apiService from '../services/apiService'
 import { useSchoolYear } from '../services/schoolYearContext'
 
@@ -24,6 +27,7 @@ interface Teacher {
 }
 
 export default function Teachers() {
+  const navigate = useNavigate()
   const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,6 +42,7 @@ export default function Teachers() {
   const [scheduleLoading, setScheduleLoading] = useState(false)
   const [instrumentSearchTerm, setInstrumentSearchTerm] = useState('')
   const [showInstrumentDropdown, setShowInstrumentDropdown] = useState(false)
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid')
 
   // Fetch teachers from real API when school year changes
   useEffect(() => {
@@ -78,7 +83,36 @@ export default function Teachers() {
         ensembleCount: teacher.ensembleCount || 0,
         availabilityDays: teacher.availabilityDays || [],
         totalTeachingHours: Math.round((teacher.totalTeachingHours / 60) * 10) / 10 || 0, // Convert to hours
-        rawData: teacher // Keep original data
+        rawData: teacher, // Keep original data
+        // Table display fields
+        rolesDisplay: teacher.allRoles?.length > 0 ? teacher.allRoles.join(', ') : 'לא מוגדר',
+        status: <StatusBadge status={teacher.isTeacherActive ? "active" : "inactive"}>
+          {teacher.isTeacherActive ? 'פעיל' : 'לא פעיל'}
+        </StatusBadge>,
+        actions: (
+          <div className="flex space-x-2 space-x-reverse">
+            <button 
+              className="p-1.5 text-primary-600 hover:text-primary-900 hover:bg-primary-100 rounded transition-colors"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleViewTeacher(teacher._id)
+              }}
+              title="צפה בפרטי המורה"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+            <button 
+              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleEditTeacher(teacher._id)
+              }}
+              title="ערוך פרטי המורה"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+          </div>
+        )
       }))
       
       setTeachers(transformedTeachers)
@@ -131,6 +165,25 @@ export default function Teachers() {
   const handleCloseSchedule = () => {
     setSelectedTeacher(null)
     setScheduleData(null)
+  }
+
+  const handleViewTeacher = (teacherId: string) => {
+    console.log('=== NAVIGATION DEBUG ===')
+    console.log('Teacher ID:', teacherId)
+    console.log('Target path:', `/teachers/${teacherId}`)
+    console.log('Current location:', window.location.pathname)
+    
+    // Direct navigation without async
+    const targetPath = `/teachers/${teacherId}`
+    
+    // Force navigation with window.location as fallback
+    try {
+      navigate(targetPath)
+      console.log('Navigate function called successfully')
+    } catch (error) {
+      console.error('Navigate failed, using window.location:', error)
+      window.location.href = targetPath
+    }
   }
 
   const handleEditTeacher = (teacherId: string) => {
@@ -197,6 +250,16 @@ export default function Teachers() {
   const teachersWithAvailability = teachers.filter(t => t.hasTimeBlocks).length
   const totalTeachingHours = teachers.reduce((sum, t) => sum + t.totalTeachingHours, 0)
   const teachersWithOrchestras = teachers.filter(t => t.orchestraCount > 0).length
+
+  // Table columns definition
+  const columns = [
+    { key: 'name', header: 'שם המורה' },
+    { key: 'specialization', header: 'התמחות' },
+    { key: 'rolesDisplay', header: 'תפקידים' },
+    { key: 'studentCount', header: 'מס\' תלמידים', align: 'center' as const },
+    { key: 'status', header: 'סטטוס', align: 'center' as const },
+    { key: 'actions', header: 'פעולות', align: 'center' as const, width: '100px' },
+  ]
 
   // Schedule display component
   const renderSchedule = () => {
@@ -437,117 +500,103 @@ export default function Teachers() {
         </Card>
       </div>
 
-      {/* Results Info */}
-      {searchTerm || filters.instrument || filters.role ? (
-        <div className="mb-4 text-sm text-gray-600">
-          מציג {filteredTeachers.length} מתוך {totalTeachers} מורים
+      {/* Results Info and View Toggle */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          {searchTerm || filters.instrument || filters.role ? (
+            <span>מציג {filteredTeachers.length} מתוך {totalTeachers} מורים</span>
+          ) : (
+            <span>סה"כ {totalTeachers} מורים</span>
+          )}
         </div>
-      ) : null}
-
-      {/* Teachers Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTeachers.map((teacher) => (
-          <div key={teacher.id} className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center mb-4">
-              <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
-                <span className="text-primary-600 font-semibold text-lg">
-                  {teacher.name.split(' ').map(n => n[0]).join('')}
-                </span>
-              </div>
-              <div className="mr-4 flex-1">
-                <h3 className="text-lg font-semibold text-gray-900">{teacher.name}</h3>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Users className="w-4 h-4 ml-1" />
-                  {teacher.studentCount} תלמידים
-                </div>
-              </div>
-              <div className={`w-3 h-3 rounded-full ${teacher.isActive ? 'bg-green-400' : 'bg-gray-300'}`} />
-            </div>
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">{teacher.specialization}</p>
-              
-              {/* Primary Role with Badge */}
-              <div className="flex items-center justify-between mb-2">
-                <span className="inline-block bg-primary-100 text-primary-700 text-xs px-2 py-1 rounded font-medium">
-                  {teacher.primaryRole}
-                </span>
-                {teacher.roles.length > 1 && (
-                  <span className="text-xs text-gray-500">
-                    +{teacher.roles.length - 1} תפקידים
-                  </span>
-                )}
-              </div>
-              
-              {/* Additional Teacher Info */}
-              <div className="space-y-1 text-xs text-gray-500">
-                {/* Availability Info */}
-                {teacher.hasTimeBlocks && (
-                  <div className="flex items-center">
-                    <Calendar className="w-3 h-3 ml-1" />
-                    {teacher.availabilityDays.length > 0 ? (
-                      <span>{teacher.availabilityDays.slice(0, 2).join(', ')} {teacher.availabilityDays.length > 2 && `+${teacher.availabilityDays.length - 2}`}</span>
-                    ) : (
-                      <span>זמינות לא מוגדרת</span>
-                    )}
-                  </div>
-                )}
-                
-                {/* Teaching Hours */}
-                {teacher.totalTeachingHours > 0 && (
-                  <div>
-                    {teacher.totalTeachingHours} שעות זמינות בשבוע
-                  </div>
-                )}
-                
-                {/* Orchestra/Ensemble Count */}
-                {(teacher.orchestraCount > 0 || teacher.ensembleCount > 0) && (
-                  <div>
-                    {teacher.orchestraCount > 0 && `${teacher.orchestraCount} תזמורות`}
-                    {teacher.orchestraCount > 0 && teacher.ensembleCount > 0 && ' • '}
-                    {teacher.ensembleCount > 0 && `${teacher.ensembleCount} הרכבים`}
-                  </div>
-                )}
-              </div>
-              
-              {/* All Roles (collapsed) */}
-              {teacher.roles.length > 1 && (
-                <div className="mt-2">
-                  <details className="text-xs">
-                    <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
-                      כל התפקידים
-                    </summary>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {teacher.roles.slice(1).map((role, index) => (
-                        <span 
-                          key={index}
-                          className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded"
-                        >
-                          {role}
-                        </span>
-                      ))}
-                    </div>
-                  </details>
-                </div>
-              )}
-            </div>
-            <div className="flex space-x-2">
-              <button 
-                onClick={() => handleViewSchedule(teacher.id)}
-                className="flex-1 bg-primary-50 text-primary-600 px-2 py-2 rounded text-sm hover:bg-primary-100 flex items-center justify-center"
-              >
-                <Calendar className="w-4 h-4 ml-1" />
-                לו״ז
-              </button>
-              <button 
-                onClick={() => handleEditTeacher(teacher.id)}
-                className="flex-1 bg-blue-50 text-blue-600 px-2 py-2 rounded text-sm hover:bg-blue-100 flex items-center justify-center"
-              >
-                ⚙️ ניהול
-              </button>
-            </div>
-          </div>
-        ))}
+        
+        {/* View Mode Toggle */}
+        <div className="flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200 shadow-sm">
+          <button
+            onClick={() => setViewMode('table')}
+            className={`relative px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out flex items-center gap-2 ${
+              viewMode === 'table'
+                ? 'bg-white text-primary-700 shadow-sm border border-gray-200 ring-1 ring-primary-500/20'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100/50'
+            }`}
+            aria-pressed={viewMode === 'table'}
+            aria-label="תצוגת טבלה"
+          >
+            <List className="w-4 h-4" />
+            <span className="hidden sm:inline">טבלה</span>
+            {viewMode === 'table' && (
+              <div className="absolute inset-0 rounded-md bg-gradient-to-r from-primary-500/5 to-primary-600/5 pointer-events-none" />
+            )}
+          </button>
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`relative px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out flex items-center gap-2 ${
+              viewMode === 'grid'
+                ? 'bg-white text-primary-700 shadow-sm border border-gray-200 ring-1 ring-primary-500/20'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100/50'
+            }`}
+            aria-pressed={viewMode === 'grid'}
+            aria-label="תצוגת רשת"
+          >
+            <Grid className="w-4 h-4" />
+            <span className="hidden sm:inline">רשת</span>
+            {viewMode === 'grid' && (
+              <div className="absolute inset-0 rounded-md bg-gradient-to-r from-primary-500/5 to-primary-600/5 pointer-events-none" />
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Teachers Display */}
+      {viewMode === 'table' ? (
+        <Table 
+          columns={columns} 
+          data={filteredTeachers}
+          onRowClick={(row) => {
+            console.log('=== ROW CLICKED ===')
+            console.log('Row data:', row)
+            console.log('Teacher ID from row:', row.id)
+            handleViewTeacher(row.id)
+          }}
+          rowClassName="hover:bg-gray-50 cursor-pointer transition-colors"
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+          {filteredTeachers.map((teacher) => {
+            // Transform teacher data to match TeacherCard interface
+            const teacherForCard = {
+              _id: teacher.id,
+              personalInfo: {
+                fullName: teacher.name,
+                phone: teacher.phone,
+                email: teacher.email
+              },
+              roles: teacher.roles || [],
+              professionalInfo: {
+                instrument: teacher.specialization,
+                isActive: teacher.isActive // Use the computed isActive from API
+              },
+              teaching: {
+                studentIds: Array(teacher.studentCount).fill(''), // Mock array for student count
+                schedule: [] // Will be populated if needed
+              },
+              isActive: teacher.isActive
+            }
+            
+            return (
+              <TeacherCard
+                key={teacher.id}
+                teacher={teacherForCard}
+                showStudentCount={true}
+                showSchedule={false}
+                showContact={false}
+                onClick={() => handleViewTeacher(teacher.id)}
+                className="h-full hover:shadow-lg transition-all duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              />
+            )
+          })}
+        </div>
+      )}
 
       {filteredTeachers.length === 0 && !loading && (
         <div className="text-center py-12 text-gray-500">

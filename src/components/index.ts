@@ -26,6 +26,9 @@ export { default as WeeklyStudentCalendar } from './schedule/WeeklyStudentCalend
 export { default as StudentCalendarDemo } from './schedule/StudentCalendarDemo'
 export { default as WeeklyCalendarGrid } from './schedule/WeeklyCalendarGrid'
 
+// Orchestra Management Components
+export { default as OrchestraEnrollmentManager } from './OrchestraEnrollmentManager'
+
 // Layout Components
 export { default as Layout } from './Layout'
 export { default as Header } from './Header'
