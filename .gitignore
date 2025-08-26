@@ -10,11 +10,16 @@ coverage
 dist
 build
 
-# Environment variables
+# Environment variables and secrets
+.env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+*.env
+!.env.example
+!.env.template
 
 # IDE
 .vscode
@@ -97,3 +102,139 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
+
+# Claude AI
+.claude/
+claude.md
+CLAUDE.md
+
+# Private keys, certificates, and credentials
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+private/
+secrets/
+credentials/
+*.jks
+*.keystore
+*.truststore
+
+# Authentication and tokens
+auth.json
+tokens.json
+serviceAccountKey.json
+firebase-adminsdk*.json
+google-credentials.json
+aws-credentials.json
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+*.dump
+*.bak
+*.backup
+database/
+backups/
+
+# Configuration files with sensitive data
+config.local.js
+config.local.json
+settings.local.json
+*.local.json
+*.local.js
+!example.local.*
+
+# API keys and service configs
+apikeys.js
+apikeys.json
+api_keys/
+service-account*.json
+
+# User uploaded files (if stored locally)
+uploads/
+public/uploads/
+media/
+files/
+documents/
+
+# Session data
+sessions/
+*.session
+
+# Log files that may contain sensitive info
+*.log
+logs/
+!**/logs/.gitkeep
+
+# Local development files
+*.local
+local-data/
+.localstack/
+
+# Test data that might contain real data
+test-data/
+fixtures/*.json
+!fixtures/example.json
+
+# Build artifacts that might expose source
+*.map
+*.js.map
+*.css.map
+
+# Package manager local files
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnpm-store/
+
+# Personal notes and todos
+TODO.md
+NOTES.md
+notes.txt
+*.notes
+
+# Archive files that might contain sensitive data
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+!public/*.zip
+
+# Backup files
+*.backup
+*.bak
+*.old
+*.orig
+*~
+
+# OS generated sensitive files
+Desktop.ini
+$RECYCLE.BIN/
+
+# Docker files that might contain secrets
+docker-compose.override.yml
+.dockerignore.local
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Monitoring and profiling
+*.heap
+*.heapsnapshot
+.clinic/
+.profile/
+
+# Generated documentation that might expose internals
+docs/api/
+api-docs/
+!docs/api/public/

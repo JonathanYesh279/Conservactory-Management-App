@@ -41,14 +41,23 @@
       "Read(//mnt/c/Projects/conservatory-app/**)",
       "Read(//mnt/c/Users/yona2/Pictures/Screenshots/**)",
       "Bash(NODE_ENV=development node server.js)",
-      "Read(//mnt/c/Projects/conservatory-app/**)"
+      "Read(//mnt/c/Projects/conservatory-app/**)",
+      "Bash(git rm:*)",
+      "Bash(echo \"Backup directory: $BACKUP_DIR\")",
+      "Read(//mnt/c/Projects/conservatory-app-BACKUP-20250826-221327/**)",
+      "Bash(echo \"Created backup directory: $BACKUP_DIR\")",
+      "Bash(git bundle create:*)",
+      "Bash(git filter-branch:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": [],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
       "/mnt/c/Projects/conservatory-app/Frontend",
-      "/mnt/c/Projects/conservatory-app/Backend"
+      "/mnt/c/Projects/conservatory-app/Backend",
+      "/mnt/c/Projects/conservatory-app-BACKUP-20250826-221327",
+      "/mnt/c/Projects/BACKUP-20250826-221714"
     ]
   }
 }
