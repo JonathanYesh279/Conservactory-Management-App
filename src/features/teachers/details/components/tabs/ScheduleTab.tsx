@@ -224,6 +224,96 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
     return studentIds.size
   }
 
+  // Handle lesson updates
+  const handleLessonUpdate = async (updatedLesson: any) => {
+    try {
+      console.log('🔄 Updating lesson via student record:', updatedLesson)
+      console.log('🆔 Student ID:', updatedLesson.studentId)
+      console.log('👨‍🏫 Teacher ID:', updatedLesson.teacherId || teacherId)
+      console.log('📝 Update data:', {
+        day: updatedLesson.day,
+        startTime: updatedLesson.startTime,
+        endTime: updatedLesson.endTime,
+        duration: updatedLesson.duration
+      })
+      
+      // Validate required fields
+      if (!updatedLesson.studentId) {
+        throw new Error('Student ID is missing')
+      }
+      
+      // First, get the current student data to find the teacher assignment
+      const currentStudent = await apiService.students.getStudentById(updatedLesson.studentId)
+      console.log('📋 Current student data loaded:', currentStudent.personalInfo?.fullName)
+      
+      if (!currentStudent.teacherAssignments || currentStudent.teacherAssignments.length === 0) {
+        throw new Error('No teacher assignments found for this student')
+      }
+      
+      // Find the specific teacher assignment to update
+      const currentTeacherId = updatedLesson.teacherId || teacherId
+      const assignmentIndex = currentStudent.teacherAssignments.findIndex(
+        assignment => assignment.teacherId === currentTeacherId && assignment.isActive
+      )
+      
+      if (assignmentIndex === -1) {
+        throw new Error(`No active assignment found for teacher ${currentTeacherId}`)
+      }
+      
+      console.log(`🎯 Found teacher assignment at index ${assignmentIndex}`)
+      
+      // Create updated teacher assignments array
+      const updatedAssignments = [...currentStudent.teacherAssignments]
+      const currentAssignment = updatedAssignments[assignmentIndex]
+      
+      // Calculate end time
+      const calculateEndTime = (startTime: string, duration: number): string => {
+        const [hours, minutes] = startTime.split(':').map(Number)
+        const totalMinutes = hours * 60 + minutes + duration
+        const endHours = Math.floor(totalMinutes / 60)
+        const endMins = totalMinutes % 60
+        return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`
+      }
+      
+      // Update the assignment with new schedule
+      updatedAssignments[assignmentIndex] = {
+        ...currentAssignment,
+        day: updatedLesson.day,
+        time: updatedLesson.startTime,
+        duration: updatedLesson.duration,
+        scheduleInfo: {
+          ...currentAssignment.scheduleInfo,
+          day: updatedLesson.day,
+          startTime: updatedLesson.startTime,
+          endTime: calculateEndTime(updatedLesson.startTime, updatedLesson.duration),
+          duration: updatedLesson.duration,
+          updatedAt: new Date().toISOString()
+        },
+        updatedAt: new Date().toISOString()
+      }
+      
+      console.log('📤 Updating student record with new assignment:', updatedAssignments[assignmentIndex])
+      
+      // Update the student record with the modified teacher assignments
+      const result = await apiService.students.updateStudent(updatedLesson.studentId, {
+        teacherAssignments: updatedAssignments
+      })
+      
+      console.log('✅ Student updated successfully:', result.personalInfo?.fullName)
+      
+      // Refresh teacher lessons to reflect the changes
+      const lessonsData = await apiService.teachers.getTeacherLessons(teacherId)
+      const lessons = lessonsData?.lessons || lessonsData?.data?.lessons || []
+      setTeacherLessons(lessons)
+      
+      console.log('✅ Teacher lessons refreshed - new count:', lessons.length)
+    } catch (error) {
+      console.error('❌ Failed to update lesson:', error)
+      console.error('❌ Error details:', error.message)
+      throw error // Re-throw so the modal can show the error
+    }
+  }
+
   const totalActivities = orchestraActivities.length + ensembleActivities.length
   const totalWeeklyHours = getTotalWeeklyHours()
   const totalTimeBlocks = allTeachingDays.length || 0
@@ -309,6 +399,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
           orchestraActivities={orchestraActivities}
           className=""
           showNavigation={true}
+          onLessonUpdate={handleLessonUpdate}
         />
       ) : (
         /* Teaching Days Management View */

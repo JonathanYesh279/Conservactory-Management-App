@@ -119,6 +119,7 @@ interface EnhancedStudentTabContentProps extends StudentTabContentProps {
     upload?: any
     download?: any
   }
+  onStudentUpdate?: (updatedStudent: any) => void
 }
 
 const StudentTabContent: React.FC<EnhancedStudentTabContentProps> = ({
@@ -128,7 +129,8 @@ const StudentTabContent: React.FC<EnhancedStudentTabContentProps> = ({
   isLoading,
   errors = {},
   actions = {},
-  fileHandling = {}
+  fileHandling = {},
+  onStudentUpdate
 }) => {
   // Enhanced loading state with smart loading and appropriate skeletons
   const getSkeletonForTab = () => {
@@ -189,6 +191,7 @@ const StudentTabContent: React.FC<EnhancedStudentTabContentProps> = ({
               <PersonalInfoTab 
                 student={student}
                 studentId={studentId}
+                onStudentUpdate={onStudentUpdate}
               />
             </Suspense>
           </TabErrorBoundary>
@@ -201,6 +204,7 @@ const StudentTabContent: React.FC<EnhancedStudentTabContentProps> = ({
               <AcademicInfoTab 
                 student={student}
                 studentId={studentId}
+                onStudentUpdate={onStudentUpdate}
               />
             </Suspense>
           </TabErrorBoundary>

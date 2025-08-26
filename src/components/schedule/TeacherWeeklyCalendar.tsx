@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Clock, MapPin, Users, Music, User, Calendar, BookOpen } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, MapPin, Users, Music, User, Calendar, BookOpen, Edit, X } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, subDays, isToday, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
 
@@ -57,6 +57,7 @@ interface TeacherWeeklyCalendarProps {
   orchestraActivities?: OrchestraActivity[]
   className?: string
   showNavigation?: boolean
+  onLessonUpdate?: (lesson: TeacherLesson) => void
 }
 
 // Hebrew day names mapping
@@ -80,9 +81,12 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
   lessons = [],
   orchestraActivities = [],
   className = '',
-  showNavigation = true
+  showNavigation = true,
+  onLessonUpdate
 }) => {
   const [currentWeek, setCurrentWeek] = useState(new Date())
+  const [editingLesson, setEditingLesson] = useState<any>(null)
+  const [isUpdating, setIsUpdating] = useState(false)
 
   // Calculate week boundaries
   const weekStart = useMemo(() => startOfWeek(currentWeek, { weekStartsOn: 0 }), [currentWeek])
@@ -152,17 +156,6 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
       })
     })
     
-    // Helper function to calculate end time
-    function calculateEndTime(startTime: string, duration: number): string {
-      if (!startTime || !duration) return startTime || '00:00'
-      
-      const [hours, minutes] = startTime.split(':').map(Number)
-      const totalMinutes = hours * 60 + minutes + duration
-      const endHours = Math.floor(totalMinutes / 60)
-      const endMins = totalMinutes % 60
-      
-      return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`
-    }
 
     // Note: Legacy schedule slots (יום לימוד from teacher.teaching.schedule) 
     // are also treated as availability blocks, not actual activities
@@ -236,6 +229,56 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
       default:
         return <BookOpen className="w-4 h-4" />
     }
+  }
+
+  // Handle lesson click for editing
+  const handleLessonClick = (activity: any) => {
+    if (activity.type === 'lesson' && activity.details) {
+      console.log('🎯 Opening lesson for editing:', activity.details)
+      console.log('🆔 Activity ID:', activity.id)
+      console.log('📋 Full activity object:', activity)
+      setEditingLesson(activity.details)
+    }
+  }
+
+  // Update lesson data
+  const handleLessonUpdate = async (updatedLessonData: any) => {
+    if (!editingLesson) return
+
+    setIsUpdating(true)
+    try {
+      // Call the parent component's update handler if provided
+      if (onLessonUpdate) {
+        await onLessonUpdate({ ...editingLesson, ...updatedLessonData })
+      }
+      setEditingLesson(null)
+    } catch (error) {
+      console.error('Error updating lesson:', error)
+      alert('שגיאה בעדכון השיעור. אנא נסה שוב.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  // Calculate duration from start and end time
+  const calculateDuration = (startTime: string, endTime: string): number => {
+    const [startHour, startMin] = startTime.split(':').map(Number)
+    const [endHour, endMin] = endTime.split(':').map(Number)
+    const startMinutes = startHour * 60 + startMin
+    const endMinutes = endHour * 60 + endMin
+    return endMinutes - startMinutes
+  }
+
+  // Calculate end time from start time and duration
+  const calculateEndTime = (startTime: string, duration: number): string => {
+    if (!startTime || !duration) return startTime || '00:00'
+    
+    const [hours, minutes] = startTime.split(':').map(Number)
+    const totalMinutes = hours * 60 + minutes + duration
+    const endHours = Math.floor(totalMinutes / 60)
+    const endMins = totalMinutes % 60
+    
+    return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`
   }
 
   return (
@@ -328,7 +371,10 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
                       dayActivities.map(activity => (
                         <div 
                           key={activity.id}
-                          className={`p-3 rounded-lg border-l-4 ${activity.color} shadow-sm hover:shadow-md transition-shadow cursor-pointer`}
+                          className={`p-3 rounded-lg border-l-4 ${activity.color} shadow-sm hover:shadow-md transition-shadow ${
+                            activity.type === 'lesson' ? 'cursor-pointer' : 'cursor-default'
+                          }`}
+                          onClick={() => activity.type === 'lesson' && handleLessonClick(activity)}
                         >
                           {/* Activity Header */}
                           <div className="flex items-start justify-between mb-2">
@@ -338,6 +384,9 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
                                 {activity.title}
                               </span>
                             </div>
+                            {activity.type === 'lesson' && (
+                              <Edit className="w-4 h-4 text-gray-400 hover:text-blue-600 transition-colors" />
+                            )}
                           </div>
 
                           {/* Time */}
@@ -392,9 +441,9 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
           </div>
         </div>
 
-        {/* Mobile/Tablet View */}
+        {/* Mobile/Tablet View with enhanced touch interactions */}
         <div className="lg:hidden">
-          <div className="space-y-4">
+          <div className="space-y-4 pb-safe">
             {weekDays.map((day, dayIndex) => {
               const dayKey = format(day, 'yyyy-MM-dd')
               const dayActivities = activitiesByDay[dayKey] || []
@@ -427,12 +476,33 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
                     ) : (
                       <div className="space-y-2">
                         {dayActivities.map(activity => (
-                          <div key={activity.id} className={`p-3 rounded-lg border-l-4 ${activity.color}`}>
+                          <div 
+                            key={activity.id} 
+                            className={`p-3 rounded-lg border-l-4 ${activity.color} ${
+                              activity.type === 'lesson' 
+                                ? 'cursor-pointer active:bg-opacity-80 touch-manipulation select-none' 
+                                : 'cursor-default'
+                            } transition-all duration-200`}
+                            onClick={() => activity.type === 'lesson' && handleLessonClick(activity)}
+                            onTouchStart={(e) => {
+                              if (activity.type === 'lesson') {
+                                e.currentTarget.style.transform = 'scale(0.98)'
+                              }
+                            }}
+                            onTouchEnd={(e) => {
+                              if (activity.type === 'lesson') {
+                                e.currentTarget.style.transform = 'scale(1)'
+                              }
+                            }}
+                          >
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 {getActivityIcon(activity.type)}
                                 <h4 className="font-semibold text-sm">{activity.title}</h4>
                               </div>
+                              {activity.type === 'lesson' && (
+                                <Edit className="w-4 h-4 text-gray-400 hover:text-blue-600 transition-colors" />
+                              )}
                             </div>
                             
                             <div className="space-y-1 text-xs">
@@ -589,6 +659,143 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
           </div>
         )}
       </div>
+
+      {/* Lesson Editing Modal */}
+      {editingLesson && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">
+                עריכת שיעור פרטי
+              </h3>
+              <button
+                onClick={() => setEditingLesson(null)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form 
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                
+                const form = e.target as HTMLFormElement
+                const formData = new FormData(form)
+                const day = formData.get('day') as string
+                const startTime = formData.get('startTime') as string
+                const endTime = formData.get('endTime') as string
+                
+                if (!day || !startTime || !endTime) {
+                  alert('אנא מלא את כל השדות הנדרשים')
+                  return
+                }
+
+                // Calculate duration
+                const duration = calculateDuration(startTime, endTime)
+                
+                if (duration <= 0) {
+                  alert('זמן הסיום חייב להיות לאחר זמן ההתחלה')
+                  return
+                }
+
+                await handleLessonUpdate({
+                  day,
+                  startTime,
+                  endTime,
+                  duration
+                })
+              }}
+            >
+              {/* Day Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  יום השבוע
+                </label>
+                <select
+                  name="day"
+                  defaultValue={editingLesson.day}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">בחר יום</option>
+                  <option value="ראשון">ראשון</option>
+                  <option value="שני">שני</option>
+                  <option value="שלישי">שלישי</option>
+                  <option value="רביעי">רביעי</option>
+                  <option value="חמישי">חמישי</option>
+                  <option value="שישי">שישי</option>
+                  <option value="שבת">שבת</option>
+                </select>
+              </div>
+
+              {/* Time Selection */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    זמן התחלה
+                  </label>
+                  <input
+                    type="time"
+                    name="startTime"
+                    defaultValue={editingLesson.startTime || editingLesson.time}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    זמן סיום
+                  </label>
+                  <input
+                    type="time"
+                    name="endTime"
+                    defaultValue={editingLesson.endTime || calculateEndTime(
+                      editingLesson.startTime || editingLesson.time || '00:00', 
+                      editingLesson.duration || 45
+                    )}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Student Information (Read-only) */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-2">פרטי השיעור</h4>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <div><strong>תלמיד:</strong> {editingLesson.studentName || 'לא צוין'}</div>
+                  {editingLesson.instrumentName && (
+                    <div><strong>כלי נגינה:</strong> {editingLesson.instrumentName}</div>
+                  )}
+                  {editingLesson.location && (
+                    <div><strong>מיקום:</strong> {editingLesson.location}</div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-6 border-t">
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium disabled:opacity-50"
+                >
+                  {isUpdating ? 'שומר...' : 'שמור שינויים'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingLesson(null)}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+                >
+                  ביטול
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

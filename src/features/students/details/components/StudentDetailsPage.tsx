@@ -5,7 +5,7 @@
  * and coordinates all child components for the student details view.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Navigate, useNavigate } from 'react-router-dom'
 import { ArrowRight, RefreshCw, Wifi, WifiOff, Trash2 } from 'lucide-react'
 import { TabType } from '../types'
@@ -54,34 +54,40 @@ const StudentDetailsPage: React.FC = () => {
   const { prefetchTabData } = usePerformanceOptimizations()
 
   // Fetch student data
-  useEffect(() => {
-    const fetchStudent = async () => {
-      if (!studentId) return
+  const fetchStudent = useCallback(async () => {
+    if (!studentId) return
+    
+    try {
+      setIsLoading(true)
+      setError(null)
+      console.log('🔄 Fetching student data for ID:', studentId)
       
-      try {
-        setIsLoading(true)
-        setError(null)
-        console.log('🔄 Fetching student data for ID:', studentId)
-        
-        const studentData = await apiService.students.getStudentById(studentId)
-        setStudent(studentData)
-        
-        console.log('✅ Student data loaded successfully:', studentData.personalInfo?.fullName)
-      } catch (err) {
-        console.error('❌ Error fetching student:', err)
-        setError({
-          code: err.status === 404 ? 'NOT_FOUND' : 
-                err.status === 401 ? 'UNAUTHORIZED' : 
-                err.status === 403 ? 'FORBIDDEN' : 'SERVER_ERROR',
-          message: err.message || 'שגיאה בטעינת נתוני התלמיד'
-        })
-      } finally {
-        setIsLoading(false)
-      }
+      const studentData = await apiService.students.getStudentById(studentId)
+      setStudent(studentData)
+      
+      console.log('✅ Student data loaded successfully:', studentData.personalInfo?.fullName)
+    } catch (err) {
+      console.error('❌ Error fetching student:', err)
+      setError({
+        code: err.status === 404 ? 'NOT_FOUND' : 
+              err.status === 401 ? 'UNAUTHORIZED' : 
+              err.status === 403 ? 'FORBIDDEN' : 'SERVER_ERROR',
+        message: err.message || 'שגיאה בטעינת נתוני התלמיד'
+      })
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchStudent()
   }, [studentId])
+
+  useEffect(() => {
+    fetchStudent()
+  }, [fetchStudent])
+
+  // Handle student data updates
+  const handleStudentUpdate = useCallback((updatedStudent: any) => {
+    setStudent(updatedStudent)
+    console.log('🔄 Student data updated:', updatedStudent.personalInfo?.fullName)
+  }, [])
 
   // Handle student deletion
   const handleDeleteClick = () => {
@@ -197,22 +203,41 @@ const StudentDetailsPage: React.FC = () => {
   // Enhanced loading state with smart loading and skeletons
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        {/* Header skeleton */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <SkeletonComponents.StudentHeader />
+      <div className="space-y-6 animate-pulse">
+        {/* Header skeleton with better structure */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+            <div className="flex-1">
+              <div className="h-6 bg-gray-200 rounded mb-2 w-48"></div>
+              <div className="h-4 bg-gray-200 rounded w-32"></div>
+            </div>
+          </div>
         </div>
 
-        {/* Tab navigation skeleton */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="border-b border-gray-200 px-6 py-3">
+        {/* Tab navigation skeleton with proper spacing */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="border-b border-gray-200 px-6 py-4">
             <div className="flex gap-6">
-              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div key={i} className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
+              {['פרטים אישיים', 'פרטים אקדמיים', 'לוח זמנים', 'נוכחות', 'תזמורות', 'תיאוריה', 'מסמכים'].map((label, i) => (
+                <div key={i} className="h-4 bg-gray-200 rounded animate-pulse" style={{width: `${label.length * 8}px`}}></div>
               ))}
             </div>
           </div>
-          <SkeletonComponents.TabContent />
+          
+          {/* Content skeleton */}
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="h-4 bg-gray-200 rounded w-24"></div>
+                <div className="h-10 bg-gray-100 rounded"></div>
+              </div>
+              <div className="space-y-4">
+                <div className="h-4 bg-gray-200 rounded w-20"></div>
+                <div className="h-10 bg-gray-100 rounded"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -314,6 +339,7 @@ const StudentDetailsPage: React.FC = () => {
             studentId={studentId}
             student={student}
             isLoading={isLoading}
+            onStudentUpdate={handleStudentUpdate}
           />
         </div>
       </div>

@@ -5,16 +5,68 @@
  * Updated field names and added technical exams section
  */
 
-import { BookOpen, Music, Trophy, Clock, FileText, CheckCircle, XCircle, Star } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { BookOpen, Music, Trophy, Clock, FileText, CheckCircle, XCircle, Star, Edit, Save, X } from 'lucide-react'
+import apiService from '../../../../../services/apiService'
 
 interface AcademicInfoTabProps {
   student: any
   studentId: string
   isLoading?: boolean
+  onStudentUpdate?: (updatedStudent: any) => void
 }
 
-const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studentId, isLoading }) => {
+const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studentId, isLoading, onStudentUpdate }) => {
   const academicInfo = student?.academicInfo || {}
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [editedData, setEditedData] = useState({
+    class: academicInfo.class || '',
+    stage: academicInfo.stage || academicInfo.level || '',
+    startDate: academicInfo.startDate || '',
+  })
+
+  // Update editedData when student data changes
+  useEffect(() => {
+    setEditedData({
+      class: academicInfo.class || '',
+      stage: academicInfo.stage || academicInfo.level || '',
+      startDate: academicInfo.startDate || '',
+    })
+  }, [academicInfo])
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true)
+      
+      const updatedStudent = await apiService.students.updateStudent(studentId, {
+        academicInfo: {
+          ...academicInfo,
+          ...editedData
+        }
+      })
+      
+      if (onStudentUpdate) {
+        onStudentUpdate(updatedStudent)
+      }
+      
+      setIsEditing(false)
+    } catch (error) {
+      console.error('Error saving student academic info:', error)
+      alert('שגיאה בשמירת הנתונים האקדמיים')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setEditedData({
+      class: academicInfo.class || '',
+      stage: academicInfo.stage || academicInfo.level || '',
+      startDate: academicInfo.startDate || '',
+    })
+    setIsEditing(false)
+  }
 
   if (isLoading) {
     return (
@@ -63,6 +115,38 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
 
   return (
     <div className="p-4">
+      {/* Header with Edit Button */}
+      <div className="flex justify-end mb-4">
+        {!isEditing ? (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+          >
+            <Edit className="w-4 h-4" />
+            ערוך
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              {isSaving ? 'שומר...' : 'שמור'}
+            </button>
+            <button
+              onClick={handleCancel}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+            >
+              <X className="w-4 h-4" />
+              בטל
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Single unified container for all academic information */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
         <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -72,25 +156,54 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
         
         {/* Basic Info Section */}
         <div className="mb-4 pb-4 border-b border-gray-100">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
               <span className="text-xs font-medium text-gray-600">כיתה:</span>
-              <span className="text-sm font-medium text-gray-900">{academicInfo.class || 'לא צוין'}</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editedData.class}
+                  onChange={(e) => setEditedData({ ...editedData, class: e.target.value })}
+                  className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="הכנס כיתה"
+                />
+              ) : (
+                <div className="text-sm font-medium text-gray-900">{academicInfo.class || 'לא צוין'}</div>
+              )}
             </div>
             
             {/* Only show stage from academicInfo if no instruments with stage info */}
             {(!academicInfo.instrumentProgress || academicInfo.instrumentProgress.length === 0) && (
-              <div className="flex items-center gap-2">
+              <div>
                 <span className="text-xs font-medium text-gray-600">שלב:</span>
-                <span className="text-sm font-medium text-gray-900">{academicInfo.stage || academicInfo.level || 'לא צוין'}</span>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editedData.stage}
+                    onChange={(e) => setEditedData({ ...editedData, stage: e.target.value })}
+                    className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="הכנס שלב"
+                  />
+                ) : (
+                  <div className="text-sm font-medium text-gray-900">{academicInfo.stage || academicInfo.level || 'לא צוין'}</div>
+                )}
               </div>
             )}
             
-            <div className="flex items-center gap-2">
+            <div>
               <span className="text-xs font-medium text-gray-600">תאריך התחלה:</span>
-              <span className="text-sm font-medium text-gray-900">
-                {academicInfo.startDate ? new Date(academicInfo.startDate).toLocaleDateString('he-IL') : 'לא צוין'}
-              </span>
+              {isEditing ? (
+                <input
+                  type="date"
+                  value={editedData.startDate ? new Date(editedData.startDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setEditedData({ ...editedData, startDate: e.target.value })}
+                  className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              ) : (
+                <div className="text-sm font-medium text-gray-900">
+                  {academicInfo.startDate ? new Date(academicInfo.startDate).toLocaleDateString('he-IL') : 'לא צוין'}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -102,11 +215,11 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
               <Music className="w-3 h-3" />
               כלי נגינה
             </h4>
-            <div className="space-y-1">
+            <div className="space-y-3">
               {academicInfo.instrumentProgress.map((instrument: any, index: number) => (
-                <div key={index} className="flex items-center gap-4">
+                <div key={index} className="border border-gray-100 rounded-lg p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-900">{instrument.instrumentName}</span>
+                    <span className="text-sm font-medium text-gray-900">{instrument.instrumentName}</span>
                     {instrument.isPrimary && (
                       <span className="text-xs px-1.5 py-0.5 bg-primary-100 text-primary-800 rounded">
                         ראשי
@@ -114,51 +227,57 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-gray-600">
-                    <span>שלב: {instrument.stage || instrument.level || 'לא צוין'}</span>
+                    <span>שלב: {instrument.currentStage || instrument.stage || instrument.level || 'לא צוין'}</span>
                     {instrument.startDate && (
                       <span>{new Date(instrument.startDate).toLocaleDateString('he-IL')}</span>
                     )}
                   </div>
+                  
+                  {/* Test Results for this instrument */}
+                  {instrument.tests && (
+                    <div className="mt-2 space-y-1">
+                      {instrument.tests.stageTest && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-600">מבחן שלב:</span>
+                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getExamStatusColor(instrument.tests.stageTest.status || 'לא נבחן')}`}>
+                            {getExamStatusIcon(instrument.tests.stageTest.status || 'לא נבחן')}
+                            {instrument.tests.stageTest.status || 'לא נבחן'}
+                          </div>
+                          {instrument.tests.stageTest.notes && (
+                            <span className="text-xs text-gray-500">({instrument.tests.stageTest.notes})</span>
+                          )}
+                        </div>
+                      )}
+                      {instrument.tests.technicalTest && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-600">מבחן טכני:</span>
+                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getExamStatusColor(instrument.tests.technicalTest.status || 'לא נבחן')}`}>
+                            {getExamStatusIcon(instrument.tests.technicalTest.status || 'לא נבחן')}
+                            {instrument.tests.technicalTest.status || 'לא נבחן'}
+                          </div>
+                          {instrument.tests.technicalTest.notes && (
+                            <span className="text-xs text-gray-500">({instrument.tests.technicalTest.notes})</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Technical Exams Section */}
-        <div>
-          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
-            <FileText className="w-3 h-3" />
-            מבחנים טכניים
-          </h4>
-          {academicInfo.technicalExams && academicInfo.technicalExams.length > 0 ? (
-            <div className="space-y-1">
-              {academicInfo.technicalExams.map((exam: any, index: number) => (
-                <div key={index} className="flex items-center gap-4">
-                  <span className="text-sm text-gray-900">
-                    {exam.examName || `מבחן ${index + 1}`}
-                  </span>
-                  <div className="flex items-center gap-2 mr-auto">
-                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getExamStatusColor(exam.status || 'לא נבחן')}`}>
-                      {getExamStatusIcon(exam.status || 'לא נבחן')}
-                      {exam.status || 'לא נבחן'}
-                    </div>
-                    {exam.examDate && (
-                      <span className="text-xs text-gray-600">
-                        {new Date(exam.examDate).toLocaleDateString('he-IL')}
-                      </span>
-                    )}
-                    {exam.grade && (
-                      <span className="text-xs text-gray-600">ציון: {exam.grade}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-500">לא נמצאו מבחנים טכניים</p>
-          )}
-        </div>
+        {/* General Notes Section */}
+        {academicInfo.notes && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+              <FileText className="w-3 h-3" />
+              הערות
+            </h4>
+            <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{academicInfo.notes}</p>
+          </div>
+        )}
       </div>
     </div>
   )

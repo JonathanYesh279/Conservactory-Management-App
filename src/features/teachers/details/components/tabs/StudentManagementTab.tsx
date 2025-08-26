@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { Users, Plus, Trash2, Calendar, Clock, User, Search, X, ChevronDown } from 'lucide-react'
+import { Users, Plus, Trash2, Calendar, Clock, User, Search, X, ChevronDown, BookOpen } from 'lucide-react'
 import { Teacher } from '../../types'
 import apiService from '../../../../../services/apiService'
 
@@ -27,6 +27,7 @@ interface Student {
 
 const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, teacherId }) => {
   const [students, setStudents] = useState<Student[]>([])
+  const [studentsWithLessons, setStudentsWithLessons] = useState<{ [key: string]: boolean }>({})
   const [allStudents, setAllStudents] = useState<Student[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isAddingStudent, setIsAddingStudent] = useState(false)
@@ -34,8 +35,29 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
   const [searchTerm, setSearchTerm] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const [isSchedulingLesson, setIsSchedulingLesson] = useState(false)
+  const [schedulingStudent, setSchedulingStudent] = useState<Student | null>(null)
+  const [lessonData, setLessonData] = useState({
+    day: '',
+    startTime: '',
+    duration: 30
+  })
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Check if student has active lessons with this teacher
+  const checkStudentHasLessons = async (studentId: string): Promise<boolean> => {
+    try {
+      const student = await apiService.students.getStudentById(studentId)
+      const hasActiveAssignment = student.teacherAssignments?.some((assignment: any) => 
+        assignment.teacherId === teacherId && assignment.isActive === true
+      )
+      return hasActiveAssignment || false
+    } catch (error) {
+      console.error(`Error checking lessons for student ${studentId}:`, error)
+      return false
+    }
+  }
 
   // Fetch students data
   useEffect(() => {
@@ -50,6 +72,19 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
           )
           const studentData = await Promise.all(studentPromises)
           setStudents(studentData)
+          
+          // Check lesson status for each student
+          const lessonStatusPromises = studentData.map(async (student) => {
+            const hasLessons = await checkStudentHasLessons(student._id)
+            return { studentId: student._id, hasLessons }
+          })
+          
+          const lessonStatuses = await Promise.all(lessonStatusPromises)
+          const lessonStatusMap: { [key: string]: boolean } = {}
+          lessonStatuses.forEach(({ studentId, hasLessons }) => {
+            lessonStatusMap[studentId] = hasLessons
+          })
+          setStudentsWithLessons(lessonStatusMap)
         }
         
         // Fetch all students for the add student dropdown
@@ -63,7 +98,7 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
     }
 
     fetchStudents()
-  }, [teacher.teaching?.studentIds])
+  }, [teacher.teaching?.studentIds, teacherId])
 
   // Handle student selection
   const handleStudentSelect = (student: Student) => {
@@ -145,7 +180,11 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
   }
 
   const handleRemoveStudent = async (studentId: string) => {
-    if (!confirm('האם אתה בטוח שברצונך להסיר את התלמיד מהמורה?')) return
+    const student = students.find(s => s._id === studentId)
+    const studentName = student?.personalInfo?.fullName || 'התלמיד'
+    const teacherName = teacher.personalInfo?.fullName || 'המורה'
+    
+    if (!confirm(`האם אתה בטוח שברצונך להסיר את ${studentName} מרשימת התלמידים של ${teacherName}?\n\nפעולה זו תנתק את הקשר בין התלמיד למורה אך לא תמחק את פרטי התלמיד מהמערכת.`)) return
 
     try {
       await apiService.teachers.removeStudentFromTeacher(teacherId, studentId)
@@ -154,6 +193,121 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
       setStudents(prev => prev.filter(student => student._id !== studentId))
     } catch (error) {
       console.error('Error removing student:', error)
+    }
+  }
+
+  const handleScheduleLesson = (student: Student) => {
+    setSchedulingStudent(student)
+    setIsSchedulingLesson(true)
+    setLessonData({
+      day: '',
+      startTime: '',
+      duration: 30
+    })
+  }
+
+  const handleSaveLesson = async () => {
+    if (!schedulingStudent || !lessonData.day || !lessonData.startTime) {
+      alert('אנא מלא את כל השדות הנדרשים')
+      return
+    }
+
+    try {
+      console.log('🔄 Creating lesson for student:', schedulingStudent.personalInfo?.fullName)
+      
+      // Calculate end time
+      const calculateEndTime = (startTime: string, duration: number): string => {
+        const [hours, minutes] = startTime.split(':').map(Number)
+        const totalMinutes = hours * 60 + minutes + duration
+        const endHours = Math.floor(totalMinutes / 60)
+        const endMins = totalMinutes % 60
+        return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`
+      }
+
+      // Get current student data
+      const currentStudent = await apiService.students.getStudentById(schedulingStudent._id)
+      console.log('📋 Current student data loaded:', currentStudent.personalInfo?.fullName)
+
+      // Get primary instrument
+      const primaryInstrument = currentStudent.academicInfo?.instrumentProgress?.find(
+        (instrument: any) => instrument.isPrimary
+      )?.instrumentName || 'כלי נגינה'
+
+      // Generate a unique ID for the schedule slot (MongoDB ObjectId format)
+      const generateObjectId = () => {
+        const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0')
+        const random = Math.random().toString(16).substring(2, 18).padStart(16, '0')
+        return timestamp + random
+      }
+
+      // Create the teacher assignment matching the exact backend structure
+      const newAssignment = {
+        teacherId: teacherId,
+        scheduleSlotId: generateObjectId(), // Generate a unique ID for the schedule slot
+        day: lessonData.day,
+        time: lessonData.startTime,
+        duration: lessonData.duration,
+        notes: '',
+        startDate: new Date().toISOString(),
+        isActive: true,
+        isRecurring: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        scheduleInfo: {
+          day: lessonData.day,
+          startTime: lessonData.startTime,
+          endTime: calculateEndTime(lessonData.startTime, lessonData.duration),
+          duration: lessonData.duration,
+          location: null,
+          notes: null,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      }
+
+      // Add the new assignment to the existing teacher assignments
+      const updatedAssignments = [...(currentStudent.teacherAssignments || []), newAssignment]
+
+      console.log('📤 Adding new teacher assignment:', newAssignment)
+      console.log('📝 All assignments to be saved:', updatedAssignments)
+
+      // Also ensure the teacherId is in the teacherIds array
+      const updatedTeacherIds = currentStudent.teacherIds || []
+      if (!updatedTeacherIds.includes(teacherId)) {
+        updatedTeacherIds.push(teacherId)
+      }
+
+      // Update the student record with both teacherAssignments and teacherIds
+      const updateData = {
+        teacherAssignments: updatedAssignments,
+        teacherIds: updatedTeacherIds
+      }
+
+      console.log('📤 Sending complete update data:', updateData)
+
+      // Update the student record
+      const result = await apiService.students.updateStudent(schedulingStudent._id, updateData)
+
+      console.log('✅ Student updated with new lesson assignment')
+
+      // Update the lesson status for this student
+      setStudentsWithLessons(prev => ({
+        ...prev,
+        [schedulingStudent._id]: true
+      }))
+
+      // Close modal and reset
+      setIsSchedulingLesson(false)
+      setSchedulingStudent(null)
+      setLessonData({ day: '', startTime: '', duration: 30 })
+
+      // Success is already logged to console
+      // TODO: Add toast notification here later
+
+    } catch (error) {
+      console.error('❌ Failed to schedule lesson:', error)
+      alert('שגיאה בקביעת השיעור. אנא נסה שוב.')
     }
   }
 
@@ -326,6 +480,102 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
         </div>
       )}
 
+      {/* Schedule Lesson Modal */}
+      {isSchedulingLesson && schedulingStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all">
+            <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
+              קביעת שיעור שבועי
+            </h3>
+            
+            {/* Student Info */}
+            <div className="bg-blue-50 p-4 rounded-lg mb-6">
+              <h4 className="font-medium text-blue-900 mb-2">פרטי התלמיד</h4>
+              <div className="text-sm text-blue-800">
+                <div><strong>שם:</strong> {schedulingStudent.personalInfo?.fullName}</div>
+                <div><strong>כיתה:</strong> {schedulingStudent.academicInfo?.class || 'לא צוין'}</div>
+                <div><strong>כלי נגינה:</strong> {schedulingStudent.primaryInstrument || 'לא צוין'}</div>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Day Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  יום השבוע
+                </label>
+                <select
+                  value={lessonData.day}
+                  onChange={(e) => setLessonData(prev => ({ ...prev, day: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">בחר יום</option>
+                  <option value="ראשון">ראשון</option>
+                  <option value="שני">שני</option>
+                  <option value="שלישי">שלישי</option>
+                  <option value="רביעי">רביעי</option>
+                  <option value="חמישי">חמישי</option>
+                  <option value="שישי">שישי</option>
+                  <option value="שבת">שבת</option>
+                </select>
+              </div>
+
+              {/* Time and Duration */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    זמן התחלה
+                  </label>
+                  <input
+                    type="time"
+                    value={lessonData.startTime}
+                    onChange={(e) => setLessonData(prev => ({ ...prev, startTime: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    משך (דקות)
+                  </label>
+                  <select
+                    value={lessonData.duration}
+                    onChange={(e) => setLessonData(prev => ({ ...prev, duration: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value={30}>30 דקות</option>
+                    <option value={45}>45 דקות</option>
+                    <option value={60}>60 דקות</option>
+                    <option value={90}>90 דקות</option>
+                  </select>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-6 border-t">
+                <button
+                  onClick={handleSaveLesson}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
+                  קבע שיעור
+                </button>
+                <button
+                  onClick={() => {
+                    setIsSchedulingLesson(false)
+                    setSchedulingStudent(null)
+                    setLessonData({ day: '', startTime: '', duration: 30 })
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Students List */}
       {students.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -367,6 +617,17 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
                 </div>
                 
                 <div className="flex items-center gap-2">
+                  {/* Only show Schedule Lesson button if student doesn't have active lessons with this teacher */}
+                  {!studentsWithLessons[student._id] && (
+                    <button
+                      onClick={() => handleScheduleLesson(student)}
+                      className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-1 transition-all shadow-sm font-medium flex items-center gap-1"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      קבע שיעור
+                    </button>
+                  )}
+                  
                   <button
                     onClick={() => window.location.href = `/students/${student._id}`}
                     className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all shadow-sm font-medium"

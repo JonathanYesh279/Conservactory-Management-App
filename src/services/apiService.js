@@ -383,7 +383,10 @@ export const studentService = {
    */
   async updateStudent(studentId, studentData) {
     try {
-      const student = await apiClient.put(`/student/${studentId}`, studentData);
+      // Clean the data by removing fields that backend doesn't allow in updates
+      const cleanedData = this.cleanStudentDataForUpdate(studentData);
+      
+      const student = await apiClient.put(`/student/${studentId}`, cleanedData);
       
       console.log(`✏️ Updated student: ${student.personalInfo?.fullName}`);
       
@@ -392,6 +395,40 @@ export const studentService = {
       console.error('Error updating student:', error);
       throw error;
     }
+  },
+
+  /**
+   * Clean student data for update by removing fields that backend validation rejects
+   * @param {Object} studentData - Raw student data
+   * @returns {Object} Cleaned student data
+   */
+  cleanStudentDataForUpdate(studentData) {
+    // Create a deep copy to avoid modifying the original data
+    const cleanedData = JSON.parse(JSON.stringify(studentData));
+    
+    // Remove top-level fields that aren't allowed in updates
+    delete cleanedData._id;
+    delete cleanedData.createdAt;
+    delete cleanedData.updatedAt;
+    delete cleanedData.primaryInstrument;
+    delete cleanedData.primaryStage;
+    
+    // Clean instrument progress array
+    if (cleanedData.academicInfo?.instrumentProgress) {
+      cleanedData.academicInfo.instrumentProgress = cleanedData.academicInfo.instrumentProgress.map(progress => {
+        const cleanedProgress = { ...progress };
+        
+        // Remove computed/auto-generated fields
+        delete cleanedProgress.lastStageUpdate;
+        delete cleanedProgress.instrument; // This is derived from instrumentName
+        delete cleanedProgress.stage; // This is derived from currentStage
+        
+        return cleanedProgress;
+      });
+    }
+    
+    console.log('🧹 Cleaned student data for update:', cleanedData);
+    return cleanedData;
   },
 
   /**
