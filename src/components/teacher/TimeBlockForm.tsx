@@ -168,7 +168,20 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
   const duration = calculateDuration(formData.startTime, formData.endTime);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      style={{
+        position: 'fixed !important',
+        top: '0 !important',
+        left: '0 !important',
+        right: '0 !important',
+        bottom: '0 !important',
+        display: 'flex !important',
+        alignItems: 'center !important',
+        justifyContent: 'center !important',
+        zIndex: 9999
+      }}
+    >
       <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto" padding="lg">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Header */}
@@ -200,7 +213,7 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
             <select
               value={formData.day}
               onChange={(e) => handleInputChange('day', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
               required
             >
               {daysOfWeek.map(day => (
@@ -220,7 +233,7 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
                 type="time"
                 value={formData.startTime}
                 onChange={(e) => handleInputChange('startTime', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
                 required
               />
             </div>
@@ -233,7 +246,7 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
                 type="time"
                 value={formData.endTime}
                 onChange={(e) => handleInputChange('endTime', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
                 required
               />
             </div>
@@ -258,7 +271,7 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
             <select
               value={formData.location}
               onChange={(e) => handleInputChange('location', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
               required
             >
               {locations.map(location => (

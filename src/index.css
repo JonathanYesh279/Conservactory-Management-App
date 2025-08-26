@@ -357,6 +357,13 @@ body {
   margin-left: 0;
 }
 
+/* Default text color for all form inputs */
+input,
+select,
+textarea {
+  @apply text-gray-900;
+}
+
 /* Form input RTL improvements */
 [dir="rtl"] input,
 [dir="rtl"] textarea,

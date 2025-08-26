@@ -30,6 +30,8 @@ Key Expertise:
 - Audio/video integration for lessons
 - Event management interfaces
 
+AVOID: do not change the port-keep it always as 5173. 
+
 Music Domain Backend APIs:
 
 Orchestra Management:

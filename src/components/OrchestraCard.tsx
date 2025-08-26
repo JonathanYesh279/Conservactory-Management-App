@@ -42,23 +42,26 @@ export default function OrchestraCard({ orchestra, onEdit, onDelete, onViewDetai
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div 
+      className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 group hover:border-blue-300 ${onViewDetails ? 'cursor-pointer' : ''}`}
+      onClick={onViewDetails ? handleViewDetails : undefined}
+    >
       {/* Card Header */}
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-700 group-hover:bg-blue-50 group-hover:text-blue-700 transition-colors">
                 {typeInfo.text}
               </span>
-              <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-700 group-hover:bg-blue-50 group-hover:text-blue-700 transition-colors">
                 {status.text}
               </span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1 leading-tight">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1 leading-tight group-hover:text-blue-900 transition-colors">
               {orchestra.name}
             </h3>
-            <p className="text-sm text-gray-600 flex items-center">
+            <p className="text-sm text-gray-600 flex items-center group-hover:text-blue-600 transition-colors">
               <User className="w-3 h-3 ml-1" />
               {getConductorName(orchestra)}
             </p>
@@ -66,19 +69,13 @@ export default function OrchestraCard({ orchestra, onEdit, onDelete, onViewDetai
           
           {/* Action Buttons */}
           <div className="flex items-center gap-1 mr-2">
-            {onViewDetails && (
-              <button
-                onClick={handleViewDetails}
-                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                title="צפה בפרטים"
-              >
-                <Eye className="w-4 h-4" />
-              </button>
-            )}
             {onEdit && (
               <button
-                onClick={handleEdit}
-                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleEdit()
+                }}
+                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                 title="ערוך תזמורת"
               >
                 <Edit className="w-4 h-4" />
@@ -86,8 +83,11 @@ export default function OrchestraCard({ orchestra, onEdit, onDelete, onViewDetai
             )}
             {onDelete && (
               <button
-                onClick={handleDelete}
-                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDelete()
+                }}
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                 title="מחק תזמורת"
               >
                 <Trash2 className="w-4 h-4" />

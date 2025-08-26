@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Calendar, 
   Plus, 
@@ -19,6 +20,8 @@ import {
 } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Table from '../components/ui/Table'
+import ConfirmationModal from '../components/ui/ConfirmationModal'
+import Modal from '../components/ui/Modal'
 import RehearsalCalendar from '../components/RehearsalCalendar'
 import RehearsalForm from '../components/RehearsalForm'
 import AttendanceManager from '../components/AttendanceManager'
@@ -39,6 +42,7 @@ import {
 } from '../utils/rehearsalUtils'
 
 export default function Rehearsals() {
+  const navigate = useNavigate()
   const [rehearsals, setRehearsals] = useState<Rehearsal[]>([])
   const [orchestras, setOrchestras] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -57,6 +61,18 @@ export default function Rehearsals() {
   // Attendance State
   const [showAttendanceManager, setShowAttendanceManager] = useState(false)
   const [selectedRehearsal, setSelectedRehearsal] = useState<Rehearsal | null>(null)
+  
+  // Delete Confirmation State
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [rehearsalToDelete, setRehearsalToDelete] = useState<string | null>(null)
+  
+  // Bulk Delete by Date Range State
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [bulkDeleteData, setBulkDeleteData] = useState({
+    orchestraId: '',
+    startDate: '',
+    endDate: ''
+  })
   
   // Filter State
   const [showFilters, setShowFilters] = useState(false)
@@ -98,11 +114,28 @@ export default function Rehearsals() {
     }
   }
 
-  // Filter and sort rehearsals
+  // Process rehearsals by joining with orchestra data
   const processedRehearsals = useMemo(() => {
-    let filtered = filterRehearsals(rehearsals, filters)
+    // First, enrich rehearsals with orchestra data
+    const enrichedRehearsals = rehearsals.map(rehearsal => {
+      const orchestra = orchestras.find(orch => orch._id === rehearsal.groupId)
+      return {
+        ...rehearsal,
+        orchestra: orchestra ? {
+          _id: orchestra._id,
+          name: orchestra.name,
+          type: orchestra.type,
+          memberIds: orchestra.memberIds || [],
+          conductor: orchestra.conductor,
+          members: orchestra.members
+        } : undefined
+      }
+    })
+    
+    // Then filter and sort
+    let filtered = filterRehearsals(enrichedRehearsals, filters)
     return sortRehearsals(filtered, sortBy, sortOrder)
-  }, [rehearsals, filters, sortBy, sortOrder])
+  }, [rehearsals, orchestras, filters, sortBy, sortOrder])
 
   const handleCreateRehearsal = async (data: RehearsalFormData | BulkRehearsalData, isBulk: boolean) => {
     try {
@@ -132,15 +165,60 @@ export default function Rehearsals() {
     }
   }
 
-  const handleDeleteRehearsal = async (rehearsalId: string) => {
-    if (!window.confirm('האם אתה בטוח שברצונך למחוק את החזרה?')) return
+  const handleDeleteRehearsal = (rehearsalId: string) => {
+    setRehearsalToDelete(rehearsalId)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteRehearsal = async () => {
+    if (!rehearsalToDelete) return
 
     try {
-      await rehearsalService.deleteRehearsal(rehearsalId)
+      await rehearsalService.deleteRehearsal(rehearsalToDelete)
       await loadData()
+      setShowDeleteModal(false)
+      setRehearsalToDelete(null)
     } catch (error: any) {
       setError('שגיאה במחיקת החזרה')
+      setShowDeleteModal(false)
+      setRehearsalToDelete(null)
     }
+  }
+
+  const cancelDeleteRehearsal = () => {
+    setShowDeleteModal(false)
+    setRehearsalToDelete(null)
+  }
+
+  const handleBulkDeleteByDateRange = async () => {
+    if (!bulkDeleteData.orchestraId || !bulkDeleteData.startDate || !bulkDeleteData.endDate) {
+      setError('נדרש לבחור תזמורת ותאריכי התחלה וסיום')
+      return
+    }
+
+    try {
+      const result = await rehearsalService.deleteRehearsalsByDateRange(
+        bulkDeleteData.orchestraId,
+        bulkDeleteData.startDate,
+        bulkDeleteData.endDate
+      )
+      
+      await loadData()
+      setShowBulkDeleteModal(false)
+      setBulkDeleteData({ orchestraId: '', startDate: '', endDate: '' })
+      
+      // Show success message
+      setError(null)
+      console.log(`✅ נמחקו ${result.deletedCount} חזרות בהצלחה`)
+    } catch (error: any) {
+      setError(error.message || 'שגיאה במחיקת החזרות בטווח התאריכים')
+      setShowBulkDeleteModal(false)
+    }
+  }
+
+  const cancelBulkDelete = () => {
+    setShowBulkDeleteModal(false)
+    setBulkDeleteData({ orchestraId: '', startDate: '', endDate: '' })
   }
 
   const handleUpdateAttendance = async (attendanceData: AttendanceUpdate) => {
@@ -317,13 +395,24 @@ export default function Rehearsals() {
             </button>
           </div>
 
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            <Plus className="w-4 h-4 ml-1" />
-            חזרה חדשה
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowBulkDeleteModal(true)}
+              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              title="מחיקת חזרות בטווח תאריכים"
+            >
+              <Trash2 className="w-4 h-4 ml-1" />
+              מחיקה בטווח תאריכים
+            </button>
+            
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <Plus className="w-4 h-4 ml-1" />
+              חזרה חדשה
+            </button>
+          </div>
         </div>
       </div>
 
@@ -513,8 +602,7 @@ export default function Rehearsals() {
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
           onRehearsalClick={(rehearsal) => {
-            setSelectedRehearsal(rehearsal)
-            setShowAttendanceManager(true)
+            navigate(`/rehearsals/${rehearsal._id}`)
           }}
           onEditRehearsal={(rehearsal) => {
             setEditingRehearsal(rehearsal)
@@ -522,8 +610,10 @@ export default function Rehearsals() {
           }}
           onDeleteRehearsal={handleDeleteRehearsal}
           onViewDetails={(rehearsal) => {
-            setSelectedRehearsal(rehearsal)
-            setShowAttendanceManager(true)
+            navigate(`/rehearsals/${rehearsal._id}`)
+          }}
+          onNavigateToRehearsal={(rehearsalId) => {
+            navigate(`/rehearsals/${rehearsalId}`)
           }}
         />
       ) : (
@@ -560,8 +650,7 @@ export default function Rehearsals() {
               data={processedRehearsals}
               columns={tableColumns}
               onView={(rehearsal) => {
-                setSelectedRehearsal(rehearsal)
-                setShowAttendanceManager(true)
+                navigate(`/rehearsals/${rehearsal._id}`)
               }}
               onEdit={(rehearsal) => {
                 setEditingRehearsal(rehearsal)
@@ -642,6 +731,103 @@ export default function Rehearsals() {
           }}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        title="מחיקת חזרה"
+        message="האם אתה בטוח שברצונך למחוק את החזרה? פעולה זו אינה ניתנת לביטול."
+        confirmText="מחק"
+        cancelText="ביטול"
+        onConfirm={confirmDeleteRehearsal}
+        onCancel={cancelDeleteRehearsal}
+        variant="danger"
+      />
+
+      {/* Bulk Delete by Date Range Modal */}
+      <Modal
+        isOpen={showBulkDeleteModal}
+        onClose={cancelBulkDelete}
+        title="מחיקת חזרות בטווח תאריכים"
+        maxWidth="lg"
+      >
+        <div className="p-6">
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800">
+              ⚠️ פעולה זו תמחק את כל החזרות בטווח התאריכים שנבחר עבור התזמורת הנבחרת. 
+              פעולה זו אינה ניתנת לביטול!
+            </p>
+          </div>
+          
+          <div className="space-y-4">
+            {/* Orchestra Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                תזמורת
+              </label>
+              <select
+                value={bulkDeleteData.orchestraId}
+                onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, orchestraId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                required
+              >
+                <option value="">בחר תזמורת</option>
+                {orchestras.map((orchestra) => (
+                  <option key={orchestra._id} value={orchestra._id}>
+                    {orchestra.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date Range */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  תאריך התחלה
+                </label>
+                <input
+                  type="date"
+                  value={bulkDeleteData.startDate}
+                  onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, startDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  תאריך סיום
+                </label>
+                <input
+                  type="date"
+                  value={bulkDeleteData.endDate}
+                  onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, endDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              onClick={cancelBulkDelete}
+              className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              ביטול
+            </button>
+            <button
+              onClick={handleBulkDeleteByDateRange}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              disabled={!bulkDeleteData.orchestraId || !bulkDeleteData.startDate || !bulkDeleteData.endDate}
+            >
+              <Trash2 className="w-4 h-4 ml-2 inline" />
+              מחק חזרות
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

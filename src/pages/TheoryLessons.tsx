@@ -1,20 +1,32 @@
-import { useState, useEffect } from 'react'
-import { Plus, Search, Filter, Calendar, Clock, Users, BookOpen, Grid, List } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, Search, Filter, Calendar, Clock, Users, BookOpen } from 'lucide-react'
 import Card from '../components/ui/Card'
-import Table from '../components/ui/Table'
 import StatsCard from '../components/ui/StatsCard'
 import TheoryLessonForm from '../components/TheoryLessonForm'
 import TheoryLessonCard from '../components/TheoryLessonCard'
 import { theoryService } from '../services/apiService'
 import { 
   filterLessons, 
-  sortLessons, 
-  formatLessonDate, 
-  formatLessonTime, 
-  formatLessonAttendance,
-  calculateAttendancePercentage,
   type TheoryLesson 
 } from '../utils/theoryLessonUtils'
+
+// Custom CSS for scrollbar styling
+const scrollbarStyles = `
+  .custom-scrollbar::-webkit-scrollbar {
+    height: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+`
 
 export default function TheoryLessons() {
   const [lessons, setLessons] = useState<TheoryLesson[]>([])
@@ -23,9 +35,6 @@ export default function TheoryLessons() {
   const [showForm, setShowForm] = useState(false)
   const [editingLesson, setEditingLesson] = useState<TheoryLesson | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
-  const [sortBy, setSortBy] = useState<'date' | 'title' | 'teacher' | 'attendance' | 'category'>('date')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [filters, setFilters] = useState({
     category: '',
     teacherId: '',
@@ -51,17 +60,110 @@ export default function TheoryLessons() {
     }
   }
 
-  // Filter and sort lessons using utility functions
-  const filteredAndSortedLessons = sortLessons(
-    filterLessons(lessons, {
+  // Helper function to format day header
+  const formatDayHeader = (dateString: string) => {
+    const date = new Date(dateString)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const lessonDate = new Date(date)
+    lessonDate.setHours(0, 0, 0, 0)
+    
+    const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+    const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
+    
+    const dayName = dayNames[date.getDay()]
+    const day = date.getDate()
+    const month = monthNames[date.getMonth()]
+    const year = date.getFullYear()
+    
+    let prefix = ''
+    if (lessonDate.getTime() === today.getTime()) {
+      prefix = 'היום - '
+    } else if (lessonDate.getTime() === today.getTime() + 86400000) {
+      prefix = 'מחר - '
+    }
+    
+    return {
+      prefix,
+      main: `יום ${dayName}, ${day} ב${month} ${year}`,
+      isToday: lessonDate.getTime() === today.getTime(),
+      isPast: lessonDate < today
+    }
+  }
+
+  // Group lessons by individual dates
+  const groupedLessonsByDay = useMemo(() => {
+    // First filter the lessons
+    const filtered = filterLessons(lessons, {
       searchQuery,
       category: filters.category,
       teacherId: filters.teacherId,
       date: filters.date
-    }),
-    sortBy,
-    sortOrder
-  )
+    })
+
+    // Group by date
+    const lessonsByDate = new Map<string, TheoryLesson[]>()
+    
+    filtered.forEach(lesson => {
+      const dateKey = lesson.date // Assuming date is in YYYY-MM-DD format
+      if (!lessonsByDate.has(dateKey)) {
+        lessonsByDate.set(dateKey, [])
+      }
+      lessonsByDate.get(dateKey)!.push(lesson)
+    })
+
+    // Sort lessons within each day by time
+    const sortByTime = (a: TheoryLesson, b: TheoryLesson) => {
+      const timeA = a.startTime || '00:00'
+      const timeB = b.startTime || '00:00'
+      return timeA.localeCompare(timeB)
+    }
+
+    lessonsByDate.forEach((dayLessons) => {
+      dayLessons.sort(sortByTime)
+    })
+
+    // Convert to array and sort by date
+    const sortedDates = Array.from(lessonsByDate.entries()).sort((a, b) => {
+      return new Date(a[0]).getTime() - new Date(b[0]).getTime()
+    })
+
+    // Get today's date for categorization
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // Categorize dates
+    const todayLessons: Array<[string, TheoryLesson[]]> = []
+    const futureLessons: Array<[string, TheoryLesson[]]> = []
+    const pastLessons: Array<[string, TheoryLesson[]]> = []
+
+    sortedDates.forEach(([date, lessons]) => {
+      const lessonDate = new Date(date)
+      lessonDate.setHours(0, 0, 0, 0)
+      
+      if (lessonDate.getTime() === today.getTime()) {
+        todayLessons.push([date, lessons])
+      } else if (lessonDate > today) {
+        futureLessons.push([date, lessons])
+      } else {
+        pastLessons.push([date, lessons])
+      }
+    })
+
+    // Reverse past lessons so most recent is first
+    pastLessons.reverse()
+
+    return {
+      today: todayLessons,
+      future: futureLessons,
+      past: pastLessons,
+      all: [...todayLessons, ...futureLessons, ...pastLessons],
+      flatList: sortedDates.flatMap(([, lessons]) => lessons)
+    }
+  }, [lessons, searchQuery, filters])
+
+  // Use the flat list for table view
+  const filteredAndSortedLessons = groupedLessonsByDay.flatList
 
   // Calculate statistics
   const stats = {
@@ -114,71 +216,6 @@ export default function TheoryLessons() {
     }
   }
 
-  // Table columns configuration
-  const columns = [
-    {
-      key: 'title',
-      label: 'כותרת השיעור',
-      render: (lesson) => (
-        <div>
-          <div className="font-medium text-gray-900">{lesson.title}</div>
-          <div className="text-sm text-gray-500">{lesson.category}</div>
-        </div>
-      )
-    },
-    {
-      key: 'teacher',
-      label: 'מורה',
-      render: (lesson) => lesson.teacherName || 'לא הוקצה'
-    },
-    {
-      key: 'schedule',
-      label: 'מועד',
-      render: (lesson: TheoryLesson) => (
-        <div>
-          <div className="text-sm font-medium">
-            {formatLessonDate(lesson)}
-          </div>
-          <div className="text-xs text-gray-500">
-            {formatLessonTime(lesson)}
-          </div>
-        </div>
-      )
-    },
-    {
-      key: 'location',
-      label: 'מיקום',
-      render: (lesson) => lesson.location || 'לא צוין'
-    },
-    {
-      key: 'attendance',
-      label: 'נוכחות',
-      render: (lesson: TheoryLesson) => {
-        const attendanceText = formatLessonAttendance(lesson)
-        const percentage = calculateAttendancePercentage(lesson)
-        
-        return (
-          <div className="flex items-center">
-            <span className="text-sm font-medium">{attendanceText}</span>
-            <span className="mr-2 text-xs text-gray-500">({percentage}%)</span>
-          </div>
-        )
-      }
-    },
-    {
-      key: 'status',
-      label: 'סטטוס',
-      render: (lesson) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-          lesson.isActive 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-gray-100 text-gray-800'
-        }`}>
-          {lesson.isActive ? 'פעיל' : 'לא פעיל'}
-        </span>
-      )
-    }
-  ]
 
   if (loading) {
     return (
@@ -192,7 +229,9 @@ export default function TheoryLessons() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <style>{scrollbarStyles}</style>
+      <div className="space-y-6">
       {/* Page Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -309,53 +348,12 @@ export default function TheoryLessons() {
           <h3 className="text-lg font-semibold text-gray-900">
             שיעורי תיאוריה ({filteredAndSortedLessons.length})
           </h3>
-          <div className="flex items-center gap-4">
-            {/* View Mode Toggle */}
-            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 ${viewMode === 'grid' ? 'bg-primary-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                title="תצוגת כרטיסים"
-              >
-                <Grid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('table')}
-                className={`p-2 ${viewMode === 'table' ? 'bg-primary-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                title="תצוגת טבלה"
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Sort Controls */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            >
-              <option value="date">מיון לפי תאריך</option>
-              <option value="title">מיון לפי כותרת</option>
-              <option value="teacher">מיון לפי מורה</option>
-              <option value="category">מיון לפי קטגוריה</option>
-              <option value="attendance">מיון לפי נוכחות</option>
-            </select>
-
-            <button
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-              title={sortOrder === 'asc' ? 'מיון יורד' : 'מיון עולה'}
-            >
-              {sortOrder === 'asc' ? '↑' : '↓'}
-            </button>
-
-            <button
-              onClick={loadTheoryLessons}
-              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-            >
-              רענן
-            </button>
-          </div>
+          <button
+            onClick={loadTheoryLessons}
+            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            רענן
+          </button>
         </div>
 
         {filteredAndSortedLessons.length === 0 ? (
@@ -371,24 +369,137 @@ export default function TheoryLessons() {
               צור שיעור ראשון
             </button>
           </div>
-        ) : viewMode === 'table' ? (
-          <Table
-            data={filteredAndSortedLessons}
-            columns={columns}
-            onEdit={handleEditLesson}
-            onDelete={handleDeleteLesson}
-            actions={true}
-          />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAndSortedLessons.map(lesson => (
-              <TheoryLessonCard
-                key={lesson._id}
-                lesson={lesson}
-                onEdit={handleEditLesson}
-                onDelete={handleDeleteLesson}
-              />
-            ))}
+          <div className="space-y-6">
+            {/* Today's Lessons Section */}
+            {groupedLessonsByDay.today.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-1 bg-primary-600 rounded-full"></div>
+                  <h2 className="text-xl font-bold text-gray-900">להיום</h2>
+                </div>
+                {groupedLessonsByDay.today.map(([date, dayLessons]) => {
+                  const dayInfo = formatDayHeader(date)
+                  return (
+                    <div key={date} className="bg-primary-50 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-primary-900">
+                          {dayInfo.main}
+                        </h3>
+                        <span className="text-sm text-primary-700 font-medium">
+                          {dayLessons.length} שיעורים
+                          {dayLessons.length > 1 && (
+                            <span className="mr-2 text-xs text-primary-600">← גלל</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <div className="overflow-x-auto pb-2 custom-scrollbar">
+                          <div className="flex gap-4 px-1" style={{ minWidth: 'max-content' }}>
+                            {dayLessons.map(lesson => (
+                              <div key={lesson._id} className="w-80 flex-shrink-0">
+                                <TheoryLessonCard
+                                  lesson={lesson}
+                                  onEdit={handleEditLesson}
+                                  onDelete={handleDeleteLesson}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Future Lessons Section */}
+            {groupedLessonsByDay.future.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-1 bg-blue-600 rounded-full"></div>
+                  <h2 className="text-xl font-bold text-gray-900">שיעורים עתידיים</h2>
+                </div>
+                {groupedLessonsByDay.future.map(([date, dayLessons]) => {
+                  const dayInfo = formatDayHeader(date)
+                  return (
+                    <div key={date} className="bg-blue-50 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-blue-900">
+                          <span className="text-blue-700">{dayInfo.prefix}</span>
+                          {dayInfo.main}
+                        </h3>
+                        <span className="text-sm text-blue-700 font-medium">
+                          {dayLessons.length} שיעורים
+                          {dayLessons.length > 1 && (
+                            <span className="mr-2 text-xs text-blue-600">← גלל</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <div className="overflow-x-auto pb-2 custom-scrollbar">
+                          <div className="flex gap-4 px-1" style={{ minWidth: 'max-content' }}>
+                            {dayLessons.map(lesson => (
+                              <div key={lesson._id} className="w-80 flex-shrink-0">
+                                <TheoryLessonCard
+                                  lesson={lesson}
+                                  onEdit={handleEditLesson}
+                                  onDelete={handleDeleteLesson}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Past Lessons Section */}
+            {groupedLessonsByDay.past.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-1 bg-gray-400 rounded-full"></div>
+                  <h2 className="text-xl font-bold text-gray-900">שיעורים שהסתיימו</h2>
+                </div>
+                {groupedLessonsByDay.past.map(([date, dayLessons]) => {
+                  const dayInfo = formatDayHeader(date)
+                  return (
+                    <div key={date} className="bg-gray-50 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-700">
+                          {dayInfo.main}
+                        </h3>
+                        <span className="text-sm text-gray-600 font-medium">
+                          {dayLessons.length} שיעורים
+                          {dayLessons.length > 1 && (
+                            <span className="mr-2 text-xs text-gray-500">← גלל</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <div className="overflow-x-auto pb-2 custom-scrollbar">
+                          <div className="flex gap-4 px-1" style={{ minWidth: 'max-content' }}>
+                            {dayLessons.map(lesson => (
+                              <div key={lesson._id} className="w-80 flex-shrink-0">
+                                <TheoryLessonCard
+                                  lesson={lesson}
+                                  onEdit={handleEditLesson}
+                                  onDelete={handleDeleteLesson}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
       </Card>
@@ -404,6 +515,7 @@ export default function TheoryLessons() {
           }}
         />
       )}
-    </div>
+      </div>
+    </>
   )
 }

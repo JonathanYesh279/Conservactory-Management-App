@@ -1,6 +1,7 @@
-import React from 'react'
-import { Phone, User, Calendar } from 'lucide-react'
+import React, { useState } from 'react'
+import { Phone, User, Calendar, Trash2 } from 'lucide-react'
 import Card from './ui/Card'
+import ConfirmationModal from './ui/ConfirmationModal'
 
 interface Student {
   _id: string
@@ -32,6 +33,7 @@ interface StudentCardProps {
   showTeacherAssignments?: boolean
   showParentContact?: boolean
   onClick?: () => void
+  onDelete?: (studentId: string) => void
   className?: string
 }
 
@@ -41,6 +43,7 @@ const StudentCard: React.FC<StudentCardProps> = ({
   showTeacherAssignments = true,
   showParentContact = false,
   onClick,
+  onDelete,
   className = ''
 }) => {
   // Get primary instrument or first instrument
@@ -82,6 +85,24 @@ const StudentCard: React.FC<StudentCardProps> = ({
     return colors[stage as keyof typeof colors] || 'bg-gray-500'
   }
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent card click when clicking delete
+    setShowDeleteModal(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (onDelete) {
+      onDelete(student._id)
+    }
+    setShowDeleteModal(false)
+  }
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false)
+  }
+
   return (
     <Card 
       className={`transition-all duration-200 hover:shadow-md ${onClick ? 'cursor-pointer hover:shadow-lg' : ''} ${className}`}
@@ -104,6 +125,16 @@ const StudentCard: React.FC<StudentCardProps> = ({
               {student.personalInfo.fullName}
             </h3>
             <div className="flex items-center space-x-2 space-x-reverse">
+              {/* Delete button */}
+              {onDelete && (
+                <button
+                  onClick={handleDeleteClick}
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="מחק תלמיד"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
               {/* Active status indicator */}
               <div className={`w-3 h-3 rounded-full ${student.isActive ? 'bg-green-400' : 'bg-gray-300'}`} />
               {/* Class badge */}
@@ -194,6 +225,18 @@ const StudentCard: React.FC<StudentCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        title="מחיקת תלמיד"
+        message={`האם אתה בטוח שברצונך למחוק את התלמיד ${student.personalInfo.fullName}? פעולה זו לא ניתנת לביטול.`}
+        confirmText="מחק"
+        cancelText="ביטול"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        variant="danger"
+      />
     </Card>
   )
 }

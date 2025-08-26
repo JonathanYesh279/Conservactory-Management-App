@@ -36,6 +36,7 @@ interface OrchestraDetailsModalProps {
   onEdit?: (orchestra: Orchestra) => void
   onDelete?: (orchestraId: string) => void
   onManageMembers?: (orchestraId: string) => void
+  refreshTrigger?: number // Add trigger to force refresh when members change
 }
 
 interface DetailedOrchestra extends Orchestra {
@@ -89,7 +90,8 @@ export default function OrchestraDetailsModal({
   onClose,
   onEdit,
   onDelete,
-  onManageMembers
+  onManageMembers,
+  refreshTrigger
 }: OrchestraDetailsModalProps) {
   const [orchestra, setOrchestra] = useState<DetailedOrchestra | null>(null)
   const [loading, setLoading] = useState(true)
@@ -100,7 +102,7 @@ export default function OrchestraDetailsModal({
     if (isOpen && orchestraId) {
       loadOrchestraDetails()
     }
-  }, [isOpen, orchestraId])
+  }, [isOpen, orchestraId, refreshTrigger]) // Add refreshTrigger to dependencies
 
   const loadOrchestraDetails = async () => {
     try {
@@ -420,19 +422,22 @@ export default function OrchestraDetailsModal({
                 <Card>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">כלי נגינה</h3>
                   <div className="space-y-3">
-                    {instrumentsSummary.instrumentCounts.map(({ instrument, count, primaryCount }) => (
-                      <div key={instrument} className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-900">{instrument}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600">{count} נגנים</span>
-                          {primaryCount > 0 && (
-                            <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full">
-                              {primaryCount} ראשי
-                            </span>
-                          )}
+                    {Object.entries(instrumentsSummary.instrumentCounts).map(([instrument, count]) => {
+                      const isPrimary = instrumentsSummary.primaryInstruments.includes(instrument);
+                      return (
+                        <div key={instrument} className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-900">{instrument}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600">{count} נגנים</span>
+                            {isPrimary && (
+                              <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full">
+                                ראשי
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </Card>
               )}

@@ -642,12 +642,15 @@ export const validateBulkRehearsalForm = (data: Partial<BulkRehearsalData>): {
  * @returns Color class
  */
 export const getRehearsalColor = (rehearsal: Rehearsal): string => {
-  // Color by type
-  switch (rehearsal.type) {
+  // Color by type: blue for orchestras, pink for ensembles
+  // Check both rehearsal.type and orchestra.type to handle different data structures
+  const type = rehearsal.orchestra?.type || rehearsal.type;
+  
+  switch (type) {
     case 'תזמורת':
       return 'bg-blue-500';
     case 'הרכב':
-      return 'bg-green-500';
+      return 'bg-pink-500';
     default:
       return 'bg-gray-500';
   }

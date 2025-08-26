@@ -129,12 +129,22 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
       
       const updatedOrchestras = [...(student.enrollments?.orchestraIds || []), orchestraId]
       
+      // Update student's orchestraIds
       await apiService.students.updateStudent(studentId, {
         enrollments: {
           ...student.enrollments,
           orchestraIds: updatedOrchestras
         }
       })
+      
+      // Also update orchestra's memberIds
+      try {
+        await apiService.orchestras.addMember(orchestraId, studentId)
+        console.log(`Added student ${studentId} to orchestra ${orchestraId} memberIds`)
+      } catch (err) {
+        console.error(`Failed to update orchestra ${orchestraId} memberIds:`, err)
+        // Don't fail the whole operation if orchestra update fails
+      }
       
       // Update local state optimistically
       const enrolledOrchestra = availableOrchestras.find(o => o._id === orchestraId)
@@ -161,12 +171,22 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
       
       const updatedOrchestras = (student.enrollments?.orchestraIds || []).filter((id: string) => id !== orchestraId)
       
+      // Update student's orchestraIds
       await apiService.students.updateStudent(studentId, {
         enrollments: {
           ...student.enrollments,
           orchestraIds: updatedOrchestras
         }
       })
+      
+      // Also update orchestra's memberIds
+      try {
+        await apiService.orchestras.removeMember(orchestraId, studentId)
+        console.log(`Removed student ${studentId} from orchestra ${orchestraId} memberIds`)
+      } catch (err) {
+        console.error(`Failed to update orchestra ${orchestraId} memberIds:`, err)
+        // Don't fail the whole operation if orchestra update fails
+      }
       
       // Update local state optimistically
       const unenrolledOrchestra = enrolledOrchestras.find(o => o._id === orchestraId)

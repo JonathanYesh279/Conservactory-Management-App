@@ -286,7 +286,11 @@ export default function OrchestraManagementDashboard({
           const readiness = getOrchestraReadiness(orchestra)
 
           return (
-            <Card key={orchestra._id} className="hover:shadow-lg transition-shadow">
+            <Card 
+              key={orchestra._id} 
+              className="hover:shadow-lg transition-shadow cursor-pointer hover:border-primary-300" 
+              onClick={() => onViewDetails?.(orchestra._id)}
+            >
               <div className="space-y-4">
                 {/* Header */}
                 <div className="flex items-start justify-between">
@@ -377,21 +381,20 @@ export default function OrchestraManagementDashboard({
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
                   <button
-                    onClick={() => onViewDetails?.(orchestra._id)}
-                    className="flex items-center gap-1 px-3 py-2 text-xs bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors"
-                  >
-                    <Eye className="w-3 h-3" />
-                    פרטים
-                  </button>
-                  <button
-                    onClick={() => onEditOrchestra?.(orchestra)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEditOrchestra?.(orchestra)
+                    }}
                     className="flex items-center gap-1 px-3 py-2 text-xs bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <Edit className="w-3 h-3" />
                     עריכה
                   </button>
                   <button
-                    onClick={() => onManageMembers?.(orchestra._id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onManageMembers?.(orchestra._id)
+                    }}
                     className="flex items-center gap-1 px-3 py-2 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
                   >
                     <UserPlus className="w-3 h-3" />

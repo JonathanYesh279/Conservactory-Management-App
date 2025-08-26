@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Filter, Music, Users, UserCheck, Calendar, Grid, List, MapPin, BarChart3, Settings } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Table from '../components/ui/Table'
@@ -6,7 +7,6 @@ import StatsCard from '../components/ui/StatsCard'
 import OrchestraForm from '../components/OrchestraForm'
 import OrchestraCard from '../components/OrchestraCard'
 import OrchestraManagementDashboard from '../components/OrchestraManagementDashboard'
-import OrchestraDetailsModal from '../components/OrchestraDetailsModal'
 import OrchestraMemberManagement from '../components/OrchestraMemberManagement'
 import { orchestraService, teacherService } from '../services/apiService'
 import { 
@@ -26,6 +26,7 @@ import {
 } from '../utils/orchestraUtils'
 
 export default function Orchestras() {
+  const navigate = useNavigate()
   const [orchestras, setOrchestras] = useState<Orchestra[]>([])
   const [teachers, setTeachers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -35,10 +36,9 @@ export default function Orchestras() {
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'table' | 'dashboard'>('dashboard')
   
-  // Modal states
-  const [showDetailsModal, setShowDetailsModal] = useState(false)
-  const [selectedOrchestraId, setSelectedOrchestraId] = useState<string | null>(null)
+  // Modal states (keeping member management modal for now)
   const [showMemberManagement, setShowMemberManagement] = useState(false)
+  const [selectedOrchestraId, setSelectedOrchestraId] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'name' | 'type' | 'conductor' | 'memberCount' | 'location' | 'rehearsalCount'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [filters, setFilters] = useState({
@@ -144,8 +144,7 @@ export default function Orchestras() {
   }
 
   const handleViewDetails = (orchestraId: string) => {
-    setSelectedOrchestraId(orchestraId)
-    setShowDetailsModal(true)
+    navigate(`/orchestras/${orchestraId}`)
   }
 
   const handleManageMembers = (orchestraId: string) => {
@@ -154,7 +153,6 @@ export default function Orchestras() {
   }
 
   const handleCloseModals = () => {
-    setShowDetailsModal(false)
     setShowMemberManagement(false)
     setSelectedOrchestraId(null)
   }
@@ -535,26 +533,6 @@ export default function Orchestras() {
         />
       )}
 
-      {/* Orchestra Details Modal */}
-      {showDetailsModal && selectedOrchestraId && (
-        <OrchestraDetailsModal
-          orchestraId={selectedOrchestraId}
-          isOpen={showDetailsModal}
-          onClose={handleCloseModals}
-          onEdit={(orchestra) => {
-            handleCloseModals()
-            handleEditOrchestra(orchestra)
-          }}
-          onDelete={(orchestraId) => {
-            handleCloseModals()
-            handleDeleteOrchestra(orchestraId)
-          }}
-          onManageMembers={(orchestraId) => {
-            setShowDetailsModal(false)
-            handleManageMembers(orchestraId)
-          }}
-        />
-      )}
 
       {/* Member Management Modal */}
       {showMemberManagement && selectedOrchestraId && (

@@ -31,14 +31,38 @@ export const AuthProvider = ({ children }) => {
       if (apiService.auth.isAuthenticated()) {
         // Validate the token with the server
         const validation = await apiService.auth.validateToken()
+        
+        // The user data might be directly in the response or nested differently
+        // Let's try multiple possible locations based on the API structure
+        const userData = validation.teacher || 
+                         validation.user || 
+                         validation.data?.teacher || 
+                         validation.data?.user ||
+                         validation.data ||
+                         validation
+        
+        console.log('🔐 AUTH CONTEXT - Token validation result:', {
+          validationResponse: validation,
+          validationKeys: Object.keys(validation || {}),
+          extractedUser: userData,
+          hasTeacher: !!validation.teacher,
+          hasUser: !!validation.user,
+          hasDataTeacher: !!validation.data?.teacher,
+          hasDataUser: !!validation.data?.user,
+          hasData: !!validation.data,
+          userRoles: userData?.roles,
+          userRole: userData?.role
+        })
+        
         setIsAuthenticated(true)
-        setUser(validation.teacher || validation.user)
+        setUser(userData)
       } else {
+        console.log('🔐 AUTH CONTEXT - No valid token found')
         setIsAuthenticated(false)
         setUser(null)
       }
     } catch (error) {
-      console.error('Auth validation failed:', error)
+      console.error('🔐 AUTH CONTEXT - Auth validation failed:', error)
       setIsAuthenticated(false)
       setUser(null)
     } finally {
@@ -49,17 +73,37 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       setIsLoading(true)
-      const { token, teacher } = await apiService.auth.login(email, password)
+      const loginResponse = await apiService.auth.login(email, password)
+      
+      console.log('🔐 AUTH CONTEXT - Login response:', {
+        fullResponse: loginResponse,
+        responseKeys: Object.keys(loginResponse || {}),
+        hasToken: !!loginResponse.token,
+        hasTeacher: !!loginResponse.teacher,
+        hasUser: !!loginResponse.user,
+        hasData: !!loginResponse.data,
+        teacherData: loginResponse.teacher,
+        teacherRoles: loginResponse.teacher?.roles,
+        teacherRole: loginResponse.teacher?.role
+      })
+      
+      const { token } = loginResponse
+      // Try multiple possible locations for user data
+      const userData = loginResponse.teacher || 
+                       loginResponse.user || 
+                       loginResponse.data?.teacher || 
+                       loginResponse.data?.user ||
+                       loginResponse.data
       
       if (token) {
         setIsAuthenticated(true)
-        setUser(teacher)
-        return { success: true, user: teacher }
+        setUser(userData)
+        return { success: true, user: userData }
       } else {
         throw new Error('No token received')
       }
     } catch (error) {
-      console.error('Login failed:', error)
+      console.error('🔐 AUTH CONTEXT - Login failed:', error)
       setIsAuthenticated(false)
       setUser(null)
       throw error

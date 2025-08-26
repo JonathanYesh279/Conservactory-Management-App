@@ -196,11 +196,9 @@ export default function RehearsalForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onCancel} />
-        
-        <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-right align-middle transition-all transform bg-white shadow-xl rounded-lg">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onCancel}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transform transition-all" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <button
@@ -262,7 +260,7 @@ export default function RehearsalForm({
                   <select
                     value={singleForm.groupId || ''}
                     onChange={(e) => handleSingleFormChange('groupId', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                       errors.groupId ? 'border-red-300' : 'border-gray-300'
                     }`}
                     disabled={!!initialData}
@@ -289,7 +287,7 @@ export default function RehearsalForm({
                     type="date"
                     value={singleForm.date || ''}
                     onChange={(e) => handleSingleFormChange('date', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                       errors.date ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -309,7 +307,7 @@ export default function RehearsalForm({
                       type="time"
                       value={singleForm.startTime || ''}
                       onChange={(e) => handleSingleFormChange('startTime', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                         errors.startTime ? 'border-red-300' : 'border-gray-300'
                       }`}
                     />
@@ -324,7 +322,7 @@ export default function RehearsalForm({
                       type="time"
                       value={singleForm.endTime || ''}
                       onChange={(e) => handleSingleFormChange('endTime', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                         errors.endTime ? 'border-red-300' : 'border-gray-300'
                       }`}
                     />
@@ -345,7 +343,7 @@ export default function RehearsalForm({
                     value={singleForm.location || ''}
                     onChange={(e) => handleSingleFormChange('location', e.target.value)}
                     placeholder="כגון: אולם ערן, סטודיו קאמרי 1"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                       errors.location ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -378,7 +376,7 @@ export default function RehearsalForm({
                   <select
                     value={bulkForm.orchestraId || ''}
                     onChange={(e) => handleBulkFormChange('orchestraId', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                       errors.orchestraId ? 'border-red-300' : 'border-gray-300'
                     }`}
                   >
@@ -405,7 +403,7 @@ export default function RehearsalForm({
                       type="date"
                       value={bulkForm.startDate || ''}
                       onChange={(e) => handleBulkFormChange('startDate', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                         errors.startDate ? 'border-red-300' : 'border-gray-300'
                       }`}
                     />
@@ -420,7 +418,7 @@ export default function RehearsalForm({
                       type="date"
                       value={bulkForm.endDate || ''}
                       onChange={(e) => handleBulkFormChange('endDate', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                         errors.endDate ? 'border-red-300' : 'border-gray-300'
                       }`}
                     />
@@ -436,7 +434,7 @@ export default function RehearsalForm({
                   <select
                     value={bulkForm.dayOfWeek || 0}
                     onChange={(e) => handleBulkFormChange('dayOfWeek', parseInt(e.target.value))}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                       errors.dayOfWeek ? 'border-red-300' : 'border-gray-300'
                     }`}
                   >
@@ -462,7 +460,7 @@ export default function RehearsalForm({
                       type="time"
                       value={bulkForm.startTime || ''}
                       onChange={(e) => handleBulkFormChange('startTime', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                         errors.startTime ? 'border-red-300' : 'border-gray-300'
                       }`}
                     />
@@ -477,7 +475,7 @@ export default function RehearsalForm({
                       type="time"
                       value={bulkForm.endTime || ''}
                       onChange={(e) => handleBulkFormChange('endTime', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                         errors.endTime ? 'border-red-300' : 'border-gray-300'
                       }`}
                     />
@@ -498,7 +496,7 @@ export default function RehearsalForm({
                     value={bulkForm.location || ''}
                     onChange={(e) => handleBulkFormChange('location', e.target.value)}
                     placeholder="כגון: אולם ערן, סטודיו קאמרי 1"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                       errors.location ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />

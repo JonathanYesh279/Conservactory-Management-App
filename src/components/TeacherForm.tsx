@@ -272,7 +272,7 @@ export default function TeacherForm({ teacher, onSubmit, onCancel, isLoading = f
                 type="text"
                 value={formData.personalInfo.fullName}
                 onChange={(e) => handleInputChange('personalInfo.fullName', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 ${
                   getFieldError('personalInfo.fullName') ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="הזן שם מלא"
@@ -293,7 +293,7 @@ export default function TeacherForm({ teacher, onSubmit, onCancel, isLoading = f
                 type="tel"
                 value={formData.personalInfo.phone}
                 onChange={(e) => handleInputChange('personalInfo.phone', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 ${
                   getFieldError('personalInfo.phone') ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="05XXXXXXXX"
@@ -314,7 +314,7 @@ export default function TeacherForm({ teacher, onSubmit, onCancel, isLoading = f
                 type="email"
                 value={formData.personalInfo.email}
                 onChange={(e) => handleInputChange('personalInfo.email', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 ${
                   getFieldError('personalInfo.email') ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="example@email.com"
@@ -335,7 +335,7 @@ export default function TeacherForm({ teacher, onSubmit, onCancel, isLoading = f
                 type="text"
                 value={formData.personalInfo.address}
                 onChange={(e) => handleInputChange('personalInfo.address', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
                 placeholder="הזן כתובת"
               />
             </div>
@@ -377,7 +377,7 @@ export default function TeacherForm({ teacher, onSubmit, onCancel, isLoading = f
               <select
                 value={formData.professionalInfo.instrument}
                 onChange={(e) => handleInputChange('professionalInfo.instrument', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 ${
                   getFieldError('professionalInfo.instrument') ? 'border-red-500' : 'border-gray-300'
                 }`}
                 disabled={formData.roles.includes('מורה תאוריה')}
@@ -423,7 +423,7 @@ export default function TeacherForm({ teacher, onSubmit, onCancel, isLoading = f
                 type="email"
                 value={formData.credentials.email}
                 onChange={(e) => handleInputChange('credentials.email', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 ${
                   getFieldError('credentials.email') ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="example@email.com"
@@ -445,7 +445,7 @@ export default function TeacherForm({ teacher, onSubmit, onCancel, isLoading = f
                   type="password"
                   value={formData.credentials.password}
                   onChange={(e) => handleInputChange('credentials.password', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 ${
                     getFieldError('credentials.password') ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="הזן סיסמה"

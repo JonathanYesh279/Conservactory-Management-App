@@ -43,14 +43,9 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ teacher, teacherId })
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header with Edit Button */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">מידע אישי</h2>
-          <p className="text-sm text-gray-600">פרטי המורה האישיים וההתקשרות</p>
-        </div>
-        
+      <div className="flex justify-end">
         {!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}

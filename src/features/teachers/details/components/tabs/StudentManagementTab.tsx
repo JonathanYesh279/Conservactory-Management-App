@@ -210,19 +210,9 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            ניהול תלמידים
-          </h2>
-          <p className="text-sm text-gray-600">
-            ניהול התלמידים המשויכים למורה ({students.length} תלמידים)
-          </p>
-        </div>
-        
+      <div className="flex justify-end">
         <button
           onClick={() => setIsAddingStudent(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all shadow-sm font-medium"
@@ -234,7 +224,7 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
 
       {/* Add Student Modal */}
       {isAddingStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 teacher-modal-backdrop">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 teacher-modal-backdrop">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all teacher-modal-container">
             <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">הוסף תלמיד חדש</h3>
             

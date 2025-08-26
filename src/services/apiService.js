@@ -112,8 +112,8 @@ class ApiClient {
       ...options,
     };
 
-    // Add body for POST/PUT/PATCH requests
-    if (options.body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+    // Add body for POST/PUT/PATCH/DELETE requests
+    if (options.body && (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE')) {
       config.body = JSON.stringify(options.body);
     }
 
@@ -170,8 +170,8 @@ class ApiClient {
     return this.request('PATCH', endpoint, { body });
   }
 
-  async delete(endpoint) {
-    return this.request('DELETE', endpoint);
+  async delete(endpoint, body = null) {
+    return this.request('DELETE', endpoint, body ? { body } : {});
   }
 }
 
@@ -390,6 +390,29 @@ export const studentService = {
       return student;
     } catch (error) {
       console.error('Error updating student:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update student stage level quickly
+   * @param {string} studentId - Student ID
+   * @param {number} newStageLevel - New stage level (1-8)
+   * @returns {Promise<Object>} Updated student
+   */
+  async updateStudentStageLevel(studentId, newStageLevel) {
+    try {
+      console.log(`🔄 Updating stage level for student ${studentId} to ${newStageLevel}`);
+      
+      // Use the new dedicated PATCH endpoint
+      const result = await apiClient.patch(`/student/${studentId}/stage-level`, {
+        stageLevel: newStageLevel
+      });
+      
+      console.log(`🎵 Updated stage level to ${newStageLevel}`);
+      return result;
+    } catch (error) {
+      console.error('Error updating student stage level:', error);
       throw error;
     }
   },
@@ -689,6 +712,15 @@ export const teacherService = {
       console.error('Error creating teacher:', error);
       throw error;
     }
+  },
+
+  /**
+   * Alias for createTeacher - for modal compatibility
+   * @param {Object} teacherData - Teacher data with exact backend schema
+   * @returns {Promise<Object>} Created teacher
+   */
+  async addTeacher(teacherData) {
+    return this.createTeacher(teacherData);
   },
 
   /**
@@ -1061,13 +1093,28 @@ export const orchestraService = {
    */
   async addMember(orchestraId, studentId) {
     try {
-      const orchestra = await apiClient.post(`/orchestra/${orchestraId}/members`, { studentId });
+      console.log('🔄 Attempting to add member:', { orchestraId, studentId });
+      console.log('🔑 Current auth token exists:', !!apiClient.getStoredToken());
       
-      console.log(`👤 Added member ${studentId} to orchestra ${orchestraId}`);
+      const requestBody = { 
+        studentId,
+      };
+      
+      console.log('📤 Request body:', requestBody);
+      
+      const orchestra = await apiClient.post(`/orchestra/${orchestraId}/members`, requestBody);
+      
+      console.log(`✅ Successfully added member ${studentId} to orchestra ${orchestraId}`);
       
       return orchestra;
     } catch (error) {
-      console.error('Error adding member to orchestra:', error);
+      console.error('❌ Detailed error adding member to orchestra:', {
+        orchestraId,
+        studentId,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        hasToken: !!apiClient.getStoredToken()
+      });
       throw error;
     }
   },
@@ -1332,6 +1379,29 @@ export const rehearsalService = {
       console.log(`🗑️ Deleted rehearsal: ${rehearsalId}`);
     } catch (error) {
       console.error('Error deleting rehearsal:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete rehearsals in a date range for a specific orchestra
+   * @param {string} orchestraId - Orchestra ID
+   * @param {string} startDate - Start date (YYYY-MM-DD)
+   * @param {string} endDate - End date (YYYY-MM-DD)
+   * @returns {Promise<Object>} Delete operation result
+   */
+  async deleteRehearsalsByDateRange(orchestraId, startDate, endDate) {
+    try {
+      const result = await apiClient.delete(`/rehearsal/orchestra/${orchestraId}/date-range`, {
+        startDate,
+        endDate
+      });
+      
+      console.log(`🗑️ Deleted rehearsals in date range ${startDate} to ${endDate} for orchestra ${orchestraId}: ${result.deletedCount} rehearsals deleted`);
+      
+      return result;
+    } catch (error) {
+      console.error('Error deleting rehearsals by date range:', error);
       throw error;
     }
   },

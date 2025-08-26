@@ -196,19 +196,9 @@ const ConductingTab: React.FC<ConductingTabProps> = ({ teacher, teacherId }) => 
                      ensembles.reduce((sum, ens) => sum + (ens.memberIds?.length || 0), 0)
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Music className="w-5 h-5" />
-            ניצוח
-          </h2>
-          <p className="text-sm text-gray-600">
-            ניהול התזמורות והאנסמבלים בניצוחו של המורה
-          </p>
-        </div>
-        
+      <div className="flex justify-end">
         <div className="flex gap-4 text-sm">
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">

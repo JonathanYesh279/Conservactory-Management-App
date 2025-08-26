@@ -9,8 +9,8 @@ import Students from './pages/Students'
 import Teachers from './pages/Teachers'
 import TheoryLessons from './pages/TheoryLessons'
 import Orchestras from './pages/Orchestras'
-import OrchestraDetails from './pages/OrchestraDetails'
 import Rehearsals from './pages/Rehearsals'
+import RehearsalDetails from './pages/RehearsalDetails'
 import { lazy } from 'react'
 
 // Lazy load StudentDetailsPage for code splitting
@@ -18,6 +18,9 @@ const StudentDetailsPage = lazy(() => import('./features/students/details/compon
 
 // Lazy load TeacherDetailsPage for code splitting
 const TeacherDetailsPage = lazy(() => import('./features/teachers/details/components/TeacherDetailsPage'))
+
+// Lazy load OrchestraDetailsPage for code splitting
+const OrchestraDetailsPage = lazy(() => import('./features/orchestras/details/components/OrchestraDetailsPage'))
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -144,7 +147,16 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <Layout>
-                <OrchestraDetails />
+                <Suspense fallback={
+                  <div className="flex items-center justify-center min-h-96">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                      <div className="text-gray-600">טוען פרטי תזמורת...</div>
+                    </div>
+                  </div>
+                }>
+                  <OrchestraDetailsPage />
+                </Suspense>
               </Layout>
             </ProtectedRoute>
           }
@@ -155,6 +167,16 @@ function AppRoutes() {
             <ProtectedRoute>
               <Layout>
                 <Rehearsals />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rehearsals/:rehearsalId"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <RehearsalDetails />
               </Layout>
             </ProtectedRoute>
           }

@@ -65,8 +65,6 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId }) => {
 
   return (
     <div className="p-6 space-y-6">
-      <h2 className="text-lg font-semibold text-gray-900">שיעורי תיאוריה</h2>
-      
       {theoryClasses && theoryClasses.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {theoryClasses.map((theoryClass, index) => (

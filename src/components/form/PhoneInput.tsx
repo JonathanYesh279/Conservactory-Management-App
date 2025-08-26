@@ -95,7 +95,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
       w-full pl-10 pr-4 py-2 border rounded-lg 
       focus:outline-none focus:ring-2 focus:ring-primary-500 
       transition-colors duration-200
-      text-right font-mono
+      text-right font-mono text-gray-900
       placeholder:text-gray-400 placeholder:font-sans
     `
     

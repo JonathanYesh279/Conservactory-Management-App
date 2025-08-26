@@ -14,6 +14,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    strictPort: true, // Don't try other ports, fail if 5173 is in use
     host: true,
     open: 'http://localhost:5173',
     watch: {

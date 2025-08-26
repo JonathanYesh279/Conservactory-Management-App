@@ -125,7 +125,7 @@ export default function OrchestraForm({ orchestra, teachers, onSubmit, onCancel 
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                   errors.name ? 'border-red-300' : 'border-gray-300'
                 }`}
                 placeholder="הזן שם לתזמורת"
@@ -144,7 +144,7 @@ export default function OrchestraForm({ orchestra, teachers, onSubmit, onCancel 
               <select
                 value={formData.type}
                 onChange={(e) => handleInputChange('type', e.target.value as OrchestraType)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                   errors.type ? 'border-red-300' : 'border-gray-300'
                 }`}
                 required
@@ -170,7 +170,7 @@ export default function OrchestraForm({ orchestra, teachers, onSubmit, onCancel 
               <select
                 value={formData.location}
                 onChange={(e) => handleInputChange('location', e.target.value as LocationType)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 ${
                   errors.location ? 'border-red-300' : 'border-gray-300'
                 }`}
                 required

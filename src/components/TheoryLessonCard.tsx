@@ -1,13 +1,8 @@
-import { Calendar, Clock, Users, MapPin, BookOpen, Edit, Trash2, UserCheck } from 'lucide-react'
+import { Calendar, Clock, MapPin, BookOpen, Edit, Trash2, UserCheck } from 'lucide-react'
 import { 
   formatLessonDate, 
   formatLessonTime, 
-  formatLessonAttendance, 
-  calculateAttendancePercentage,
   getLessonStatus,
-  getAttendanceColor,
-  formatDuration,
-  getEnrollmentInfo,
   type TheoryLesson 
 } from '../utils/theoryLessonUtils'
 
@@ -22,10 +17,7 @@ export default function TheoryLessonCard({ lesson, onEdit, onDelete, onViewAtten
   // Use utility functions for consistent formatting as specified in requirements
   const formattedDate = formatLessonDate(lesson)
   const formattedTime = formatLessonTime(lesson)
-  const attendanceText = formatLessonAttendance(lesson)
-  const attendancePercentage = calculateAttendancePercentage(lesson)
   const lessonStatus = getLessonStatus(lesson)
-  const enrollmentInfo = getEnrollmentInfo(lesson)
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
@@ -105,49 +97,11 @@ export default function TheoryLessonCard({ lesson, onEdit, onDelete, onViewAtten
           </div>
         </div>
 
-        {/* Location and Duration */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="flex items-center text-gray-600">
-            <MapPin className="w-4 h-4 ml-2 text-gray-400" />
-            <span className="font-medium text-gray-900 ml-1">מיקום:</span>
-            {lesson.location || 'לא צוין'}
-          </div>
-          <div className="flex items-center text-gray-600">
-            <Clock className="w-4 h-4 ml-2 text-gray-400" />
-            <span className="font-medium text-gray-900 ml-1">משך:</span>
-            {formatDuration(lesson.duration)}
-          </div>
-        </div>
-
-        {/* Attendance */}
-        <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-          <div className="flex items-center text-sm">
-            <Users className="w-4 h-4 ml-2 text-gray-400" />
-            <span className="font-medium text-gray-900 ml-1">נוכחות:</span>
-            <span className="text-gray-600">{attendanceText}</span>
-          </div>
-          
-          {/* Attendance Progress Bar */}
-          <div className="flex items-center gap-2">
-            <div className="w-16 bg-gray-200 rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full transition-all duration-300 ${getAttendanceColor(attendancePercentage)}`}
-                style={{ width: `${Math.min(100, attendancePercentage)}%` }}
-              />
-            </div>
-            <span className="text-xs text-gray-500 w-8">{attendancePercentage}%</span>
-          </div>
-        </div>
-
-        {/* Students Count */}
-        <div className="text-xs text-gray-500 text-center pt-2 border-t border-gray-100">
-          {enrollmentInfo.enrolled} תלמידים רשומים מתוך {enrollmentInfo.capacity} מקומות
-          {enrollmentInfo.available > 0 && (
-            <span className="text-green-600 mr-2">({enrollmentInfo.available} מקומות פנויים)</span>
-          )}
-          {enrollmentInfo.isFull && (
-            <span className="text-red-600 mr-2">(מלא)</span>
-          )}
+        {/* Location */}
+        <div className="flex items-center text-sm text-gray-600">
+          <MapPin className="w-4 h-4 ml-2 text-gray-400" />
+          <span className="font-medium text-gray-900 ml-1">מיקום:</span>
+          {lesson.location || 'לא צוין'}
         </div>
       </div>
     </div>

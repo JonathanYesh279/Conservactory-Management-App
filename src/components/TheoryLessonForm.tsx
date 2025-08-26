@@ -231,7 +231,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
               <select
                 value={formData.category}
                 onChange={(e) => handleInputChange('category', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
                 required
               >
                 {categories.map(category => (
@@ -249,7 +249,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
                 type="text"
                 value={formData.title}
                 onChange={(e) => handleInputChange('title', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
                 placeholder="הזן כותרת לשיעור"
                 required
               />
@@ -265,7 +265,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
               placeholder="תיאור קצר של נושאי השיעור..."
             />
           </div>
@@ -280,7 +280,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
               <select
                 value={formData.teacherId}
                 onChange={(e) => handleInputChange('teacherId', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
               >
                 <option value="">בחר מורה</option>
                 {teachers.map(teacher => (
@@ -301,7 +301,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
                 type="text"
                 value={formData.location}
                 onChange={(e) => handleInputChange('location', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
                 placeholder="חדר תיאוריה 1"
               />
             </div>
@@ -318,7 +318,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
                 type="date"
                 value={formData.date}
                 onChange={(e) => handleInputChange('date', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
                 required
               />
             </div>
@@ -333,7 +333,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
                 type="time"
                 value={formData.startTime}
                 onChange={(e) => handleInputChange('startTime', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
                 required
               />
             </div>
@@ -347,7 +347,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
                 type="time"
                 value={formData.endTime}
                 onChange={(e) => handleInputChange('endTime', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
                 required
               />
             </div>
@@ -396,7 +396,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
                 type="number"
                 value={formData.maxStudents}
                 onChange={(e) => handleInputChange('maxStudents', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
                 min="1"
                 max="50"
                 required

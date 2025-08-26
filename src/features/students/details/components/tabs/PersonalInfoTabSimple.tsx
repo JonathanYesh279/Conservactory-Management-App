@@ -35,11 +35,6 @@ const PersonalInfoTabSimple: React.FC<PersonalInfoTabProps> = ({ student, studen
     <div className="p-6 space-y-8">
       {/* Student Information */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-6 flex items-center gap-2">
-          <User className="w-5 h-5 text-primary-600" />
-          פרטי תלמיד
-        </h3>
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">שם מלא</label>
@@ -79,11 +74,6 @@ const PersonalInfoTabSimple: React.FC<PersonalInfoTabProps> = ({ student, studen
 
       {/* Parent Information */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-6 flex items-center gap-2">
-          <User className="w-5 h-5 text-primary-600" />
-          פרטי הורה
-        </h3>
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">שם הורה</label>

@@ -4,8 +4,10 @@ import { Search, Plus, Filter, Loader, Calendar, Users, X, Grid, List, Eye, Edit
 import Card from '../components/ui/Card'
 import Table, { StatusBadge } from '../components/ui/Table'
 import TeacherCard from '../components/TeacherCard'
+import AddTeacherModal from '../components/modals/AddTeacherModal'
 import apiService from '../services/apiService'
 import { useSchoolYear } from '../services/schoolYearContext'
+import { useAuth } from '../services/authContext'
 
 interface Teacher {
   id: string
@@ -26,9 +28,64 @@ interface Teacher {
   rawData: any
 }
 
+// Helper function to check if user is admin
+const isUserAdmin = (user: any): boolean => {
+  console.log('🔍 ADMIN CHECK - Start:', {
+    userExists: !!user,
+    userType: typeof user,
+    userKeys: user ? Object.keys(user) : 'no user'
+  })
+  
+  if (!user) {
+    console.log('❌ ADMIN CHECK - No user object')
+    return false
+  }
+  
+  // Check for admin role in different formats
+  const hasAdminInRoles = user?.roles?.includes('מנהל')
+  const hasAdminEnglish = user?.roles?.includes('admin')
+  const hasSingleAdminRole = user?.role === 'admin'
+  const hasHebrewAdminRole = user?.role === 'מנהל'
+  
+  const hasAdminRole = hasAdminInRoles || hasAdminEnglish || hasSingleAdminRole || hasHebrewAdminRole
+  
+  console.log('🔍 ADMIN CHECK - Detailed:', {
+    user: user,
+    roles: user?.roles,
+    role: user?.role,
+    checks: {
+      hasAdminInRoles,
+      hasAdminEnglish, 
+      hasSingleAdminRole,
+      hasHebrewAdminRole
+    },
+    finalResult: hasAdminRole
+  })
+  
+  if (!hasAdminRole) {
+    console.warn('⚠️  ADMIN CHECK - Access denied! User is not admin')
+  } else {
+    console.log('✅ ADMIN CHECK - User is admin!')
+  }
+  
+  return hasAdminRole
+}
+
 export default function Teachers() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
+  
+  // Debug auth state
+  useEffect(() => {
+    console.log('🏛️ TEACHERS PAGE - Auth state changed:', {
+      userExists: !!user,
+      userId: user?._id,
+      userRoles: user?.roles,
+      userRole: user?.role,
+      timestamp: new Date().toISOString()
+    })
+  }, [user])
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -43,6 +100,7 @@ export default function Teachers() {
   const [instrumentSearchTerm, setInstrumentSearchTerm] = useState('')
   const [showInstrumentDropdown, setShowInstrumentDropdown] = useState(false)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid')
+  const [showAddTeacherModal, setShowAddTeacherModal] = useState(false)
 
   // Fetch teachers from real API when school year changes
   useEffect(() => {
@@ -192,8 +250,23 @@ export default function Teachers() {
   }
 
   const handleAddTeacher = () => {
-    console.log('Add new teacher')
-    // Navigate to add teacher page
+    console.log('🎯 HANDLE ADD TEACHER - Button clicked!')
+    const isAdmin = isUserAdmin(user)
+    
+    if (isAdmin) {
+      console.log('✅ HANDLE ADD TEACHER - Opening modal...')
+      setShowAddTeacherModal(true)
+    } else {
+      console.log('❌ HANDLE ADD TEACHER - Access denied!')
+      alert('רק מנהלים יכולים להוסיף מורים\n\nDEBUG INFO:\nUser: ' + JSON.stringify(user, null, 2))
+    }
+  }
+
+  const handleTeacherAdded = (newTeacher: any) => {
+    // Refresh the teachers list
+    if (!schoolYearLoading) {
+      loadTeachers()
+    }
   }
 
   // Available instruments list
@@ -268,7 +341,20 @@ export default function Teachers() {
     const hebrewDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי']
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        style={{
+          position: 'fixed !important',
+          top: '0 !important',
+          left: '0 !important',
+          right: '0 !important',
+          bottom: '0 !important',
+          display: 'flex !important',
+          alignItems: 'center !important',
+          justifyContent: 'center !important',
+          zIndex: 9999
+        }}
+      >
         <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex justify-between items-center mb-6">
@@ -449,13 +535,41 @@ export default function Teachers() {
               <option value="מורה תאוריה">מורה תאוריה</option>
               <option value="מגמה">מגמה</option>
             </select>
-            <button 
-              onClick={handleAddTeacher}
-              className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
-            >
-              <Plus className="w-4 h-4 ml-2" />
-              הוסף מורה
-            </button>
+            {/* Show Add Teacher button for admins */}
+            {(() => {
+              console.log('🎯 BUTTON RENDER - Checking admin status for button display...')
+              const isAdmin = isUserAdmin(user)
+              
+              // TEMPORARY: Force show button for debugging (remove after fixing)
+              const FORCE_SHOW_BUTTON = true // Set to false after debugging
+              const showButton = isAdmin || FORCE_SHOW_BUTTON
+              
+              console.log('🎯 BUTTON RENDER - Result:', {
+                isAdmin,
+                forceShow: FORCE_SHOW_BUTTON,
+                finalDecision: showButton ? 'SHOWING BUTTON' : 'HIDING BUTTON'
+              })
+              
+              return showButton ? (
+                <button 
+                  onClick={handleAddTeacher}
+                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                    isAdmin 
+                      ? 'bg-primary-500 text-white hover:bg-primary-600' 
+                      : 'bg-orange-500 text-white hover:bg-orange-600'
+                  }`}
+                  title={isAdmin ? 'Add Teacher' : 'DEBUG MODE - Not really admin'}
+                >
+                  <Plus className="w-4 h-4 ml-2" />
+                  {isAdmin ? 'הוסף מורה' : 'הוסף מורה (DEBUG)'}
+                </button>
+              ) : (
+                <div style={{display: 'none'}}>
+                  {/* Debug: Button hidden - user is not admin */}
+                  {console.log('🚫 BUTTON HIDDEN - User does not have admin privileges')}
+                </div>
+              )
+            })()}
           </div>
         </div>
       </Card>
@@ -597,12 +711,34 @@ export default function Teachers() {
           })}
         </div>
       )}
+      
+      {/* DEBUG INFO PANEL - Remove after fixing */}
+      <Card className="mb-4 bg-yellow-50 border-yellow-200">
+        <div className="p-4">
+          <h3 className="text-lg font-semibold text-yellow-800 mb-2">🐛 Debug Info (Remove after fixing)</h3>
+          <div className="text-sm text-yellow-700 space-y-1">
+            <div><strong>User Object:</strong> {user ? '✅ Exists' : '❌ Missing'}</div>
+            <div><strong>User ID:</strong> {user?._id || 'N/A'}</div>
+            <div><strong>Roles Array:</strong> {JSON.stringify(user?.roles) || 'N/A'}</div>
+            <div><strong>Single Role:</strong> {user?.role || 'N/A'}</div>
+            <div><strong>Is Admin:</strong> {isUserAdmin(user) ? '✅ YES' : '❌ NO'}</div>
+            <div><strong>Button Forced:</strong> ✅ YES (TEMPORARY)</div>
+          </div>
+        </div>
+      </Card>
 
       {filteredTeachers.length === 0 && !loading && (
         <div className="text-center py-12 text-gray-500">
           לא נמצאו מורים התואמים לחיפוש
         </div>
       )}
+
+      {/* Add Teacher Modal */}
+      <AddTeacherModal
+        isOpen={showAddTeacherModal}
+        onClose={() => setShowAddTeacherModal(false)}
+        onTeacherAdded={handleTeacherAdded}
+      />
     </div>
   )
 }

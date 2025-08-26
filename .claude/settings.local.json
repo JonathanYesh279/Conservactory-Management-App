@@ -37,7 +37,11 @@
       "Bash(npx react-scripts build:*)",
       "Bash(npx vite build:*)",
       "Bash(lsof:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Read(//mnt/c/Projects/conservatory-app/**)",
+      "Read(//mnt/c/Users/yona2/Pictures/Screenshots/**)",
+      "Bash(NODE_ENV=development node server.js)",
+      "Read(//mnt/c/Projects/conservatory-app/**)"
     ],
     "deny": [],
     "ask": [],

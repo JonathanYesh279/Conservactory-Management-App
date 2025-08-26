@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, Eye, Edit, Trash2 } from 'lucide-react'
+import AdditionalRehearsalsModal from './AdditionalRehearsalsModal'
 import {
   formatRehearsalDateTime,
   getRehearsalStatus,
@@ -19,6 +20,7 @@ interface RehearsalCalendarProps {
   onEditRehearsal?: (rehearsal: Rehearsal) => void
   onDeleteRehearsal?: (rehearsalId: string) => void
   onViewDetails?: (rehearsal: Rehearsal) => void
+  onNavigateToRehearsal?: (rehearsalId: string) => void
   className?: string
 }
 
@@ -31,9 +33,13 @@ export default function RehearsalCalendar({
   onEditRehearsal,
   onDeleteRehearsal,
   onViewDetails,
+  onNavigateToRehearsal,
   className = ''
 }: RehearsalCalendarProps) {
   const [currentDate, setCurrentDate] = useState(selectedDate)
+  const [showAdditionalModal, setShowAdditionalModal] = useState(false)
+  const [additionalRehearsals, setAdditionalRehearsals] = useState<Rehearsal[]>([])
+  const [modalDate, setModalDate] = useState<Date>(new Date())
   
   // Navigation functions
   const navigatePrevious = () => {
@@ -62,6 +68,19 @@ export default function RehearsalCalendar({
     const today = new Date()
     setCurrentDate(today)
     onSelectDate?.(today)
+  }
+
+  // Handle showing additional rehearsals modal
+  const handleShowAdditional = (date: Date, rehearsals: Rehearsal[]) => {
+    setModalDate(date)
+    setAdditionalRehearsals(rehearsals)
+    setShowAdditionalModal(true)
+  }
+
+  // Handle rehearsal click from modal
+  const handleModalRehearsalClick = (rehearsal: Rehearsal) => {
+    setShowAdditionalModal(false)
+    onNavigateToRehearsal?.(rehearsal._id)
   }
 
   // Get calendar data based on view mode
@@ -139,9 +158,21 @@ export default function RehearsalCalendar({
             onEditRehearsal={onEditRehearsal}
             onDeleteRehearsal={onDeleteRehearsal}
             onViewDetails={onViewDetails}
+            onNavigateToRehearsal={onNavigateToRehearsal}
+            onShowAdditional={handleShowAdditional}
           />
         )}
       </div>
+
+      {/* Additional Rehearsals Modal */}
+      {showAdditionalModal && (
+        <AdditionalRehearsalsModal
+          rehearsals={additionalRehearsals}
+          date={modalDate}
+          onClose={() => setShowAdditionalModal(false)}
+          onRehearsalClick={handleModalRehearsalClick}
+        />
+      )}
     </div>
   )
 }
@@ -172,8 +203,8 @@ function WeekView({ weekData, onRehearsalClick, onEditRehearsal, onDeleteRehears
       
       {/* Day cells */}
       {weekData.days.map((day, index) => (
-        <div key={index} className="min-h-[200px] border border-gray-200 rounded-lg p-2">
-          <div className="space-y-1">
+        <div key={index} className="min-h-[250px] border border-gray-200 rounded-lg p-3">
+          <div className="space-y-2">
             {day.rehearsals.map(rehearsal => (
               <RehearsalCard
                 key={rehearsal._id}
@@ -200,9 +231,11 @@ interface MonthViewProps {
   onEditRehearsal?: (rehearsal: Rehearsal) => void
   onDeleteRehearsal?: (rehearsalId: string) => void
   onViewDetails?: (rehearsal: Rehearsal) => void
+  onNavigateToRehearsal?: (rehearsalId: string) => void
+  onShowAdditional?: (date: Date, rehearsals: Rehearsal[]) => void
 }
 
-function MonthView({ monthData, currentDate, onRehearsalClick, onEditRehearsal, onDeleteRehearsal, onViewDetails }: MonthViewProps) {
+function MonthView({ monthData, currentDate, onRehearsalClick, onEditRehearsal, onDeleteRehearsal, onViewDetails, onNavigateToRehearsal, onShowAdditional }: MonthViewProps) {
   return (
     <div className="grid grid-cols-7 gap-1">
       {/* Day headers */}
@@ -217,19 +250,19 @@ function MonthView({ monthData, currentDate, onRehearsalClick, onEditRehearsal, 
         week.map((day, dayIndex) => (
           <div 
             key={`${weekIndex}-${dayIndex}`} 
-            className={`min-h-[100px] border border-gray-200 rounded-lg p-1 ${
+            className={`min-h-[120px] border border-gray-200 rounded-lg p-2 ${
               !day.isCurrentMonth ? 'bg-gray-50' : ''
             } ${day.isToday ? 'bg-primary-50 border-primary-200' : ''}`}
           >
-            <div className={`text-sm font-medium mb-1 ${
+            <div className={`text-sm font-semibold mb-2 ${
               !day.isCurrentMonth ? 'text-gray-400' :
               day.isToday ? 'text-primary-600' : 'text-gray-900'
             }`}>
               {day.date.getDate()}
             </div>
             
-            <div className="space-y-0.5">
-              {day.rehearsals.slice(0, 2).map(rehearsal => (
+            <div className="space-y-1">
+              {day.rehearsals.slice(0, 3).map(rehearsal => (
                 <RehearsalCard
                   key={rehearsal._id}
                   rehearsal={rehearsal}
@@ -241,9 +274,15 @@ function MonthView({ monthData, currentDate, onRehearsalClick, onEditRehearsal, 
                   onViewDetails={onViewDetails}
                 />
               ))}
-              {day.rehearsals.length > 2 && (
-                <div className="text-xs text-gray-500 text-center">
-                  +{day.rehearsals.length - 2} נוספות
+              {day.rehearsals.length > 3 && (
+                <div 
+                  className="text-xs text-gray-500 text-center py-1 bg-gray-100 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onShowAdditional?.(day.date, day.rehearsals)
+                  }}
+                >
+                  +{day.rehearsals.length - 3} נוספות
                 </div>
               )}
             </div>
@@ -279,83 +318,108 @@ function RehearsalCard({
   const color = getRehearsalColor(rehearsal)
   const dateTime = formatRehearsalDateTime(rehearsal)
 
+  if (minimal) {
+    return (
+      <div 
+        className={`${color} rounded-md p-1.5 text-white cursor-pointer hover:shadow-md transition-all duration-200 text-xs shadow-sm`}
+        onClick={() => onRehearsalClick?.(rehearsal)}
+        title={`${rehearsal.orchestra?.name || 'ללא שם'} • ${dateTime.time} • ${rehearsal.location}`}
+      >
+        <div className="font-medium truncate text-xs leading-tight">
+          {rehearsal.orchestra?.name || 'ללא שם'}
+        </div>
+        <div className="flex items-center justify-between mt-1 opacity-90">
+          <span className="text-[10px] truncate">{dateTime.time}</span>
+          <span className="text-[10px] ml-1 truncate flex-shrink-0">{rehearsal.location}</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div 
-      className={`${color} rounded-lg p-2 text-white cursor-pointer hover:opacity-90 transition-opacity ${
-        minimal ? 'text-xs' : compact ? 'text-sm' : ''
+      className={`${color} rounded-lg p-3 text-white cursor-pointer hover:shadow-lg transition-all duration-200 shadow-md ${
+        compact ? 'text-sm' : ''
       }`}
       onClick={() => onRehearsalClick?.(rehearsal)}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="font-medium truncate">
-            {rehearsal.orchestra?.name || 'תזמורת'}
+      <div className="space-y-2">
+        {/* Header with orchestra/ensemble name */}
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate text-base leading-tight">
+              {rehearsal.orchestra?.name || 'ללא שם'}
+            </div>
           </div>
           
-          {!minimal && (
-            <>
-              <div className="flex items-center gap-1 mt-1 text-xs opacity-90">
-                <Clock className="w-3 h-3" />
-                <span>{dateTime.time}</span>
-              </div>
-              
-              {!compact && (
-                <>
-                  <div className="flex items-center gap-1 mt-1 text-xs opacity-90">
-                    <MapPin className="w-3 h-3" />
-                    <span className="truncate">{rehearsal.location}</span>
-                  </div>
-                  
-                  {attendanceStats.hasAttendanceData && (
-                    <div className="flex items-center gap-1 mt-1 text-xs opacity-90">
-                      <Users className="w-3 h-3" />
-                      <span>{attendanceStats.presentCount}/{attendanceStats.totalMembers}</span>
-                    </div>
-                  )}
-                </>
+          {!compact && (
+            <div className="flex items-center gap-0.5 mr-1 flex-shrink-0">
+              {onViewDetails && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onViewDetails(rehearsal)
+                  }}
+                  className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  title="צפה בפרטים"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
               )}
-            </>
+              {onEditRehearsal && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEditRehearsal(rehearsal)
+                  }}
+                  className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  title="ערוך חזרה"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {onDeleteRehearsal && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDeleteRehearsal(rehearsal._id)
+                  }}
+                  className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  title="מחק חזרה"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           )}
         </div>
-        
-        {!minimal && (
-          <div className="flex items-center gap-1 mr-1">
-            {onViewDetails && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onViewDetails(rehearsal)
-                }}
-                className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
-                title="צפה בפרטים"
-              >
-                <Eye className="w-3 h-3" />
-              </button>
-            )}
-            {onEditRehearsal && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onEditRehearsal(rehearsal)
-                }}
-                className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
-                title="ערוך חזרה"
-              >
-                <Edit className="w-3 h-3" />
-              </button>
-            )}
-            {onDeleteRehearsal && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDeleteRehearsal(rehearsal._id)
-                }}
-                className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
-                title="מחק חזרה"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            )}
+
+        {/* Time and Location Info */}
+        <div className="space-y-1.5 text-xs">
+          <div className="flex items-center gap-1.5 opacity-95">
+            <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="font-medium">{dateTime.time}</span>
+          </div>
+          
+          <div className="flex items-center gap-1.5 opacity-95">
+            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="truncate">{rehearsal.location || 'לא צוין מיקום'}</span>
+          </div>
+          
+          {!compact && attendanceStats.hasAttendanceData && (
+            <div className="flex items-center gap-1.5 opacity-95">
+              <Users className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>{attendanceStats.presentCount}/{attendanceStats.totalMembers} נוכחים</span>
+            </div>
+          )}
+        </div>
+
+        {/* Status indicator for compact view */}
+        {compact && (
+          <div className="flex justify-end">
+            <div className={`px-2 py-0.5 rounded-full text-[10px] font-medium bg-white bg-opacity-20`}>
+              {status.text}
+            </div>
           </div>
         )}
       </div>

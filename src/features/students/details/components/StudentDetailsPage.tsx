@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowRight, RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import { ArrowRight, RefreshCw, Wifi, WifiOff, Trash2 } from 'lucide-react'
 import { TabType } from '../types'
 import StudentTabNavigation from './StudentTabNavigation'
 import StudentTabContent from './StudentTabContent'
@@ -19,6 +19,7 @@ import {
   SkeletonComponents 
 } from '../../../../services/performanceOptimizations'
 import { StudentDetailsErrorBoundary } from './StudentDetailsErrorBoundary'
+import ConfirmationModal from '../../../../components/ui/ConfirmationModal'
 
 const StudentDetailsPage: React.FC = () => {
   console.log('🔍 StudentDetailsPage component loading...')
@@ -36,6 +37,7 @@ const StudentDetailsPage: React.FC = () => {
   const [student, setStudent] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   // WebSocket connection status (with error handling)
   let wsStatus = null
@@ -80,6 +82,30 @@ const StudentDetailsPage: React.FC = () => {
 
     fetchStudent()
   }, [studentId])
+
+  // Handle student deletion
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!studentId) return
+    
+    try {
+      await apiService.students.deleteStudent(studentId)
+      // Navigate back to students list after successful deletion
+      navigate('/students')
+    } catch (err) {
+      console.error('Error deleting student:', err)
+      alert('שגיאה במחיקת התלמיד')
+    } finally {
+      setShowDeleteModal(false)
+    }
+  }
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false)
+  }
 
   // Prefetch tab data when tab changes
   useEffect(() => {
@@ -234,18 +260,28 @@ const StudentDetailsPage: React.FC = () => {
 
         {/* Student Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-xl text-primary-600">👤</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
+                <span className="text-xl text-primary-600">👤</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {student?.personalInfo?.fullName || 'טוען...'}
+                </h1>
+                <p className="text-gray-600">
+                  כיתה {student?.academicInfo?.class || '-'} | {student?.primaryInstrument || 'ללא כלי'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {student?.personalInfo?.fullName || 'טוען...'}
-              </h1>
-              <p className="text-gray-600">
-                כיתה {student?.academicInfo?.class || '-'} | {student?.primaryInstrument || 'ללא כלי'}
-              </p>
-            </div>
+            {/* Delete button */}
+            <button
+              onClick={handleDeleteClick}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="מחק תלמיד"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
@@ -281,6 +317,18 @@ const StudentDetailsPage: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        title="מחיקת תלמיד"
+        message={`האם אתה בטוח שברצונך למחוק את התלמיד ${student?.personalInfo?.fullName}? פעולה זו לא ניתנת לביטול.`}
+        confirmText="מחק"
+        cancelText="ביטול"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        variant="danger"
+      />
     </StudentDetailsErrorBoundary>
   )
 }

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Eye, Edit, Filter, Loader, X, Grid, List } from 'lucide-react'
+import { Search, Plus, Eye, Edit, Filter, Loader, X, Grid, List, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import { clsx } from 'clsx'
 import Card from '../components/ui/Card'
 import Table, { StatusBadge } from '../components/ui/Table'
 import StudentCard from '../components/StudentCard'
-import StudentForm from '../components/StudentForm'
+import StudentForm from '../components/forms/StudentForm'
+import ConfirmationModal from '../components/ui/ConfirmationModal'
 import apiService from '../services/apiService'
 import { useSchoolYear } from '../services/schoolYearContext'
 
@@ -29,6 +30,25 @@ export default function Students() {
   const [teacherSearchTerm, setTeacherSearchTerm] = useState('')
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string} | null>(null)
+  const [editingStudentData, setEditingStudentData] = useState<any>(null)
+  const [loadingStudentData, setLoadingStudentData] = useState(false)
+  const [stageLevelConfirm, setStageLevelConfirm] = useState<{studentId: string, studentName: string, currentLevel: number, newLevel: number} | null>(null)
+  const [updatingStageLevel, setUpdatingStageLevel] = useState<string | null>(null)
+  const [editingStageLevelId, setEditingStageLevelId] = useState<string | null>(null)
+
+  // Close stage level edit mode when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (editingStageLevelId) {
+        setEditingStageLevelId(null)
+      }
+    }
+
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [editingStageLevelId])
 
   // Fetch students and teachers from real API when school year changes
   useEffect(() => {
@@ -115,6 +135,16 @@ export default function Students() {
             >
               <Edit className="w-4 h-4" />
             </button>
+            <button 
+              className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
+              onClick={(e) => {
+                e.stopPropagation() // Prevent row click
+                handleDeleteClick(student.id, student.name)
+              }}
+              title="מחק תלמיד"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         )
       }))
@@ -161,9 +191,22 @@ export default function Students() {
     }
   }
 
-  const handleEditStudent = (studentId) => {
-    setEditingStudentId(studentId)
-    setShowForm(true)
+  const handleEditStudent = async (studentId: string) => {
+    try {
+      setLoadingStudentData(true)
+      setEditingStudentId(studentId)
+      
+      // Load student data for editing
+      const studentData = await apiService.students.getStudentById(studentId)
+      setEditingStudentData(studentData)
+      
+      setShowForm(true)
+    } catch (error) {
+      console.error('Error loading student for editing:', error)
+      alert('שגיאה בטעינת נתוני התלמיד לעריכה')
+    } finally {
+      setLoadingStudentData(false)
+    }
   }
 
   const handleAddStudent = () => {
@@ -174,10 +217,113 @@ export default function Students() {
   const handleCloseForm = () => {
     setShowForm(false)
     setEditingStudentId(null)
+    setEditingStudentData(null)
   }
 
-  const handleFormSave = () => {
-    loadStudents() // Reload the students list
+  const handleFormSubmit = async (formData: any) => {
+    try {
+      let studentId = editingStudentId
+      
+      if (editingStudentId) {
+        // Update existing student
+        await apiService.students.updateStudent(editingStudentId, formData)
+        
+        // Handle orchestra enrollment changes
+        if (editingStudentData?.enrollments?.orchestraIds) {
+          const oldOrchestraIds = editingStudentData.enrollments.orchestraIds
+          const newOrchestraIds = formData.enrollments?.orchestraIds || []
+          
+          // Remove from old orchestras that are no longer selected
+          for (const oldId of oldOrchestraIds) {
+            if (!newOrchestraIds.includes(oldId)) {
+              try {
+                await apiService.orchestras.removeMember(oldId, editingStudentId)
+                console.log(`Removed student ${editingStudentId} from orchestra ${oldId}`)
+              } catch (err) {
+                console.error(`Failed to remove from orchestra ${oldId}:`, err)
+              }
+            }
+          }
+          
+          // Add to new orchestras
+          for (const newId of newOrchestraIds) {
+            if (!oldOrchestraIds.includes(newId)) {
+              try {
+                await apiService.orchestras.addMember(newId, editingStudentId)
+                console.log(`Added student ${editingStudentId} to orchestra ${newId}`)
+              } catch (err) {
+                console.error(`Failed to add to orchestra ${newId}:`, err)
+              }
+            }
+          }
+        } else if (formData.enrollments?.orchestraIds?.length > 0) {
+          // If no previous enrollments, add to all new orchestras
+          for (const orchestraId of formData.enrollments.orchestraIds) {
+            try {
+              await apiService.orchestras.addMember(orchestraId, editingStudentId)
+              console.log(`Added student ${editingStudentId} to orchestra ${orchestraId}`)
+            } catch (err) {
+              console.error(`Failed to add to orchestra ${orchestraId}:`, err)
+            }
+          }
+        }
+      } else {
+        // Create new student
+        const newStudent = await apiService.students.createStudent(formData)
+        studentId = newStudent._id
+        
+        // Add new student to selected orchestras
+        if (formData.enrollments?.orchestraIds?.length > 0) {
+          for (const orchestraId of formData.enrollments.orchestraIds) {
+            try {
+              await apiService.orchestras.addMember(orchestraId, studentId)
+              console.log(`Added new student ${studentId} to orchestra ${orchestraId}`)
+            } catch (err) {
+              console.error(`Failed to add to orchestra ${orchestraId}:`, err)
+            }
+          }
+        }
+      }
+      
+      loadStudents() // Reload the students list
+      handleCloseForm() // Close the form
+    } catch (error) {
+      console.error('Error saving student:', error)
+      throw error // Let the form handle the error display
+    }
+  }
+
+  const handleFormCancel = () => {
+    handleCloseForm()
+  }
+
+  const handleDeleteStudent = async (studentId: string) => {
+    try {
+      await apiService.students.deleteStudent(studentId)
+      // Reload students list after successful deletion
+      loadStudents()
+    } catch (err) {
+      console.error('Error deleting student:', err)
+      alert('שגיאה במחיקת התלמיד')
+    }
+  }
+
+  const handleDeleteClick = (studentId: string, studentName: string) => {
+    setStudentToDelete({ id: studentId, name: studentName })
+    setShowDeleteModal(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (studentToDelete) {
+      handleDeleteStudent(studentToDelete.id)
+      setStudentToDelete(null)
+    }
+    setShowDeleteModal(false)
+  }
+
+  const handleCancelDelete = () => {
+    setStudentToDelete(null)
+    setShowDeleteModal(false)
   }
 
   // Filter teachers based on search term
@@ -210,6 +356,54 @@ export default function Students() {
     }
   }
 
+  // Handle stage level edit mode
+  const handleStageLevelClick = (studentId: string) => {
+    setEditingStageLevelId(studentId)
+  }
+
+  // Handle stage level update confirmation
+  const handleStageLevelChange = (studentId: string, studentName: string, currentLevel: number, increment: boolean) => {
+    const newLevel = increment ? currentLevel + 1 : currentLevel - 1
+    
+    // Validate stage level bounds (1-8)
+    if (newLevel < 1 || newLevel > 8) {
+      return
+    }
+    
+    setStageLevelConfirm({
+      studentId,
+      studentName,
+      currentLevel,
+      newLevel
+    })
+  }
+
+  const handleConfirmStageLevelUpdate = async () => {
+    if (!stageLevelConfirm) return
+    
+    try {
+      setUpdatingStageLevel(stageLevelConfirm.studentId)
+      
+      await apiService.students.updateStudentStageLevel(stageLevelConfirm.studentId, stageLevelConfirm.newLevel)
+      
+      // Refresh students data
+      await loadStudents()
+      
+      setStageLevelConfirm(null)
+      setEditingStageLevelId(null)
+    } catch (error) {
+      console.error('Error updating stage level:', error)
+      alert('שגיאה בעדכון השלב: ' + error.message)
+    } finally {
+      setUpdatingStageLevel(null)
+    }
+  }
+
+  const handleCancelStageLevelUpdate = () => {
+    setStageLevelConfirm(null)
+    setEditingStageLevelId(null)
+  }
+
   // Filter students based on search and filters
   const filteredStudents = students.filter(student => {
     const matchesSearch = !searchTerm || 
@@ -237,7 +431,77 @@ export default function Students() {
   const columns = [
     { key: 'name', header: 'שם התלמיד' },
     { key: 'instrument', header: 'כלי נגינה' },
-    { key: 'stageLevel', header: 'שלב', align: 'center' as const },
+    { 
+      key: 'stageLevel', 
+      header: 'שלב', 
+      align: 'center' as const,
+      render: (student: any) => {
+        const isEditing = editingStageLevelId === student.id
+        const isUpdating = updatingStageLevel === student.id
+        
+        if (isUpdating) {
+          return (
+            <div className="flex items-center justify-center">
+              <div className="w-16 h-8 flex items-center justify-center bg-blue-50 rounded-lg border-2 border-blue-200">
+                <span className="text-blue-600 font-medium">...</span>
+              </div>
+            </div>
+          )
+        }
+        
+        if (isEditing) {
+          return (
+            <div 
+              className="flex items-center justify-center gap-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleStageLevelChange(student.id, student.name, student.stageLevel, false)
+                }}
+                disabled={student.stageLevel <= 1}
+                className="w-6 h-6 flex items-center justify-center bg-red-100 text-red-600 hover:bg-red-200 rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-bold"
+                title="הורד שלב"
+              >
+                -
+              </button>
+              
+              <div className="w-12 h-8 flex items-center justify-center bg-blue-50 rounded-lg border-2 border-blue-300 mx-1">
+                <span className="text-blue-700 font-bold text-sm">{student.stageLevel}</span>
+              </div>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleStageLevelChange(student.id, student.name, student.stageLevel, true)
+                }}
+                disabled={student.stageLevel >= 8}
+                className="w-6 h-6 flex items-center justify-center bg-green-100 text-green-600 hover:bg-green-200 rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-bold"
+                title="העלה שלב"
+              >
+                +
+              </button>
+            </div>
+          )
+        }
+        
+        return (
+          <div className="flex items-center justify-center">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleStageLevelClick(student.id)
+              }}
+              className="w-8 h-8 flex items-center justify-center text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors font-medium border border-transparent hover:border-blue-200"
+              title="לחץ לעריכת השלב"
+            >
+              {student.stageLevel}
+            </button>
+          </div>
+        )
+      }
+    },
     { key: 'orchestra', header: 'תזמורת' },
     { key: 'grade', header: 'כיתה', align: 'center' as const },
     { key: 'status', header: 'סטטוס', align: 'center' as const },
@@ -274,11 +538,23 @@ export default function Students() {
     <div className="relative">
       
       {showForm && (
-        <StudentForm
-          studentId={editingStudentId}
-          onClose={handleCloseForm}
-          onSave={handleFormSave}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {loadingStudentData ? (
+              <div className="p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">טוען נתוני תלמיד...</p>
+              </div>
+            ) : (
+              <StudentForm
+                onSubmit={handleFormSubmit}
+                onCancel={handleFormCancel}
+                isEdit={!!editingStudentId}
+                initialData={editingStudentData}
+              />
+            )}
+          </div>
+        </div>
       )}
       {/* Filters and Search */}
       <Card className="mb-6" padding="md">
@@ -526,6 +802,7 @@ export default function Students() {
               showTeacherAssignments={true}
               showParentContact={false}
               onClick={() => handleViewStudent(student.id)}
+              onDelete={handleDeleteStudent}
               className="h-full hover:shadow-lg transition-all duration-200 hover:scale-[1.02] hover:-translate-y-1"
             />
           ))}
@@ -537,6 +814,33 @@ export default function Students() {
           לא נמצאו תלמידים התואמים לחיפוש
         </div>
       )}
+
+      {/* Delete confirmation modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        title="מחיקת תלמיד"
+        message={`האם אתה בטוח שברצונך למחוק את התלמיד ${studentToDelete?.name}? פעולה זו לא ניתנת לביטול.`}
+        confirmText="מחק"
+        cancelText="ביטול"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        variant="danger"
+      />
+
+      {/* Stage Level Update confirmation modal */}
+      <ConfirmationModal
+        isOpen={!!stageLevelConfirm}
+        title="עדכון שלב התלמיד"
+        message={stageLevelConfirm ? 
+          `האם אתה בטוח שברצונך לשנות את שלב התלמיד "${stageLevelConfirm.studentName}" משלב ${stageLevelConfirm.currentLevel} לשלב ${stageLevelConfirm.newLevel}?`
+          : ''
+        }
+        confirmText="עדכן שלב"
+        cancelText="ביטול"
+        onConfirm={handleConfirmStageLevelUpdate}
+        onCancel={handleCancelStageLevelUpdate}
+        variant="primary"
+      />
     </div>
   )
 }

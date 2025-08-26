@@ -18,6 +18,8 @@ Create user journey flows for different personas (students, teachers, administra
 Handle internationalization and RTL language support
 Optimize interfaces for music-specific needs (sheet music display, audio controls)
 
+Avoid: Do not change port - we need to stay always on 5173. the backend serve this only port. 
+
 Key Expertise:
 
 Music education domain knowledge

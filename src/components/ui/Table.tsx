@@ -6,6 +6,7 @@ interface Column {
   header: string
   width?: string
   align?: 'left' | 'center' | 'right'
+  render?: (row: Record<string, any>) => ReactNode
 }
 
 interface TableProps {
@@ -105,7 +106,7 @@ export default function Table({ columns, data, className, onRowClick, rowClassNa
                         },
                       )}
                     >
-                      {row[column.key]}
+                      {column.render ? column.render(row) : row[column.key]}
                     </td>
                   ))}
                 </tr>
