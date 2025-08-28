@@ -1,4 +1,4 @@
-import { Calendar, Clock, MapPin, BookOpen, Edit, Trash2, UserCheck } from 'lucide-react'
+import { Calendar, Clock, MapPin, BookOpen, Edit, Trash2, UserCheck, Eye } from 'lucide-react'
 import { 
   formatLessonDate, 
   formatLessonTime, 
@@ -8,12 +8,13 @@ import {
 
 interface TheoryLessonCardProps {
   lesson: TheoryLesson
+  onView?: (lesson: TheoryLesson) => void
   onEdit?: (lesson: TheoryLesson) => void
   onDelete?: (lessonId: string) => void
   onViewAttendance?: (lesson: TheoryLesson) => void
 }
 
-export default function TheoryLessonCard({ lesson, onEdit, onDelete, onViewAttendance }: TheoryLessonCardProps) {
+export default function TheoryLessonCard({ lesson, onView, onEdit, onDelete, onViewAttendance }: TheoryLessonCardProps) {
   // Use utility functions for consistent formatting as specified in requirements
   const formattedDate = formatLessonDate(lesson)
   const formattedTime = formatLessonTime(lesson)
@@ -42,6 +43,15 @@ export default function TheoryLessonCard({ lesson, onEdit, onDelete, onViewAtten
           
           {/* Action Buttons */}
           <div className="flex items-center gap-1 mr-2">
+            {onView && (
+              <button
+                onClick={() => onView(lesson)}
+                className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                title="צפה בפרטים"
+              >
+                <Eye className="w-4 h-4" />
+              </button>
+            )}
             {onViewAttendance && (
               <button
                 onClick={() => onViewAttendance(lesson)}

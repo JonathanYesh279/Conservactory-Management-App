@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowRight, Calendar, Clock, MapPin, Users, Edit, Trash2, CheckCircle, XCircle, Check, X, Search, Save, RotateCcw } from 'lucide-react'
-import { rehearsalService, orchestraService } from '../services/apiService'
+import { rehearsalService, orchestraService, studentService } from '../services/apiService'
 import { 
   formatRehearsalDateTime, 
   getRehearsalStatus,
@@ -22,6 +22,10 @@ export default function RehearsalDetails() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showEditForm, setShowEditForm] = useState(false)
+  const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false)
+  const [pendingUpdateData, setPendingUpdateData] = useState<any>(null)
+  const [bulkUpdateLoading, setBulkUpdateLoading] = useState(false)
+  const [bulkUpdateError, setBulkUpdateError] = useState<string | null>(null)
   
   // Attendance state
   const [attendanceState, setAttendanceState] = useState<{
@@ -36,6 +40,7 @@ export default function RehearsalDetails() {
   const [hasAttendanceChanges, setHasAttendanceChanges] = useState(false)
   const [attendanceError, setAttendanceError] = useState<string | null>(null)
   const [attendanceSuccess, setAttendanceSuccess] = useState(false)
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false)
   
   // Delete confirmation modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -53,9 +58,10 @@ export default function RehearsalDetails() {
       setLoading(true)
       setError(null)
 
-      const [rehearsalsData, orchestrasData] = await Promise.all([
+      const [rehearsalsData, orchestrasData, studentsData] = await Promise.all([
         rehearsalService.getRehearsals(),
-        orchestraService.getOrchestras()
+        orchestraService.getOrchestras(),
+        studentService.getStudents()
       ])
 
       // Find the specific rehearsal and enrich it with orchestra data
@@ -74,7 +80,10 @@ export default function RehearsalDetails() {
           type: orchestra.type,
           memberIds: orchestra.memberIds || [],
           conductor: orchestra.conductor,
-          members: orchestra.members
+          // Populate members with full student data
+          members: orchestra.memberIds ? orchestra.memberIds.map((memberId: string) =>
+            studentsData.find((student: any) => student._id === memberId)
+          ).filter(Boolean) : []
         } : undefined
       }
 
@@ -97,13 +106,62 @@ export default function RehearsalDetails() {
   const handleEditRehearsal = async (data: any) => {
     if (!rehearsal) return
 
+    // Store the update data and show bulk update confirmation
+    setPendingUpdateData(data)
+    setShowEditForm(false)
+    setBulkUpdateError(null)
+    setShowBulkUpdateModal(true)
+  }
+
+  const handleSingleUpdate = async () => {
+    if (!rehearsal || !pendingUpdateData) return
+
+    setBulkUpdateLoading(true)
+    setBulkUpdateError(null)
+
     try {
-      await rehearsalService.updateRehearsal(rehearsal._id, data)
-      setShowEditForm(false)
+      await rehearsalService.updateRehearsal(rehearsal._id, pendingUpdateData)
+      setShowBulkUpdateModal(false)
+      setPendingUpdateData(null)
       await loadRehearsalDetails()
     } catch (error: any) {
-      throw new Error(error.message || 'שגיאה בעדכון החזרה')
+      setBulkUpdateError(error.message || 'שגיאה בעדכון החזרה')
+    } finally {
+      setBulkUpdateLoading(false)
     }
+  }
+
+  const handleBulkUpdate = async () => {
+    if (!rehearsal || !pendingUpdateData) return
+
+    setBulkUpdateLoading(true)
+    setBulkUpdateError(null)
+
+    try {
+      // Filter out forbidden fields for bulk update
+      const forbiddenFields = ['_id', 'createdAt', 'updatedAt', 'groupId', 'date', 'schoolYearId', 'type']
+      const filteredData = Object.keys(pendingUpdateData)
+        .filter(key => !forbiddenFields.includes(key))
+        .reduce((obj, key) => {
+          obj[key] = pendingUpdateData[key]
+          return obj
+        }, {})
+
+      await rehearsalService.updateBulkRehearsals(rehearsal.groupId, filteredData)
+      setShowBulkUpdateModal(false)
+      setPendingUpdateData(null)
+      await loadRehearsalDetails()
+    } catch (error: any) {
+      setBulkUpdateError(error.message || 'שגיאה בעדכון החזרות')
+    } finally {
+      setBulkUpdateLoading(false)
+    }
+  }
+
+  const cancelBulkUpdate = () => {
+    setShowBulkUpdateModal(false)
+    setPendingUpdateData(null)
+    setBulkUpdateError(null)
   }
 
   const handleDeleteRehearsal = () => {
@@ -197,6 +255,37 @@ export default function RehearsalDetails() {
     setAttendanceError(null)
   }
 
+  // Enhanced Select All functionality
+  const markAllPresent = useCallback(() => {
+    if (!rehearsal?.orchestra?.members) return
+    
+    const allMemberIds = rehearsal.orchestra.members.map(member => member._id)
+    setAttendanceState({
+      present: new Set(allMemberIds),
+      absent: new Set()
+    })
+    setAttendanceError(null)
+  }, [rehearsal])
+
+  const markAllAbsent = useCallback(() => {
+    if (!rehearsal?.orchestra?.members) return
+    
+    const allMemberIds = rehearsal.orchestra.members.map(member => member._id)
+    setAttendanceState({
+      present: new Set(),
+      absent: new Set(allMemberIds)
+    })
+    setAttendanceError(null)
+  }, [rehearsal])
+
+  const clearAllAttendance = useCallback(() => {
+    setAttendanceState({
+      present: new Set(),
+      absent: new Set()
+    })
+    setAttendanceError(null)
+  }, [])
+
   const handleSaveAttendance = async () => {
     if (!rehearsal) return
     
@@ -213,7 +302,8 @@ export default function RehearsalDetails() {
       setAttendanceSuccess(true)
       setTimeout(() => {
         setAttendanceSuccess(false)
-      }, 2000)
+        setShowAttendanceModal(false)
+      }, 1500)
       await loadRehearsalDetails()
     } catch (error: any) {
       setAttendanceError(error.message || 'שגיאה בשמירת הנוכחות')
@@ -227,6 +317,21 @@ export default function RehearsalDetails() {
     if (attendanceState.absent.has(memberId)) return 'absent'
     return 'unmarked'
   }
+
+  // Check if rehearsal date has passed (for attendance management)
+  const hasRehearsalPassed = useMemo(() => {
+    if (!rehearsal) return false
+    
+    const rehearsalDate = new Date(rehearsal.date)
+    const today = new Date()
+    
+    // Set both dates to midnight to compare dates only (not times)
+    today.setHours(0, 0, 0, 0)
+    rehearsalDate.setHours(0, 0, 0, 0)
+    
+    // Allow attendance marking for past rehearsals OR current day rehearsals
+    return rehearsalDate <= today
+  }, [rehearsal])
 
   if (loading) {
     return (
@@ -295,6 +400,15 @@ export default function RehearsalDetails() {
         </div>
 
         <div className="flex items-center gap-2">
+          {hasRehearsalPassed && (
+            <button
+              onClick={() => setShowAttendanceModal(true)}
+              className="flex items-center px-4 py-2 text-green-700 border border-green-300 rounded-lg hover:bg-green-50 transition-colors"
+            >
+              <Check className="w-4 h-4 ml-1" />
+              סימון נוכחות
+            </button>
+          )}
           <button
             onClick={() => setShowEditForm(true)}
             className="flex items-center px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -327,9 +441,6 @@ export default function RehearsalDetails() {
                     rehearsal.type === 'תזמורת' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'
                   }`}>
                     {rehearsal.type}
-                  </span>
-                  <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${status.colorClass}`}>
-                    {status.text}
                   </span>
                 </div>
               </div>
@@ -379,36 +490,73 @@ export default function RehearsalDetails() {
                 <div className="text-gray-600 whitespace-pre-wrap">{rehearsal.notes}</div>
               </div>
             )}
+
+            {!hasRehearsalPassed && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="mr-3">
+                    <div className="text-sm text-blue-800">
+                      <strong>חזרה עתידית:</strong> לא ניתן לסמן נוכחות לחזרות שטרם התרחשו. נוכחות תהיה זמינה החל מיום החזרה.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
+      </div>
 
-        {/* Attendance Management Section */}
-        <Card>
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+      {/* Attendance Modal */}
+      {showAttendanceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">ניהול נוכחות</h3>
+              <button
+                onClick={() => setShowAttendanceModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
               
               {/* Quick Actions */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => handleQuickMarkAll('present')}
-                  className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors"
+                  onClick={markAllPresent}
+                  className="px-3 py-1 text-sm bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors"
                 >
+                  <Check className="w-3 h-3 inline-block ml-1" />
                   סמן הכל נוכח
                 </button>
                 <button
-                  onClick={() => handleQuickMarkAll('absent')}
-                  className="px-3 py-1 text-sm bg-red-100 text-red-800 rounded-full hover:bg-red-200 transition-colors"
+                  onClick={markAllAbsent}
+                  className="px-3 py-1 text-sm bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
                 >
+                  <X className="w-3 h-3 inline-block ml-1" />
                   סמן הכל נעדר
+                </button>
+                <button
+                  onClick={clearAllAttendance}
+                  className="px-3 py-1 text-sm bg-gray-500 text-white rounded-full hover:bg-gray-600 transition-colors"
+                >
+                  נקה הכל
                 </button>
                 {hasAttendanceChanges && (
                   <button
                     onClick={handleAttendanceReset}
-                    className="px-3 py-1 text-sm bg-gray-100 text-gray-800 rounded-full hover:bg-gray-200 transition-colors"
+                    className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 transition-colors"
                   >
                     <RotateCcw className="w-3 h-3 mr-1 inline" />
-                    איפוס
+                    שחזר מקור
                   </button>
                 )}
               </div>
@@ -470,8 +618,14 @@ export default function RehearsalDetails() {
 
             {/* Members List */}
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {rehearsal.orchestra?.members
-                ?.filter(member =>
+              {!rehearsal.orchestra?.members || rehearsal.orchestra.members.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                  <p>אין חברים רשומים לתזמורת/הרכב זה</p>
+                  <p className="text-sm mt-1">יש להוסיף חברים דרך עמוד התזמורת</p>
+                </div>
+              ) : rehearsal.orchestra.members
+                .filter(member =>
                   member.personalInfo?.fullName?.toLowerCase().includes(attendanceSearchQuery.toLowerCase()) ||
                   member.academicInfo?.class?.includes(attendanceSearchQuery)
                 )
@@ -538,9 +692,116 @@ export default function RehearsalDetails() {
                 </button>
               </div>
             )}
+            </div>
           </div>
-        </Card>
-      </div>
+        </div>
+      )}
+
+      {/* Bulk Update Confirmation Modal */}
+      {showBulkUpdateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">עדכון חזרות</h3>
+                <button
+                  onClick={cancelBulkUpdate}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <div className="flex items-center mb-4">
+                  <div className="flex-shrink-0">
+                    <svg className="w-12 h-12 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="mr-4">
+                    <h4 className="text-lg font-medium text-gray-900">איך ברצונך לעדכן?</h4>
+                    <p className="text-gray-600">בחר את היקף העדכון לחזרות התזמורת</p>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-blue-600 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-sm text-blue-800">
+                      <strong>תזמורת:</strong> {rehearsal?.orchestra?.name}<br />
+                      <strong>שינויים:</strong> 
+                      {pendingUpdateData?.location && ` מיקום: ${pendingUpdateData.location}`}
+                      {pendingUpdateData?.startTime && ` | זמן התחלה: ${pendingUpdateData.startTime}`}
+                      {pendingUpdateData?.endTime && ` | זמן סיום: ${pendingUpdateData.endTime}`}
+                      {pendingUpdateData?.notes !== undefined && ` | הערות עודכנו`}
+                      {pendingUpdateData?.isActive !== undefined && ` | סטטוס עודכן`}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {bulkUpdateError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center">
+                    <XCircle className="w-4 h-4 text-red-600 ml-2" />
+                    <span className="text-red-800 text-sm">{bulkUpdateError}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleSingleUpdate}
+                  disabled={bulkUpdateLoading}
+                  className="w-full flex items-center justify-center px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {bulkUpdateLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>
+                      מעדכן...
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-5 h-5 ml-2" />
+                      עדכון חזרה זו בלבד
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  onClick={handleBulkUpdate}
+                  disabled={bulkUpdateLoading}
+                  className="w-full flex items-center justify-center px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {bulkUpdateLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>
+                      מעדכן כל החזרות...
+                    </>
+                  ) : (
+                    <>
+                      <Users className="w-5 h-5 ml-2" />
+                      עדכון כל החזרות של התזמורת
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  onClick={cancelBulkUpdate}
+                  disabled={bulkUpdateLoading}
+                  className="w-full flex items-center justify-center px-4 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Form Modal */}
       {showEditForm && (

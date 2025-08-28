@@ -964,6 +964,112 @@ export const theoryService = {
   },
 
   /**
+   * Get single theory lesson by ID
+   * @param {string} lessonId - Theory lesson ID
+   * @returns {Promise<Object>} Theory lesson data with exact backend schema
+   */
+  async getTheoryLesson(lessonId) {
+    try {
+      const lesson = await apiClient.get(`/theory/${lessonId}`);
+      
+      console.log(`📖 Retrieved theory lesson: ${lessonId}`);
+      
+      return lesson;
+    } catch (error) {
+      console.error('Error fetching theory lesson:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update theory lesson attendance
+   * @param {string} lessonId - Theory lesson ID
+   * @param {Object} attendanceData - Attendance data with present and absent arrays
+   * @returns {Promise<Object>} Updated theory lesson
+   */
+  async updateTheoryAttendance(lessonId, attendanceData) {
+    try {
+      // Use partial update approach - only send attendance field
+      const updateData = {
+        attendance: attendanceData
+      };
+      
+      const lesson = await this.updateTheoryLesson(lessonId, updateData);
+      
+      console.log(`✅ Updated attendance for theory lesson: ${lessonId}`);
+      
+      return lesson;
+    } catch (error) {
+      console.error('Error updating theory lesson attendance:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add student to theory lesson
+   * @param {string} lessonId - Theory lesson ID
+   * @param {string} studentId - Student ID to add
+   * @returns {Promise<Object>} Updated theory lesson
+   */
+  async addStudentToTheory(lessonId, studentId) {
+    try {
+      // Get current lesson to check existing students and add to array
+      const currentLesson = await this.getTheoryLesson(lessonId);
+      
+      // Check if student is already in the lesson
+      if (currentLesson.studentIds.includes(studentId)) {
+        console.log(`Student ${studentId} is already in theory lesson: ${lessonId}`);
+        return currentLesson;
+      }
+      
+      // Use partial update - only send the updated studentIds array
+      const updatedStudentIds = [...currentLesson.studentIds, studentId];
+      const updateData = {
+        studentIds: updatedStudentIds
+      };
+      
+      const lesson = await this.updateTheoryLesson(lessonId, updateData);
+      
+      console.log(`👤➕ Added student ${studentId} to theory lesson: ${lessonId}`);
+      
+      return lesson;
+    } catch (error) {
+      console.error('Error adding student to theory lesson:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove student from theory lesson
+   * @param {string} lessonId - Theory lesson ID
+   * @param {string} studentId - Student ID to remove
+   * @returns {Promise<Object>} Updated theory lesson
+   */
+  async removeStudentFromTheory(lessonId, studentId) {
+    try {
+      // Get current lesson to remove student from array
+      const currentLesson = await this.getTheoryLesson(lessonId);
+      
+      // Remove the student from the array
+      const updatedStudentIds = currentLesson.studentIds.filter(id => id !== studentId);
+      
+      // Use partial update - only send the updated studentIds array
+      const updateData = {
+        studentIds: updatedStudentIds
+      };
+      
+      const lesson = await this.updateTheoryLesson(lessonId, updateData);
+      
+      console.log(`👤➖ Removed student ${studentId} from theory lesson: ${lessonId}`);
+      
+      return lesson;
+    } catch (error) {
+      console.error('Error removing student from theory lesson:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Delete theory lesson
    * @param {string} lessonId - Theory lesson ID
    * @returns {Promise<void>}
@@ -975,6 +1081,44 @@ export const theoryService = {
       console.log(`🗑️ Deleted theory lesson: ${lessonId}`);
     } catch (error) {
       console.error('Error deleting theory lesson:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk create theory lessons
+   * @param {Object} bulkData - Bulk creation data
+   * @returns {Promise<Object>} Created theory lessons result
+   */
+  async bulkCreateTheoryLessons(bulkData) {
+    try {
+      const result = await apiClient.post('/theory/bulk', bulkData);
+      
+      console.log(`📚 Bulk created theory lessons: ${result.insertedCount} lessons`);
+      
+      return result;
+    } catch (error) {
+      console.error('Error bulk creating theory lessons:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get student theory attendance statistics
+   * @param {string} studentId - Student ID
+   * @param {string} category - Optional theory category filter
+   * @returns {Promise<Object>} Attendance statistics
+   */
+  async getStudentTheoryAttendanceStats(studentId, category = null) {
+    try {
+      const params = category ? { category } : {};
+      const stats = await apiClient.get(`/theory/attendance/student/${studentId}`, params);
+      
+      console.log(`📊 Retrieved theory attendance stats for student: ${studentId}`);
+      
+      return stats;
+    } catch (error) {
+      console.error('Error fetching student theory attendance stats:', error);
       throw error;
     }
   }
@@ -1350,6 +1494,25 @@ export const rehearsalService = {
   },
 
   /**
+   * Update all rehearsals in a series (same groupId)
+   * @param {string} groupId - Orchestra/Group ID
+   * @param {Object} rehearsalData - Updated rehearsal data to apply to all
+   * @returns {Promise<Object>} Update result
+   */
+  async updateBulkRehearsals(groupId, rehearsalData) {
+    try {
+      const result = await apiClient.put(`/rehearsal/orchestra/${groupId}`, rehearsalData);
+      
+      console.log(`✏️ Updated bulk rehearsals for group: ${groupId}`);
+      
+      return result;
+    } catch (error) {
+      console.error('Error updating bulk rehearsals:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Update rehearsal attendance
    * @param {string} rehearsalId - Rehearsal ID
    * @param {Object} attendance - Attendance data { present: [], absent: [] }
@@ -1499,7 +1662,8 @@ export const rehearsalService = {
    */
   async updateAttendance(rehearsalId, attendanceData) {
     try {
-      const updatedRehearsal = await apiClient.patch(`/rehearsal/${rehearsalId}/attendance`, {
+      // Use the main rehearsal update endpoint to update attendance
+      const updatedRehearsal = await apiClient.put(`/rehearsal/${rehearsalId}`, {
         attendance: {
           present: attendanceData.present || [],
           absent: attendanceData.absent || []

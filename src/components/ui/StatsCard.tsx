@@ -7,7 +7,7 @@ interface StatsCardProps {
   value: string | number
   subtitle?: string
   icon: ReactNode
-  color?: 'blue' | 'green' | 'orange' | 'purple'
+  color?: 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'gray'
   trend?: {
     value: number
     label: string
@@ -43,6 +43,16 @@ export default function StatsCard({
       iconBg: 'bg-purple-100',
       iconColor: 'text-purple-600',
       valueColor: 'text-purple-600'
+    },
+    red: {
+      iconBg: 'bg-red-100',
+      iconColor: 'text-red-600',
+      valueColor: 'text-red-600'
+    },
+    gray: {
+      iconBg: 'bg-gray-100',
+      iconColor: 'text-gray-600',
+      valueColor: 'text-gray-600'
     }
   }
 

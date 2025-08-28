@@ -1,82 +1,155 @@
 import { useState, useEffect } from 'react'
 import { X, Save, Clock, MapPin, Users, BookOpen } from 'lucide-react'
-import { teacherService } from '../services/apiService'
+import { teacherService, schoolYearService } from '../services/apiService'
 
 interface TheoryLessonFormProps {
-  lesson?: any
+  theoryLesson?: any
+  teachers?: any[]
   onSubmit: (data: any) => Promise<void>
   onCancel: () => void
 }
 
-export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryLessonFormProps) {
+export default function TheoryLessonForm({ theoryLesson, teachers: propTeachers, onSubmit, onCancel }: TheoryLessonFormProps) {
   const [formData, setFormData] = useState({
-    category: 'תיאוריה כללית',
-    title: '',
-    description: '',
+    category: 'מגמה',
     teacherId: '',
-    teacherName: '',
     date: '',
-    startTime: '19:00',
-    endTime: '20:30',
-    duration: 90,
-    location: 'חדר תיאוריה 1',
-    maxStudents: 15,
+    dayOfWeek: 0,
+    startTime: '14:00',
+    endTime: '15:00',
+    location: 'אולם ערן',
     studentIds: [],
-    attendanceList: [],
-    schoolYearId: '',
-    isActive: true
+    attendance: { present: [], absent: [] },
+    notes: '',
+    syllabus: '',
+    homework: '',
+    schoolYearId: ''
   })
 
-  const [teachers, setTeachers] = useState([])
+  const [teachers, setTeachers] = useState(propTeachers || [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Theory lesson categories
+  // Theory lesson categories from backend schema
   const categories = [
-    'תיאוריה כללית',
-    'הרמוניה',
-    'קומפוזיציה',
-    'היסטוריה של המוזיקה',
-    'אימון אוזן',
-    'ניתוח מוזיקלי',
-    'קונטרפונקט',
-    'צורות מוזיקליות'
+    'תלמידים חדשים ב-ד',
+    'מתחילים',
+    'מתחילים ב',
+    'מתחילים ד',
+    'מתקדמים ב',
+    'מתקדמים א',
+    'מתקדמים ג',
+    'תלמידים חדשים בוגרים (ה - ט)',
+    'תלמידים חדשים צעירים',
+    'הכנה לרסיטל קלאסי יא',
+    "הכנה לרסיטל רוק\\פופ\\ג'אז יא",
+    "הכנה לרסיטל רוק\\פופ\\ג'אז יב",
+    'מגמה',
+    'תאוריה כלי',
   ]
 
-  // Load teachers on component mount
+  // Valid locations from backend schema
+  const locations = [
+    'אולם ערן',
+    'סטודיו קאמרי 1',
+    'סטודיו קאמרי 2',
+    'אולפן הקלטות',
+    'חדר חזרות 1',
+    'חדר חזרות 2',
+    'חדר מחשבים',
+    'חדר 1',
+    'חדר 2',
+    'חדר חזרות',
+    'חדר 5',
+    'חדר 6',
+    'חדר 7',
+    'חדר 8',
+    'חדר 9',
+    'חדר 10',
+    'חדר 11',
+    'חדר 12',
+    'חדר 13',
+    'חדר 14',
+    'חדר 15',
+    'חדר 16',
+    'חדר 17',
+    'חדר 18',
+    'חדר 19',
+    'חדר 20',
+    'חדר 21',
+    'חדר 22',
+    'חדר 23',
+    'חדר 24',
+    'חדר 25',
+    'חדר 26',
+    'חדר תאוריה א',
+    'חדר תאוריה ב',
+  ]
+
+  const DAYS_OF_WEEK = {
+    0: 'ראשון',
+    1: 'שני',
+    2: 'שלישי',
+    3: 'רביעי',
+    4: 'חמישי',
+    5: 'שישי',
+    6: 'שבת'
+  }
+
+  // Load teachers and current school year on component mount
   useEffect(() => {
-    loadTeachers()
-  }, [])
+    if (!propTeachers) {
+      loadTeachers()
+    }
+    loadCurrentSchoolYear()
+  }, [propTeachers])
 
   // Pre-populate form if editing existing lesson
   useEffect(() => {
-    if (lesson) {
+    if (theoryLesson) {
+      const lessonDate = new Date(theoryLesson.date)
       setFormData({
-        category: lesson.category || 'תיאוריה כללית',
-        title: lesson.title || '',
-        description: lesson.description || '',
-        teacherId: lesson.teacherId || '',
-        teacherName: lesson.teacherName || '',
-        date: lesson.date ? new Date(lesson.date).toISOString().split('T')[0] : '',
-        startTime: lesson.startTime || '19:00',
-        endTime: lesson.endTime || '20:30',
-        duration: lesson.duration || 90,
-        location: lesson.location || 'חדר תיאוריה 1',
-        maxStudents: lesson.maxStudents || 15,
-        studentIds: lesson.studentIds || [],
-        attendanceList: lesson.attendanceList || [],
-        schoolYearId: lesson.schoolYearId || '',
-        isActive: lesson.isActive !== undefined ? lesson.isActive : true
+        category: theoryLesson.category || 'מגמה',
+        teacherId: theoryLesson.teacherId || '',
+        date: theoryLesson.date ? new Date(theoryLesson.date).toISOString().split('T')[0] : '',
+        dayOfWeek: theoryLesson.dayOfWeek !== undefined ? theoryLesson.dayOfWeek : lessonDate.getDay(),
+        startTime: theoryLesson.startTime || '14:00',
+        endTime: theoryLesson.endTime || '15:00',
+        location: theoryLesson.location || 'אולם ערן',
+        studentIds: theoryLesson.studentIds || [],
+        attendance: theoryLesson.attendance || { present: [], absent: [] },
+        notes: theoryLesson.notes || '',
+        syllabus: theoryLesson.syllabus || '',
+        homework: theoryLesson.homework || '',
+        schoolYearId: theoryLesson.schoolYearId || ''
       })
     }
-  }, [lesson])
+  }, [theoryLesson])
 
   const loadTeachers = async () => {
     try {
-      const teachersData = await teacherService.getTeachers({ roles: 'מורה תאוריה' })
-      setTeachers(teachersData)
+      const teachersData = await teacherService.getTeachers()
+      // Filter teachers to show only those with "מורה תאוריה" role
+      const theoryTeachers = teachersData.filter(teacher => 
+        teacher.roles && teacher.roles.includes('מורה תאוריה')
+      )
+      setTeachers(theoryTeachers)
     } catch (error) {
       console.error('Error loading teachers:', error)
+    }
+  }
+
+  const loadCurrentSchoolYear = async () => {
+    try {
+      const currentSchoolYear = await schoolYearService.getCurrentSchoolYear()
+      if (currentSchoolYear && !formData.schoolYearId) {
+        setFormData(prev => ({
+          ...prev,
+          schoolYearId: currentSchoolYear._id
+        }))
+      }
+    } catch (error) {
+      console.error('Error loading current school year:', error)
     }
   }
 
@@ -86,64 +159,26 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
       [field]: value
     }))
 
-    // Auto-update teacher name when teacher is selected
-    if (field === 'teacherId') {
-      const selectedTeacher = teachers.find(t => t._id === value)
+    // Auto-calculate dayOfWeek when date changes
+    if (field === 'date' && value) {
+      const date = new Date(value)
+      const dayOfWeek = date.getDay()
       setFormData(prev => ({
         ...prev,
-        teacherId: value,
-        teacherName: selectedTeacher?.personalInfo?.fullName || ''
-      }))
-    }
-
-    // Auto-calculate duration when start/end time changes
-    if (field === 'startTime' || field === 'endTime') {
-      const start = field === 'startTime' ? value : formData.startTime
-      const end = field === 'endTime' ? value : formData.endTime
-      
-      if (start && end) {
-        const startMinutes = timeToMinutes(start)
-        const endMinutes = timeToMinutes(end)
-        const duration = endMinutes - startMinutes
-        
-        if (duration > 0) {
-          setFormData(prev => ({
-            ...prev,
-            [field]: value,
-            duration
-          }))
-        }
-      }
-    }
-  }
-
-  const timeToMinutes = (time: string): number => {
-    const [hours, minutes] = time.split(':').map(Number)
-    return hours * 60 + minutes
-  }
-
-  const minutesToTime = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
-  }
-
-  const handleDurationChange = (duration: number) => {
-    if (formData.startTime) {
-      const startMinutes = timeToMinutes(formData.startTime)
-      const endTime = minutesToTime(startMinutes + duration)
-      
-      setFormData(prev => ({
-        ...prev,
-        duration,
-        endTime
+        date: value,
+        dayOfWeek
       }))
     }
   }
 
   const validateForm = (): boolean => {
-    if (!formData.title.trim()) {
-      setError('יש להזין כותרת לשיעור')
+    if (!formData.category.trim()) {
+      setError('יש לבחור קטגוריה לשיעור')
+      return false
+    }
+
+    if (!formData.teacherId) {
+      setError('יש לבחור מורה לשיעור')
       return false
     }
 
@@ -157,13 +192,19 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
       return false
     }
 
-    if (formData.duration <= 0) {
-      setError('משך השיעור חייב להיות חיובי')
+    if (!formData.location.trim()) {
+      setError('יש להזין מיקום לשיעור')
       return false
     }
 
-    if (formData.maxStudents <= 0) {
-      setError('מספר התלמידים המקסימלי חייב להיות חיובי')
+    // Validate time logic
+    const startTime = formData.startTime.split(':').map(Number)
+    const endTime = formData.endTime.split(':').map(Number)
+    const startMinutes = startTime[0] * 60 + startTime[1]
+    const endMinutes = endTime[0] * 60 + endTime[1]
+    
+    if (endMinutes <= startMinutes) {
+      setError('שעת הסיום חייבת להיות אחרי שעת ההתחלה')
       return false
     }
 
@@ -180,10 +221,10 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
 
     setLoading(true)
     try {
-      // Format date properly for backend
+      // Format date properly for backend - combine date with a base time
       const submitData = {
         ...formData,
-        date: new Date(formData.date + 'T00:00:00.000Z').toISOString()
+        date: new Date(formData.date + 'T' + formData.startTime + ':00.000Z').toISOString()
       }
 
       await onSubmit(submitData)
@@ -201,7 +242,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
         {/* Form Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">
-            {lesson ? 'עריכת שיעור תיאוריה' : 'שיעור תיאוריה חדש'}
+            {theoryLesson ? 'עריכת שיעור תיאוריה' : 'שיעור תיאוריה חדש'}
           </h2>
           <button
             onClick={onCancel}
@@ -226,7 +267,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <BookOpen className="w-4 h-4 inline ml-1" />
-                קטגוריה
+                קטגוריה *
               </label>
               <select
                 value={formData.category}
@@ -240,47 +281,16 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
               </select>
             </div>
 
-            {/* Title */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                כותרת השיעור *
-              </label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => handleInputChange('title', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
-                placeholder="הזן כותרת לשיעור"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              תיאור השיעור
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
-              placeholder="תיאור קצר של נושאי השיעור..."
-            />
-          </div>
-
-          {/* Teacher and Location */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Teacher */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                מורה
+                מורה *
               </label>
               <select
                 value={formData.teacherId}
                 onChange={(e) => handleInputChange('teacherId', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
+                required
               >
                 <option value="">בחר מורה</option>
                 {teachers.map(teacher => (
@@ -290,25 +300,28 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
                 ))}
               </select>
             </div>
+          </div>
 
-            {/* Location */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <MapPin className="w-4 h-4 inline ml-1" />
-                מיקום
-              </label>
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) => handleInputChange('location', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
-                placeholder="חדר תיאוריה 1"
-              />
-            </div>
+          {/* Location */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <MapPin className="w-4 h-4 inline ml-1" />
+              מיקום *
+            </label>
+            <select
+              value={formData.location}
+              onChange={(e) => handleInputChange('location', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
+              required
+            >
+              {locations.map(location => (
+                <option key={location} value={location}>{location}</option>
+              ))}
+            </select>
           </div>
 
           {/* Date and Time */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* Date */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -320,6 +333,19 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
                 onChange={(e) => handleInputChange('date', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
                 required
+              />
+            </div>
+
+            {/* Day of Week (Auto-calculated) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                יום בשבוע
+              </label>
+              <input
+                type="text"
+                value={DAYS_OF_WEEK[formData.dayOfWeek as keyof typeof DAYS_OF_WEEK] || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                disabled
               />
             </div>
 
@@ -353,68 +379,49 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
             </div>
           </div>
 
-          {/* Duration and Max Students */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Duration */}
+          {/* Notes and Additional Info */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Syllabus */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                משך השיעור (דקות)
+                סילבוס
               </label>
-              <div className="flex gap-2">
-                {[45, 60, 90, 120].map(duration => (
-                  <button
-                    key={duration}
-                    type="button"
-                    onClick={() => handleDurationChange(duration)}
-                    className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
-                      formData.duration === duration
-                        ? 'bg-primary-100 border-primary-300 text-primary-700'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {duration}
-                  </button>
-                ))}
-              </div>
-              <input
-                type="number"
-                value={formData.duration}
-                onChange={(e) => handleInputChange('duration', parseInt(e.target.value) || 0)}
-                className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                min="1"
-                placeholder="משך בדקות"
-              />
-            </div>
-
-            {/* Max Students */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Users className="w-4 h-4 inline ml-1" />
-                מספר תלמידים מקסימלי
-              </label>
-              <input
-                type="number"
-                value={formData.maxStudents}
-                onChange={(e) => handleInputChange('maxStudents', parseInt(e.target.value) || 0)}
+              <textarea
+                value={formData.syllabus}
+                onChange={(e) => handleInputChange('syllabus', e.target.value)}
+                rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
-                min="1"
-                max="50"
-                required
+                placeholder="נושאי השיעור..."
               />
             </div>
-          </div>
 
-          {/* Status */}
-          <div>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={(e) => handleInputChange('isActive', e.target.checked)}
-                className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+            {/* Homework */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                שיעורי בית
+              </label>
+              <textarea
+                value={formData.homework}
+                onChange={(e) => handleInputChange('homework', e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
+                placeholder="משימות לבית..."
               />
-              <span className="mr-2 text-sm text-gray-700">שיעור פעיל</span>
-            </label>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                הערות
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => handleInputChange('notes', e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
+                placeholder="הערות כלליות..."
+              />
+            </div>
           </div>
 
           {/* Form Actions */}
@@ -437,7 +444,7 @@ export default function TheoryLessonForm({ lesson, onSubmit, onCancel }: TheoryL
               ) : (
                 <Save className="w-4 h-4 ml-2" />
               )}
-              {lesson ? 'עדכן שיעור' : 'צור שיעור'}
+              {theoryLesson ? 'עדכן שיעור' : 'צור שיעור'}
             </button>
           </div>
         </form>

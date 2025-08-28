@@ -45,16 +45,15 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Check if student has active lessons with this teacher
-  const checkStudentHasLessons = async (studentId: string): Promise<boolean> => {
+  // Check if student has active lessons with this teacher (using existing student data)
+  const checkStudentHasLessons = (student: any): boolean => {
     try {
-      const student = await apiService.students.getStudentById(studentId)
       const hasActiveAssignment = student.teacherAssignments?.some((assignment: any) => 
         assignment.teacherId === teacherId && assignment.isActive === true
       )
       return hasActiveAssignment || false
     } catch (error) {
-      console.error(`Error checking lessons for student ${studentId}:`, error)
+      console.error(`Error checking lessons for student ${student._id}:`, error)
       return false
     }
   }
@@ -73,16 +72,11 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
           const studentData = await Promise.all(studentPromises)
           setStudents(studentData)
           
-          // Check lesson status for each student
-          const lessonStatusPromises = studentData.map(async (student) => {
-            const hasLessons = await checkStudentHasLessons(student._id)
-            return { studentId: student._id, hasLessons }
-          })
-          
-          const lessonStatuses = await Promise.all(lessonStatusPromises)
+          // Check lesson status for each student using existing data
           const lessonStatusMap: { [key: string]: boolean } = {}
-          lessonStatuses.forEach(({ studentId, hasLessons }) => {
-            lessonStatusMap[studentId] = hasLessons
+          studentData.forEach((student) => {
+            const hasLessons = checkStudentHasLessons(student)
+            lessonStatusMap[student._id] = hasLessons
           })
           setStudentsWithLessons(lessonStatusMap)
         }

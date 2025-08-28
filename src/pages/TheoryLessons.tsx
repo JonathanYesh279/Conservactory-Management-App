@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Filter, Calendar, Clock, Users, BookOpen } from 'lucide-react'
 import Card from '../components/ui/Card'
 import StatsCard from '../components/ui/StatsCard'
@@ -29,6 +30,7 @@ const scrollbarStyles = `
 `
 
 export default function TheoryLessons() {
+  const navigate = useNavigate()
   const [lessons, setLessons] = useState<TheoryLesson[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -181,6 +183,10 @@ export default function TheoryLessons() {
   const handleCreateLesson = () => {
     setEditingLesson(null)
     setShowForm(true)
+  }
+
+  const handleViewLesson = (lesson: TheoryLesson) => {
+    navigate(`/theory-lessons/${lesson._id}`)
   }
 
   const handleEditLesson = (lesson) => {
@@ -400,6 +406,7 @@ export default function TheoryLessons() {
                               <div key={lesson._id} className="w-80 flex-shrink-0">
                                 <TheoryLessonCard
                                   lesson={lesson}
+                                  onView={handleViewLesson}
                                   onEdit={handleEditLesson}
                                   onDelete={handleDeleteLesson}
                                 />
@@ -444,6 +451,7 @@ export default function TheoryLessons() {
                               <div key={lesson._id} className="w-80 flex-shrink-0">
                                 <TheoryLessonCard
                                   lesson={lesson}
+                                  onView={handleViewLesson}
                                   onEdit={handleEditLesson}
                                   onDelete={handleDeleteLesson}
                                 />
@@ -487,6 +495,7 @@ export default function TheoryLessons() {
                               <div key={lesson._id} className="w-80 flex-shrink-0">
                                 <TheoryLessonCard
                                   lesson={lesson}
+                                  onView={handleViewLesson}
                                   onEdit={handleEditLesson}
                                   onDelete={handleDeleteLesson}
                                 />

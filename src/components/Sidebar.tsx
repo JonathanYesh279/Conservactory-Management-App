@@ -15,7 +15,8 @@ import {
   Menu,
   X,
   Plus,
-  Filter
+  Filter,
+  Award
 } from 'lucide-react'
 
 const navigation = [
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'שיעורי תיאוריה', href: '/theory-lessons', icon: BookOpen },
   { name: 'תזמורות', href: '/orchestras', icon: Music },
   { name: 'חזרות', href: '/rehearsals', icon: Calendar },
+  { name: 'בגרויות', href: '/bagruts', icon: Award },
   { name: 'נוכחות', href: '/attendance', icon: UserCheck },
   { name: 'דוחות', href: '/reports', icon: BarChart3 },
   { name: 'הגדרות', href: '/settings', icon: Settings },

@@ -43,7 +43,7 @@ export function StatusBadge({ status, children }: StatusBadgeProps) {
 
 export default function Table({ columns, data, className, onRowClick, rowClassName }: TableProps) {
   return (
-    <div className={clsx('overflow-hidden bg-white rounded-xl shadow-card border border-gray-100', className)}>
+    <div className={clsx('overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200', className)}>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">

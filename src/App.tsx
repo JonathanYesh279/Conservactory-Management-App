@@ -8,9 +8,12 @@ import Dashboard from './pages/Dashboard'
 import Students from './pages/Students'
 import Teachers from './pages/Teachers'
 import TheoryLessons from './pages/TheoryLessons'
+import TheoryLessonDetails from './pages/TheoryLessonDetails'
 import Orchestras from './pages/Orchestras'
 import Rehearsals from './pages/Rehearsals'
 import RehearsalDetails from './pages/RehearsalDetails'
+import Bagruts from './pages/Bagruts'
+import BagrutDetails from './pages/BagrutDetails'
 import { lazy } from 'react'
 
 // Lazy load StudentDetailsPage for code splitting
@@ -133,6 +136,16 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/theory-lessons/:theoryId"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <TheoryLessonDetails />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/orchestras"
           element={
             <ProtectedRoute>
@@ -182,20 +195,44 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/bagrut"
+          path="/bagruts"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Bagruts />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bagruts/:bagrutId"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <BagrutDetails />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bagruts/:bagrutId/edit"
           element={
             <ProtectedRoute>
               <Layout>
                 <div className="p-6" dir="rtl">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-4">מעקב בגרות</h1>
-                  <p className="text-gray-600">מעקב דרישות בגרות והתקדמות</p>
-                  <div className="mt-8 p-4 bg-green-50 rounded-lg">
-                    <p className="text-green-700">📋 תכונות מעקב בגרות בקרוב!</p>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-4">עריכת בגרות</h1>
+                  <p className="text-gray-600">עריכת פרטי הבגרות והתקדמות</p>
+                  <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+                    <p className="text-blue-700">🔧 עמוד עריכת בגרות בפיתוח - בינתיים ניתן לערוך דרך עמוד הפרטים</p>
                   </div>
                 </div>
               </Layout>
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/bagrut"
+          element={<Navigate to="/bagruts" replace />}
         />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
