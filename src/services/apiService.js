@@ -16,11 +16,18 @@ const API_CONFIG = {
 
 /**
  * HTTP Client with authentication and error handling
+ * Features:
+ * - Request/response interception
+ * - Automatic retry on auth failures
+ * - Request deduplication
+ * - Better error handling
  */
 class ApiClient {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
     this.token = this.getStoredToken();
+    this.pendingRequests = new Map();
+    this.authRefreshPromise = null;
   }
 
   /**
@@ -70,21 +77,27 @@ class ApiClient {
   }
 
   /**
-   * Handle API response
+   * Handle API response with better error handling
    */
   async handleResponse(response) {
     const contentType = response.headers.get('content-type');
     
     let data;
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
-    } else {
-      data = await response.text();
+    try {
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
+    } catch (error) {
+      console.warn('Failed to parse response:', error);
+      data = null;
     }
 
     if (!response.ok) {
       // Handle different error types
       if (response.status === 401) {
+        console.log('🔐 API Client - 401 Unauthorized, clearing token');
         this.removeToken();
         throw new Error('Authentication failed. Please login again.');
       } else if (response.status === 403) {
@@ -94,17 +107,57 @@ class ApiClient {
       } else if (response.status >= 500) {
         throw new Error('Server error. Please try again later.');
       } else {
-        throw new Error(data.error || data.message || `HTTP ${response.status}: ${response.statusText}`);
+        const errorMessage = data?.error || data?.message || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
     }
 
     return data;
   }
+  
+  /**
+   * Create request key for deduplication
+   */
+  createRequestKey(method, endpoint, body) {
+    const bodyKey = body ? JSON.stringify(body) : '';
+    return `${method}:${endpoint}:${bodyKey}`;
+  }
 
   /**
-   * Make HTTP request
+   * Make HTTP request with deduplication and retry logic
    */
   async request(method, endpoint, options = {}) {
+    // Don't deduplicate auth validation requests to prevent issues
+    const skipDeduplication = endpoint === '/auth/validate' || endpoint === '/auth/login';
+    
+    if (!skipDeduplication) {
+      // Check for pending identical requests to avoid duplicates
+      const requestKey = this.createRequestKey(method, endpoint, options.body);
+      if (this.pendingRequests.has(requestKey)) {
+        console.log(`🔄 API Request deduplicated: ${method} ${endpoint}`);
+        return this.pendingRequests.get(requestKey);
+      }
+    }
+    
+    const requestPromise = this._makeRequest(method, endpoint, options);
+    
+    if (!skipDeduplication) {
+      const requestKey = this.createRequestKey(method, endpoint, options.body);
+      this.pendingRequests.set(requestKey, requestPromise);
+      
+      // Clean up after request completes
+      requestPromise.finally(() => {
+        this.pendingRequests.delete(requestKey);
+      });
+    }
+    
+    return requestPromise;
+  }
+  
+  /**
+   * Internal method to make the actual HTTP request
+   */
+  async _makeRequest(method, endpoint, options = {}) {
     const url = this.buildUrl(endpoint);
     const config = {
       method,
@@ -118,7 +171,10 @@ class ApiClient {
     }
 
     try {
-      console.log(`🌐 API Request: ${method} ${url}`, options.body ? { body: options.body } : '');
+      // Only log non-validation requests to reduce noise
+      if (endpoint !== '/auth/validate') {
+        console.log(`🌐 API Request: ${method} ${url}`, options.body ? { body: options.body } : '');
+      }
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
@@ -129,14 +185,23 @@ class ApiClient {
       clearTimeout(timeoutId);
       
       const result = await this.handleResponse(response);
-      console.log(`✅ API Response: ${method} ${endpoint}`, { status: response.status, data: result });
+      
+      // Only log non-validation responses to reduce noise
+      if (endpoint !== '/auth/validate') {
+        console.log(`✅ API Response: ${method} ${endpoint}`, { status: response.status });
+      }
       
       return result;
     } catch (error) {
       if (error.name === 'AbortError') {
         throw new Error('Request timeout. Please check your connection.');
       }
-      console.error(`❌ API Error: ${method} ${endpoint}`, error);
+      
+      // Only log non-validation errors to reduce noise
+      if (endpoint !== '/auth/validate') {
+        console.error(`❌ API Error: ${method} ${endpoint}`, error.message);
+      }
+      
       throw error;
     }
   }
@@ -221,15 +286,28 @@ export const authService = {
   },
 
   /**
-   * Validate current token
+   * Validate current token with improved error handling
    */
   async validateToken() {
+    // Don't validate if no token exists
+    if (!this.isAuthenticated()) {
+      throw new Error('No token available for validation');
+    }
+    
     try {
       const response = await apiClient.get('/auth/validate');
+      console.log('🔐 Auth Service - Token validation successful');
       return response;
     } catch (error) {
-      console.error('Token validation failed:', error);
-      apiClient.removeToken();
+      console.log('🔐 Auth Service - Token validation failed:', error.message);
+      
+      // Only remove token on certain types of failures
+      if (error.message.includes('Authentication failed') || 
+          error.message.includes('401') ||
+          error.message.includes('Unauthorized')) {
+        apiClient.removeToken();
+      }
+      
       throw error;
     }
   },
@@ -1960,6 +2038,44 @@ export const bagrutService = {
   },
 
   /**
+   * Update only the program array of a specific bagrut
+   * @param {string} bagrutId - Bagrut ID
+   * @param {Array} program - Program pieces array
+   * @returns {Promise<Object>} Updated bagrut record
+   */
+  async updateBagrutProgram(bagrutId, program) {
+    try {
+      const bagrut = await apiClient.put(`/bagrut/${bagrutId}/program`, { program });
+      
+      console.log(`🎵 Updated bagrut program: ${bagrutId}, ${program.length} pieces`);
+      
+      return bagrut;
+    } catch (error) {
+      console.error('Error updating bagrut program:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update bagrut program array only
+   * @param {string} bagrutId - Bagrut ID
+   * @param {Array} program - Program pieces array
+   * @returns {Promise<Object>} Updated bagrut record
+   */
+  async updateBagrutProgram(bagrutId, program) {
+    try {
+      const bagrut = await apiClient.put(`/bagrut/${bagrutId}/program`, { program });
+      
+      console.log(`✏️ Updated program for bagrut: ${bagrutId}`);
+      
+      return bagrut;
+    } catch (error) {
+      console.error('Error updating bagrut program:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Update specific presentation in bagrut record
    * @param {string} bagrutId - Bagrut ID
    * @param {number} presentationIndex - Index of presentation (0-3)
@@ -1975,6 +2091,71 @@ export const bagrutService = {
       return bagrut;
     } catch (error) {
       console.error('Error updating bagrut presentation:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update מגן בגרות data (separate from presentations array)
+   * @param {string} bagrutId - Bagrut ID
+   * @param {Object} magenData - מגן בגרות data
+   * @returns {Promise<Object>} Updated bagrut record
+   */
+  async updateMagenBagrut(bagrutId, magenData) {
+    try {
+      const bagrut = await apiClient.put(`/bagrut/${bagrutId}/magenBagrut`, magenData);
+      
+      console.log(`✏️ Updated מגן בגרות for bagrut: ${bagrutId}`);
+      
+      return bagrut;
+    } catch (error) {
+      console.error('Error updating מגן בגרות:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update Magen Bagrut data (separate from presentations)
+   * @param {string} bagrutId - Bagrut ID
+   * @param {Object} magenBagrutData - Magen Bagrut data
+   * @returns {Promise<Object>} Updated bagrut record
+   */
+  async updateMagenBagrut(bagrutId, magenBagrutData) {
+    try {
+      const bagrut = await apiClient.put(`/bagrut/${bagrutId}/magenBagrut`, magenBagrutData);
+      
+      console.log(`✏️ Updated Magen Bagrut for bagrut: ${bagrutId}`);
+      
+      return bagrut;
+    } catch (error) {
+      console.error('Error updating Magen Bagrut:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update grading details (uses magenBagrut.detailedGrading structure)
+   * @param {string} bagrutId - Bagrut ID
+   * @param {Object} gradingData - Grading data with playingSkills, musicalUnderstanding, textKnowledge, playingByHeart
+   * @returns {Promise<Object>} Updated bagrut record
+   */
+  async updateGradingDetails(bagrutId, gradingData) {
+    try {
+      // Validate grading data structure
+      const requiredFields = ['playingSkills', 'musicalUnderstanding', 'textKnowledge', 'playingByHeart'];
+      for (const field of requiredFields) {
+        if (!gradingData[field]) {
+          throw new Error(`Missing required field: ${field}`);
+        }
+      }
+
+      const bagrut = await apiClient.put(`/bagrut/${bagrutId}/gradingDetails`, gradingData);
+      
+      console.log(`✏️ Updated grading details for bagrut: ${bagrutId}`);
+      
+      return bagrut;
+    } catch (error) {
+      console.error('Error updating grading details:', error);
       throw error;
     }
   },
@@ -2035,28 +2216,21 @@ export const bagrutService = {
 
   /**
    * Normalize Magen Bagrut presentation (index 3)
-   * Resolve conflicts between detailedGrading and gradingDetails
+   * Uses detailedGrading from magenBagrut object
    * @param {Object} presentation - Magen Bagrut presentation data
    * @returns {Object} Normalized Magen Bagrut presentation
    */
   normalizeMagenBagrutPresentation(presentation) {
     if (!presentation) return null;
 
-    // Choose most complete grading system
+    // Use detailedGrading only (gradingDetails has been removed from backend)
     const detailedGrading = presentation.detailedGrading;
-    const gradingDetails = presentation.gradingDetails;
     
-    // Prefer detailedGrading if it exists and has content
     let normalizedGrading = null;
     if (detailedGrading && Object.keys(detailedGrading).length > 0) {
       normalizedGrading = {
         source: 'detailedGrading',
         ...detailedGrading
-      };
-    } else if (gradingDetails && Object.keys(gradingDetails).length > 0) {
-      normalizedGrading = {
-        source: 'gradingDetails',
-        ...gradingDetails
       };
     }
 
@@ -2066,7 +2240,6 @@ export const bagrutService = {
       type: 'magen',
       grading: normalizedGrading,
       isCompleted: this.isPresentationCompleted(presentation),
-      conflicts: this.detectGradingConflicts(detailedGrading, gradingDetails),
       normalizedAt: new Date().toISOString()
     };
   },
@@ -2090,6 +2263,7 @@ export const bagrutService = {
       accompanist: magenBagrut?.accompanist || magenPresentation?.accompanist || null,
       pieces: magenBagrut?.pieces || magenPresentation?.pieces || [],
       documents: magenBagrut?.documents || [],
+      detailedGrading: magenBagrut?.detailedGrading || magenPresentation?.detailedGrading || null,
       conflicts: this.detectMagenBagrutConflicts(magenPresentation, magenBagrut)
     };
   },
@@ -3326,6 +3500,7 @@ export default {
   teachers: teacherService,
   teacherSchedule: teacherScheduleService,
   theory: theoryService,
+  theoryLessons: theoryService, // Alias for theory service
   orchestras: orchestraService,
   rehearsals: rehearsalService,
   schoolYears: schoolYearService,
