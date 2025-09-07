@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Save, X, Users, Music, Phone, Mail, AlertCircle } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 import type { Accompanist } from '../types/bagrut.types'
 
 interface AccompanistFormProps {
@@ -75,9 +75,12 @@ const AccompanistForm: React.FC<AccompanistFormProps> = ({
       newErrors.email = 'כתובת אימייל לא תקינה'
     }
 
-    // Phone validation (optional field, Israeli format)
-    if (formData.phone && !formData.phone.match(/^[\d\-\s\+\(\)]+$/)) {
-      newErrors.phone = 'מספר טלפון לא תקין'
+    // Phone validation (optional field, Israeli format - must match backend pattern)
+    if (formData.phone && formData.phone.trim()) {
+      const phonePattern = /^05\d{8}$/
+      if (!phonePattern.test(formData.phone.replace(/\D/g, ''))) {
+        newErrors.phone = 'מספר טלפון לא תקין (צריך להתחיל ב-05 ולכלול 10 ספרות)'
+      }
     }
 
     setErrors(newErrors)
@@ -102,8 +105,34 @@ const AccompanistForm: React.FC<AccompanistFormProps> = ({
     }
   }
 
+  const formatIsraeliPhone = (phone: string): string => {
+    // Remove all non-digits
+    const digits = phone.replace(/\D/g, '')
+    
+    // Handle international format conversion (972 -> 0)
+    if (digits.startsWith('972') && digits.length >= 12) {
+      return '0' + digits.slice(3)
+    }
+    
+    // Ensure it starts with 05 and limit to 10 digits
+    if (digits.length > 0 && !digits.startsWith('05')) {
+      if (digits.startsWith('5')) {
+        return '05' + digits.slice(1, 9)
+      }
+    }
+    
+    return digits.slice(0, 10)
+  }
+
   const handleInputChange = (field: keyof typeof formData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    let processedValue = value
+    
+    // Format phone number automatically
+    if (field === 'phone') {
+      processedValue = formatIsraeliPhone(value)
+    }
+    
+    setFormData(prev => ({ ...prev, [field]: processedValue }))
     
     // Clear error when user starts typing
     if (errors[field]) {
@@ -225,7 +254,7 @@ const AccompanistForm: React.FC<AccompanistFormProps> = ({
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="לדוגמה: 054-123-4567"
+                  placeholder="0501234567"
                   className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                     errors.phone ? 'border-red-300' : 'border-gray-300'
                   }`}

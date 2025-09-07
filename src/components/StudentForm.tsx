@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Save, X, Plus, Trash2, Loader } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 import apiService from '../services/apiService'
 
 interface StudentFormProps {

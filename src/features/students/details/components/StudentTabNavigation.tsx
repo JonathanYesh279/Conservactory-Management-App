@@ -5,7 +5,7 @@
  * Responsive design with mobile-friendly scrolling.
  */
 
-import { User, GraduationCap, Calendar, CheckCircle, Music, BookOpen, FileText } from 'lucide-react'
+import { User, GraduationCap, Calendar, CheckCircle, Music, BookOpen, FileText, Award } from 'lucide-react'
 import { StudentTabNavigationProps, TabType } from '../types'
 
 // Tab configuration with icons
@@ -16,6 +16,7 @@ const tabConfig = {
   attendance: { label: 'נוכחות', icon: CheckCircle },
   orchestra: { label: 'תזמורות', icon: Music },
   theory: { label: 'תאוריה', icon: BookOpen },
+  bagrut: { label: 'בגרות', icon: Award },
   documents: { label: 'מסמכים', icon: FileText },
 }
 

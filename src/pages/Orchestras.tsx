@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Filter, Music, Users, UserCheck, Calendar, Grid, List, MapPin, BarChart3, Settings } from 'lucide-react'
-import Card from '../components/ui/Card'
+import { Card } from '../components/ui/card'
 import Table from '../components/ui/Table'
 import StatsCard from '../components/ui/StatsCard'
 import OrchestraForm from '../components/OrchestraForm'
@@ -9,6 +9,7 @@ import OrchestraCard from '../components/OrchestraCard'
 import OrchestraManagementDashboard from '../components/OrchestraManagementDashboard'
 import OrchestraMemberManagement from '../components/OrchestraMemberManagement'
 import { orchestraService, teacherService } from '../services/apiService'
+import { useAuth } from '../services/authContext'
 import { 
   filterOrchestras, 
   sortOrchestras, 
@@ -27,6 +28,7 @@ import {
 
 export default function Orchestras() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [orchestras, setOrchestras] = useState<Orchestra[]>([])
   const [teachers, setTeachers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -66,7 +68,9 @@ export default function Orchestras() {
       ])
       
       setOrchestras(orchestrasData)
-      setTeachers(teachersData)
+      // Filter out current user from conductors list
+      const filteredTeachers = teachersData.filter(teacher => teacher._id !== user?._id)
+      setTeachers(filteredTeachers)
     } catch (error) {
       console.error('Error loading data:', error)
       setError('שגיאה בטעינת הנתונים')
@@ -225,11 +229,7 @@ export default function Orchestras() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">תזמורות והרכבים</h1>
-          <p className="text-gray-600 mt-1">ניהול תזמורות, הרכבים ומנצחים</p>
-        </div>
+      <div className="flex justify-end items-center">
         <button
           onClick={handleCreateOrchestra}
           className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
@@ -245,53 +245,6 @@ export default function Orchestras() {
           <p className="text-red-800">{error}</p>
         </div>
       )}
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard
-          title="סה״כ תזמורות"
-          value={stats.totalOrchestras.toString()}
-          subtitle="תזמורות והרכבים"
-          icon={<Music />}
-          color="blue"
-          trend={{ 
-            value: stats.typeDistribution['תזמורת'], 
-            label: "תזמורות", 
-            direction: "up" 
-          }}
-        />
-        <StatsCard
-          title="תזמורות פעילות"
-          value={stats.activeOrchestras.toString()}
-          subtitle="מתוך סה״כ התזמורות"
-          icon={<UserCheck />}
-          color="green"
-          trend={{ 
-            value: stats.typeDistribution['הרכב'], 
-            label: "הרכבים", 
-            direction: "up" 
-          }}
-        />
-        <StatsCard
-          title="סה״כ מבצעים"
-          value={stats.totalMembers.toString()}
-          subtitle="חברים בכל התזמורות"
-          icon={<Users />}
-          color="purple"
-        />
-        <StatsCard
-          title="רמת מוכנות"
-          value={`${stats.orchestrasReady}/${stats.totalOrchestras}`}
-          subtitle="תזמורות פעילות"
-          icon={<Calendar />}
-          color="orange"
-          trend={{ 
-            value: Math.round((stats.orchestrasReady / Math.max(stats.totalOrchestras, 1)) * 100), 
-            label: "%", 
-            direction: stats.orchestrasReady > stats.totalOrchestras / 2 ? "up" : "down" 
-          }}
-        />
-      </div>
 
       {/* Filters and Search - Only show for grid and table views */}
       {viewMode !== 'dashboard' && (

@@ -12,19 +12,34 @@ interface TheoryLessonCardProps {
   onEdit?: (lesson: TheoryLesson) => void
   onDelete?: (lessonId: string) => void
   onViewAttendance?: (lesson: TheoryLesson) => void
+  selectable?: boolean
+  selected?: boolean
+  onSelect?: (lessonId: string) => void
 }
 
-export default function TheoryLessonCard({ lesson, onView, onEdit, onDelete, onViewAttendance }: TheoryLessonCardProps) {
+export default function TheoryLessonCard({ lesson, onView, onEdit, onDelete, onViewAttendance, selectable, selected, onSelect }: TheoryLessonCardProps) {
   // Use utility functions for consistent formatting as specified in requirements
   const formattedDate = formatLessonDate(lesson)
   const formattedTime = formatLessonTime(lesson)
   const lessonStatus = getLessonStatus(lesson)
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className={`bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 ${
+      selected ? 'border-primary-400 ring-2 ring-primary-100' : 'border-gray-200'
+    }`}>
       {/* Card Header */}
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-start justify-between">
+          {selectable && (
+            <div className="flex items-center ml-3">
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={() => onSelect?.(lesson._id)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+            </div>
+          )}
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <BookOpen className="w-4 h-4 text-primary-600" />

@@ -11,7 +11,7 @@ import {
   Eye,
   UserPlus
 } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 import StatsCard from './ui/StatsCard'
 import { orchestraService, studentService, teacherService, rehearsalService } from '../services/apiService'
 import { 
@@ -195,21 +195,6 @@ export default function OrchestraManagementDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">לוח בקרת תזמורות</h2>
-          <p className="text-gray-600 mt-1">ניהול מתקדם של תזמורות והרכבים</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadOrchestraData}
-            className="px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            רענן נתונים
-          </button>
-        </div>
-      </div>
 
       {/* Error Display */}
       {error && (

@@ -27,15 +27,49 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: process.env.NODE_ENV === 'development',
+    minify: 'esbuild',
+    target: 'es2020',
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           query: ['@tanstack/react-query'],
           ui: ['@headlessui/react', 'lucide-react'],
+          charts: ['chart.js', 'react-chartjs-2'],
+          utils: ['date-fns', 'clsx', 'tailwind-merge'],
+          // Cascade deletion components in separate chunk
+          'cascade-deletion': [
+            'src/hooks/useCascadeDeletion.ts',
+            'src/hooks/useOptimizedCascadeDeletion.ts',
+            'src/services/cascadeDeletionService.ts',
+            'src/utils/cascadeErrorHandler.ts'
+          ]
         },
+        // Optimize chunk names for better caching
+        chunkFileNames: (chunkInfo) => {
+          const facadeModuleId = chunkInfo.facadeModuleId
+          if (facadeModuleId) {
+            if (facadeModuleId.includes('cascade') || facadeModuleId.includes('deletion')) {
+              return 'cascade/[name]-[hash].js'
+            }
+            if (facadeModuleId.includes('worker')) {
+              return 'workers/[name]-[hash].js'
+            }
+          }
+          return 'chunks/[name]-[hash].js'
+        },
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name?.endsWith('.css')) {
+            return 'styles/[name]-[hash].css'
+          }
+          return 'assets/[name]-[hash].[ext]'
+        }
       },
     },
+    // Performance optimizations
+    reportCompressedSize: false, // Faster builds
+    chunkSizeWarningLimit: 1000, // 1MB warning threshold
   },
 })

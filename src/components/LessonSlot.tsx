@@ -1,6 +1,6 @@
 import React from 'react'
 import { Clock, MapPin, User, Music, Edit, Trash2 } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 
 interface LessonSlot {
   _id?: string

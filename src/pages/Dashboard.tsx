@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Users, GraduationCap, Music, Calendar } from 'lucide-react'
 import StatsCard from '../components/ui/StatsCard'
-import Card from '../components/ui/Card'
+import { Card } from '../components/ui/card'
 import apiService from '../services/apiService'
 import { useSchoolYear } from '../services/schoolYearContext'
 

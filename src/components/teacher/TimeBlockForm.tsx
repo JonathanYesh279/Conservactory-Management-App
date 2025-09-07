@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Clock, MapPin, Calendar, Save } from 'lucide-react';
-import Card from '../ui/Card';
+import { Card } from '../ui/card';
 import apiService from '../../services/apiService';
 
 interface TimeBlock {

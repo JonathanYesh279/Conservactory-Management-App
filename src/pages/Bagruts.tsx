@@ -5,11 +5,11 @@ import {
   Grid, List, Download, CheckCircle, Clock, Award,
   FileText, Calendar, User, Music, AlertCircle, XCircle
 } from 'lucide-react'
-import Card from '../components/ui/Card'
+import { Card } from '../components/ui/card'
 import Table, { StatusBadge } from '../components/ui/Table'
 import StatsCard from '../components/ui/StatsCard'
 import BagrutCard from '../components/BagrutCard'
-import BagrutForm from '../components/BagrutForm'
+import SimplifiedBagrutForm from '../components/SimplifiedBagrutForm'
 import ConfirmationModal from '../components/ui/ConfirmationModal'
 import { useBagrut } from '../hooks/useBagrut'
 import { useSchoolYear } from '../services/schoolYearContext'
@@ -58,9 +58,11 @@ export default function Bagruts() {
     }
   }, [bagruts])
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh = false) => {
     try {
       setLoadingAdditionalData(true)
+      
+      console.log('🔄 Loading bagrut data...', forceRefresh ? '(forced refresh)' : '')
       
       // Load bagruts
       await fetchAllBagruts({ 
@@ -156,11 +158,37 @@ export default function Bagruts() {
   }
 
   const handleFormSubmit = async (formData: any) => {
-    const newBagrut = await createBagrut(formData)
-    if (newBagrut) {
-      await loadData()
-      setShowForm(false)
-      navigate(`/bagruts/${newBagrut._id}`)
+    try {
+      console.log('🚀 Creating bagrut with data:', formData)
+      const newBagrut = await createBagrut(formData)
+      
+      if (newBagrut) {
+        console.log('✅ Bagrut created successfully:', newBagrut._id)
+        
+        // Close form first
+        setShowForm(false)
+        
+        // Force a fresh reload of all data with a small delay
+        setTimeout(async () => {
+          console.log('🔄 Refreshing bagrut data...')
+          await Promise.all([
+            loadData(true), // Force refresh
+            fetchAllBagruts({ 
+              showInactive: false,
+              sortBy: 'createdAt',
+              order: 'desc'
+            })
+          ])
+          
+          // Navigate after data refresh
+          console.log('🔗 Navigating to bagrut details:', newBagrut._id)
+          navigate(`/bagruts/${newBagrut._id}`)
+        }, 200)
+      } else {
+        console.error('❌ Failed to create bagrut - no bagrut returned')
+      }
+    } catch (error) {
+      console.error('❌ Error in form submission:', error)
     }
   }
 
@@ -535,8 +563,8 @@ export default function Bagruts() {
       {/* New Bagrut Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <BagrutForm
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto mr-64">
+            <SimplifiedBagrutForm
               students={students}
               teachers={teachers}
               onSubmit={handleFormSubmit}

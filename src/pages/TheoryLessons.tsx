@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Filter, Calendar, Clock, Users, BookOpen } from 'lucide-react'
-import Card from '../components/ui/Card'
+import { Plus, Search, Filter, Calendar, Clock, Users, BookOpen, Trash2, AlertTriangle, Settings } from 'lucide-react'
+import { Card } from '../components/ui/card'
 import StatsCard from '../components/ui/StatsCard'
 import TheoryLessonForm from '../components/TheoryLessonForm'
 import TheoryLessonCard from '../components/TheoryLessonCard'
+import BulkTheoryUpdateTab from '../components/BulkTheoryUpdateTab'
+import ConfirmationModal from '../components/ui/ConfirmationModal'
+import Modal from '../components/ui/Modal'
 import { theoryService } from '../services/apiService'
 import { 
   filterLessons, 
@@ -36,11 +39,32 @@ export default function TheoryLessons() {
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingLesson, setEditingLesson] = useState<TheoryLesson | null>(null)
+  const [editingLessons, setEditingLessons] = useState<TheoryLesson[]>([])
+  const [formMode, setFormMode] = useState<'create' | 'edit' | 'bulk-edit'>('create')
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'lessons' | 'bulk'>('lessons')
+  
+  // Bulk selection state
+  const [selectedLessons, setSelectedLessons] = useState<Set<string>>(new Set())
+  const [selectAll, setSelectAll] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState({
     category: '',
     teacherId: '',
     date: ''
+  })
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [lessonToDelete, setLessonToDelete] = useState<any>(null)
+
+  // Bulk delete state
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [bulkDeleteType, setBulkDeleteType] = useState<'date' | 'category' | 'teacher'>('date')
+  const [bulkDeleteData, setBulkDeleteData] = useState({
+    startDate: '',
+    endDate: '',
+    category: '',
+    teacherId: ''
   })
 
   // Load theory lessons on component mount
@@ -182,6 +206,8 @@ export default function TheoryLessons() {
 
   const handleCreateLesson = () => {
     setEditingLesson(null)
+    setEditingLessons([])
+    setFormMode('create')
     setShowForm(true)
   }
 
@@ -191,18 +217,32 @@ export default function TheoryLessons() {
 
   const handleEditLesson = (lesson) => {
     setEditingLesson(lesson)
+    setEditingLessons([])
+    setFormMode('edit')
     setShowForm(true)
   }
 
   const handleFormSubmit = async (lessonData) => {
     try {
-      if (editingLesson) {
-        await theoryService.updateTheoryLesson(editingLesson._id, lessonData)
+      if (lessonData.mode === 'edit') {
+        const { mode, lessonId, ...updateData } = lessonData
+        await theoryService.updateTheoryLesson(lessonId, updateData)
+      } else if (lessonData.mode === 'bulk-edit') {
+        const { mode, lessonIds, updateData } = lessonData
+        await theoryService.bulkUpdateTheoryLessons(lessonIds, updateData)
+      } else if (lessonData.mode === 'bulk-create' || lessonData.isBulk) {
+        // Handle bulk creation
+        const { isBulk, mode, ...bulkData } = lessonData
+        await theoryService.bulkCreateTheoryLessons(bulkData)
       } else {
-        await theoryService.createTheoryLesson(lessonData)
+        const { mode, ...createData } = lessonData
+        await theoryService.createTheoryLesson(createData)
       }
       setShowForm(false)
       setEditingLesson(null)
+      setEditingLessons([])
+      setFormMode('create')
+      setSelectedLessons(new Set())
       await loadTheoryLessons()
     } catch (error) {
       console.error('Error saving theory lesson:', error)
@@ -210,16 +250,106 @@ export default function TheoryLessons() {
     }
   }
 
-  const handleDeleteLesson = async (lessonId) => {
-    if (window.confirm('האם אתה בטוח שברצונך למחוק את שיעור התיאוריה?')) {
-      try {
-        await theoryService.deleteTheoryLesson(lessonId)
-        await loadTheoryLessons()
-      } catch (error) {
-        console.error('Error deleting theory lesson:', error)
-        setError('שגיאה במחיקת שיעור התיאוריה')
-      }
+  const handleDeleteLesson = (lesson: any) => {
+    setLessonToDelete(lesson)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteLesson = async () => {
+    if (!lessonToDelete) return
+
+    try {
+      await theoryService.deleteTheoryLesson(lessonToDelete._id)
+      await loadTheoryLessons()
+      setShowDeleteModal(false)
+      setLessonToDelete(null)
+    } catch (error) {
+      console.error('Error deleting theory lesson:', error)
+      setError('שגיאה במחיקת שיעור התיאוריה')
     }
+  }
+
+  // Bulk delete handlers
+  const handleBulkDelete = async () => {
+    try {
+      let result
+      switch (bulkDeleteType) {
+        case 'date':
+          if (!bulkDeleteData.startDate || !bulkDeleteData.endDate) {
+            setError('נדרש לבחור תאריכי התחלה וסיום')
+            return
+          }
+          result = await theoryService.deleteTheoryLessonsByDateRange(
+            bulkDeleteData.startDate,
+            bulkDeleteData.endDate
+          )
+          break
+        case 'category':
+          if (!bulkDeleteData.category) {
+            setError('נדרש לבחור קטגוריה')
+            return
+          }
+          result = await theoryService.deleteTheoryLessonsByCategory(bulkDeleteData.category)
+          break
+        case 'teacher':
+          if (!bulkDeleteData.teacherId) {
+            setError('נדרש לבחור מורה')
+            return
+          }
+          result = await theoryService.deleteTheoryLessonsByTeacher(bulkDeleteData.teacherId)
+          break
+        default:
+          setError('סוג מחיקה לא תקין')
+          return
+      }
+
+      await loadTheoryLessons()
+      setShowBulkDeleteModal(false)
+      setBulkDeleteData({ startDate: '', endDate: '', category: '', teacherId: '' })
+      setError(null)
+      console.log(`✅ נמחקו ${result.deletedCount} שיעורי תיאוריה בהצלחה`)
+    } catch (error: any) {
+      setError(error.message || 'שגיאה במחיקת שיעורי התיאוריה')
+      setShowBulkDeleteModal(false)
+    }
+  }
+
+  const cancelBulkDelete = () => {
+    setShowBulkDeleteModal(false)
+    setBulkDeleteData({ startDate: '', endDate: '', category: '', teacherId: '' })
+  }
+
+  // Bulk selection handlers
+  const handleSelectLesson = (lessonId: string) => {
+    const newSelected = new Set(selectedLessons)
+    if (newSelected.has(lessonId)) {
+      newSelected.delete(lessonId)
+    } else {
+      newSelected.add(lessonId)
+    }
+    setSelectedLessons(newSelected)
+  }
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedLessons(new Set())
+    } else {
+      setSelectedLessons(new Set(filteredAndSortedLessons.map(lesson => lesson._id)))
+    }
+    setSelectAll(!selectAll)
+  }
+
+  const handleBulkEdit = () => {
+    const lessonsToEdit = lessons.filter(lesson => selectedLessons.has(lesson._id))
+    if (lessonsToEdit.length === 0) {
+      setError('אנא בחר שיעורים לעריכה')
+      return
+    }
+    
+    setEditingLessons(lessonsToEdit)
+    setEditingLesson(null)
+    setFormMode('bulk-edit')
+    setShowForm(true)
   }
 
 
@@ -243,14 +373,73 @@ export default function TheoryLessons() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">שיעורי תיאוריה</h1>
           <p className="text-gray-600 mt-1">ניהול שיעורי תיאוריה ומעקב נוכחות</p>
+          
+          {/* Tab Navigation */}
+          <div className="flex space-x-4 rtl:space-x-reverse mt-4">
+            <button
+              onClick={() => setActiveTab('lessons')}
+              className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'lessons'
+                  ? 'bg-primary-100 text-primary-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 ml-2" />
+              רשימת שיעורים
+            </button>
+            <button
+              onClick={() => setActiveTab('bulk')}
+              className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'bulk'
+                  ? 'bg-primary-100 text-primary-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <Settings className="w-4 h-4 ml-2" />
+              עדכון שיעורים קבוצתי
+            </button>
+          </div>
         </div>
-        <button
-          onClick={handleCreateLesson}
-          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          <Plus className="w-4 h-4 ml-2" />
-          שיעור חדש
-        </button>
+        <div className="flex gap-2">
+          {activeTab === 'lessons' && (
+            <>
+              {selectedLessons.size > 0 && (
+                <>
+                  <button
+                    onClick={handleBulkEdit}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    title={`עריכה קבוצתית של ${selectedLessons.size} שיעורים`}
+                  >
+                    <Users className="w-4 h-4 ml-1" />
+                    עריכה קבוצתית ({selectedLessons.size})
+                  </button>
+                  <button
+                    onClick={() => setSelectedLessons(new Set())}
+                    className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    title="בטל בחירה"
+                  >
+                    ביטול בחירה
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => setShowBulkDeleteModal(true)}
+                className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                title="מחיקה קבוצתית של שיעורי תיאוריה"
+              >
+                <Trash2 className="w-4 h-4 ml-1" />
+                מחיקת שיעורים
+              </button>
+              <button
+                onClick={handleCreateLesson}
+                className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              >
+                <Plus className="w-4 h-4 ml-2" />
+                שיעור חדש
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Error Display */}
@@ -260,6 +449,9 @@ export default function TheoryLessons() {
         </div>
       )}
 
+      {/* Tab Content */}
+      {activeTab === 'lessons' ? (
+        <>
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
@@ -351,9 +543,22 @@ export default function TheoryLessons() {
       {/* Theory Lessons Table */}
       <Card>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">
-            שיעורי תיאוריה ({filteredAndSortedLessons.length})
-          </h3>
+          <div className="flex items-center gap-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              שיעורי תיאוריה ({filteredAndSortedLessons.length})
+            </h3>
+            {filteredAndSortedLessons.length > 0 && (
+              <label className="flex items-center text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={selectAll}
+                  onChange={handleSelectAll}
+                  className="ml-2 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                בחר הכל ({selectedLessons.size} נבחרו)
+              </label>
+            )}
+          </div>
           <button
             onClick={loadTheoryLessons}
             className="text-sm text-primary-600 hover:text-primary-700 font-medium"
@@ -409,6 +614,9 @@ export default function TheoryLessons() {
                                   onView={handleViewLesson}
                                   onEdit={handleEditLesson}
                                   onDelete={handleDeleteLesson}
+                                  selectable={true}
+                                  selected={selectedLessons.has(lesson._id)}
+                                  onSelect={handleSelectLesson}
                                 />
                               </div>
                             ))}
@@ -454,6 +662,9 @@ export default function TheoryLessons() {
                                   onView={handleViewLesson}
                                   onEdit={handleEditLesson}
                                   onDelete={handleDeleteLesson}
+                                  selectable={true}
+                                  selected={selectedLessons.has(lesson._id)}
+                                  onSelect={handleSelectLesson}
                                 />
                               </div>
                             ))}
@@ -498,6 +709,9 @@ export default function TheoryLessons() {
                                   onView={handleViewLesson}
                                   onEdit={handleEditLesson}
                                   onDelete={handleDeleteLesson}
+                                  selectable={true}
+                                  selected={selectedLessons.has(lesson._id)}
+                                  onSelect={handleSelectLesson}
                                 />
                               </div>
                             ))}
@@ -512,18 +726,216 @@ export default function TheoryLessons() {
           </div>
         )}
       </Card>
+      
+      </>
+      ) : (
+        /* Bulk Update Tab */
+        <BulkTheoryUpdateTab
+          lessons={lessons}
+          onRefresh={loadTheoryLessons}
+          searchQuery={searchQuery}
+          filters={filters}
+        />
+      )}
 
       {/* Theory Lesson Form Modal */}
       {showForm && (
         <TheoryLessonForm
-          lesson={editingLesson}
+          theoryLesson={editingLesson}
+          theoryLessons={editingLessons}
+          mode={formMode}
           onSubmit={handleFormSubmit}
           onCancel={() => {
             setShowForm(false)
             setEditingLesson(null)
+            setEditingLessons([])
+            setFormMode('create')
+            setSelectedLessons(new Set())
           }}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        title="מחיקת שיעור תיאוריה"
+        message={
+          lessonToDelete
+            ? `האם אתה בטוח שברצונך למחוק את שיעור התיאוריה "${lessonToDelete.title}"?\n\nפרטי השיעור:\n• תאריך: ${new Date(lessonToDelete.date).toLocaleDateString('he-IL')}\n• משך: ${lessonToDelete.duration} דקות\n• תלמידים רשומים: ${lessonToDelete.registeredStudents?.length || 0}\n\nפעולה זו לא ניתנת לביטול.`
+            : 'האם אתה בטוח שברצונך למחוק את שיעור התיאוריה?'
+        }
+        confirmText="מחק שיעור"
+        cancelText="ביטול"
+        onConfirm={confirmDeleteLesson}
+        onCancel={() => {
+          setShowDeleteModal(false)
+          setLessonToDelete(null)
+        }}
+        variant="danger"
+      />
+
+      {/* Bulk Delete Modal */}
+      <Modal
+        isOpen={showBulkDeleteModal}
+        onClose={cancelBulkDelete}
+        title="מחיקה קבוצתית של שיעורי תיאוריה"
+        maxWidth="lg"
+      >
+        <div className="p-6">
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center">
+              <AlertTriangle className="w-5 h-5 text-yellow-600 ml-2" />
+              <p className="text-yellow-800">
+                ⚠️ פעולה זו תמחק שיעורי תיאוריה על בסיס הקריטריונים שנבחרו. 
+                פעולה זו אינה ניתנת לביטול!
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {/* Bulk Delete Type Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                סוג מחיקה
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="date"
+                    checked={bulkDeleteType === 'date'}
+                    onChange={(e) => setBulkDeleteType(e.target.value as 'date')}
+                    className="ml-2"
+                  />
+                  טווח תאריכים
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="category"
+                    checked={bulkDeleteType === 'category'}
+                    onChange={(e) => setBulkDeleteType(e.target.value as 'category')}
+                    className="ml-2"
+                  />
+                  לפי קטגוריה
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="teacher"
+                    checked={bulkDeleteType === 'teacher'}
+                    onChange={(e) => setBulkDeleteType(e.target.value as 'teacher')}
+                    className="ml-2"
+                  />
+                  לפי מורה
+                </label>
+              </div>
+            </div>
+
+            {/* Date Range */}
+            {bulkDeleteType === 'date' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    תאריך התחלה
+                  </label>
+                  <input
+                    type="date"
+                    value={bulkDeleteData.startDate}
+                    onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, startDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    תאריך סיום
+                  </label>
+                  <input
+                    type="date"
+                    value={bulkDeleteData.endDate}
+                    onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Category Selection */}
+            {bulkDeleteType === 'category' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  קטגוריה
+                </label>
+                <select
+                  value={bulkDeleteData.category}
+                  onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                >
+                  <option value="">בחר קטגוריה</option>
+                  <option value="תלמידים חדשים ב-ד">תלמידים חדשים ב-ד</option>
+                  <option value="מתחילים">מתחילים</option>
+                  <option value="מתחילים ב">מתחילים ב</option>
+                  <option value="מתחילים ד">מתחילים ד</option>
+                  <option value="מתקדמים ב">מתקדמים ב</option>
+                  <option value="מתקדמים א">מתקדמים א</option>
+                  <option value="מתקדמים ג">מתקדמים ג</option>
+                  <option value="תלמידים חדשים בוגרים (ה - ט)">תלמידים חדשים בוגרים (ה - ט)</option>
+                  <option value="תלמידים חדשים צעירים">תלמידים חדשים צעירים</option>
+                  <option value="הכנה לרסיטל קלאסי יא">הכנה לרסיטל קלאסי יא</option>
+                  <option value="הכנה לרסיטל רוק\פופ\ג'אז יא">הכנה לרסיטל רוק\פופ\ג'אז יא</option>
+                  <option value="הכנה לרסיטל רוק\פופ\ג'אז יב">הכנה לרסיטל רוק\פופ\ג'אז יב</option>
+                  <option value="מגמה">מגמה</option>
+                  <option value="תאוריה כלי">תאוריה כלי</option>
+                </select>
+              </div>
+            )}
+
+            {/* Teacher Selection */}
+            {bulkDeleteType === 'teacher' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  מורה
+                </label>
+                <input
+                  type="text"
+                  placeholder="הזן מזהה מורה או שם"
+                  value={bulkDeleteData.teacherId}
+                  onChange={(e) => setBulkDeleteData({ ...bulkDeleteData, teacherId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ניתן להזין מזהה מורה או לחפש לפי שם
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              onClick={cancelBulkDelete}
+              className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              ביטול
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              disabled={
+                (bulkDeleteType === 'date' && (!bulkDeleteData.startDate || !bulkDeleteData.endDate)) ||
+                (bulkDeleteType === 'category' && !bulkDeleteData.category) ||
+                (bulkDeleteType === 'teacher' && !bulkDeleteData.teacherId)
+              }
+            >
+              <Trash2 className="w-4 h-4 ml-2 inline" />
+              מחק שיעורי תיאוריה
+            </button>
+          </div>
+        </div>
+      </Modal>
       </div>
     </>
   )

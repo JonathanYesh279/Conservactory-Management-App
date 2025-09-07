@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowRight, RefreshCw, Wifi, WifiOff, Trash2 } from 'lucide-react'
+import { ArrowRight, RefreshCw, Wifi, WifiOff, Trash2, Shield, Database, AlertTriangle, Archive } from 'lucide-react'
 import { TabType } from '../types'
 import StudentTabNavigation from './StudentTabNavigation'
 import StudentTabContent from './StudentTabContent'
@@ -20,6 +20,11 @@ import {
 } from '../../../../services/performanceOptimizations'
 import { StudentDetailsErrorBoundary } from './StudentDetailsErrorBoundary'
 import ConfirmationModal from '../../../../components/ui/ConfirmationModal'
+import { useCascadeDeletion } from '../../../../hooks/useCascadeDeletion'
+import { cascadeDeletionService } from '../../../../services/cascadeDeletionService'
+import SafeDeleteModal from '../../../../components/SafeDeleteModal'
+import DeletionImpactModal from '../../../../components/DeletionImpactModal'
+import DeletionImpactSummary from './DeletionImpactSummary'
 
 const StudentDetailsPage: React.FC = () => {
   console.log('🔍 StudentDetailsPage component loading...')
@@ -38,6 +43,15 @@ const StudentDetailsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  
+  // Cascade deletion states
+  const [showSafeDeleteModal, setShowSafeDeleteModal] = useState(false)
+  const [showDeletionImpactModal, setShowDeletionImpactModal] = useState(false)
+  const [deletionPreview, setDeletionPreview] = useState(null)
+  const [showImpactSummary, setShowImpactSummary] = useState(false)
+  
+  // Cascade deletion hooks
+  const { previewDeletion, executeDeletion, isDeleting } = useCascadeDeletion()
 
   // WebSocket connection status (with error handling)
   let wsStatus = null
@@ -111,6 +125,39 @@ const StudentDetailsPage: React.FC = () => {
 
   const handleCancelDelete = () => {
     setShowDeleteModal(false)
+  }
+
+  // New cascade deletion handlers
+  const handleSafeDeleteClick = async () => {
+    if (!studentId || !student?.personalInfo?.fullName) return
+    setShowSafeDeleteModal(true)
+  }
+
+  const handleCheckReferences = async () => {
+    if (!studentId) return
+    try {
+      const preview = await cascadeDeletionService.previewDeletion(studentId)
+      setDeletionPreview(preview)
+      setShowDeletionImpactModal(true)
+    } catch (error) {
+      console.error('Error checking references:', error)
+      alert('שגיאה בבדיקת התלויות')
+    }
+  }
+
+  const handleSafeDelete = async (studentIdParam: string, options: any) => {
+    try {
+      await cascadeDeletionService.executeDelete(studentIdParam, options)
+      setShowSafeDeleteModal(false)
+      navigate('/students')
+    } catch (error) {
+      console.error('Error in safe deletion:', error)
+      alert('שגיאה במחיקה המאובטחת')
+    }
+  }
+
+  const handleToggleImpactSummary = () => {
+    setShowImpactSummary(!showImpactSummary)
   }
 
   // Prefetch tab data when tab changes
@@ -299,16 +346,54 @@ const StudentDetailsPage: React.FC = () => {
                 </p>
               </div>
             </div>
-            {/* Delete button */}
-            <button
-              onClick={handleDeleteClick}
-              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="מחק תלמיד"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleToggleImpactSummary}
+                className={`p-2 rounded-lg transition-colors ${
+                  showImpactSummary 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'text-blue-600 hover:bg-blue-50'
+                }`}
+                title="הצג/הסתר השפעת מחיקה"
+              >
+                <Database className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={handleCheckReferences}
+                className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                title="בדוק תלויות ומחיקה"
+              >
+                <AlertTriangle className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={handleSafeDeleteClick}
+                className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                title="מחיקה מאובטחת"
+              >
+                <Shield className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={handleDeleteClick}
+                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="מחיקה רגילה"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Deletion Impact Summary */}
+        <DeletionImpactSummary
+          studentId={studentId}
+          studentName={student?.personalInfo?.fullName || 'תלמיד'}
+          isVisible={showImpactSummary}
+          onClose={() => setShowImpactSummary(false)}
+        />
 
         {/* Tab Navigation and Content */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 w-full overflow-hidden">
@@ -330,6 +415,7 @@ const StudentDetailsPage: React.FC = () => {
               { id: 'attendance', label: 'נוכחות', component: () => null },
               { id: 'orchestra', label: 'תזמורות', component: () => null },
               { id: 'theory', label: 'תיאוריה', component: () => null },
+              { id: 'bagrut', label: 'בגרות', component: () => null },
               { id: 'documents', label: 'מסמכים', component: () => null },
             ]}
           />
@@ -354,6 +440,22 @@ const StudentDetailsPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         variant="danger"
+      />
+      
+      {/* Safe Delete Modal */}
+      <SafeDeleteModal
+        isOpen={showSafeDeleteModal}
+        studentId={studentId || ''}
+        studentName={student?.personalInfo?.fullName || ''}
+        onClose={() => setShowSafeDeleteModal(false)}
+        onConfirm={handleSafeDelete}
+      />
+      
+      {/* Deletion Impact Modal */}
+      <DeletionImpactModal
+        isOpen={showDeletionImpactModal}
+        preview={deletionPreview}
+        onClose={() => setShowDeletionImpactModal(false)}
       />
     </StudentDetailsErrorBoundary>
   )

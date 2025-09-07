@@ -1,13 +1,7 @@
 ---
 name: frontend-architect
 description: Use for technical foundation and project structure decisions. Invoke when you need:
-- Project setup and build configuration
-- TypeScript configuration and type definitions
-- Testing strategy and setup
-- Code organization and folder structure
-- Performance optimization at the architectural level
-- Development tooling and workflow setup
-model: sonnet
+model: opus
 color: green
 ---
 

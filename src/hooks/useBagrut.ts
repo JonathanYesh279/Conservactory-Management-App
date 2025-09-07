@@ -1,12 +1,14 @@
 /**
  * React Hook for Bagrut Management
  * 
- * Provides a convenient interface for using the Bagrut API service
- * with built-in state management, loading states, and error handling
+ * Enhanced version that integrates with the new BagrutContext state management
+ * while maintaining backward compatibility with existing components
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { bagrutService } from '../services/apiService.js';
+import { bagrutService } from '../services/bagrutService.js';
+import { useBagrutActions } from './useBagrutActions';
+import { useBagrutSelectors } from './useBagrutSelectors';
 import type {
   Bagrut,
   BagrutFormData,
@@ -15,7 +17,9 @@ import type {
   Accompanist,
   PresentationUpdateData,
   MagenBagrutUpdateData,
-  GradingDetailsUpdateData
+  GradingDetailsUpdateData,
+  DirectorEvaluationUpdateData,
+  RecitalConfigurationData
 } from '../types/bagrut.types';
 
 // Hook return type
@@ -65,6 +69,11 @@ interface UseBagrutReturn {
   addAccompanist: (bagrutId: string, accompanist: Omit<Accompanist, '_id'>) => Promise<boolean>;
   removeAccompanist: (bagrutId: string, accompanistId: string) => Promise<boolean>;
 
+  // New functionality
+  updateDirectorEvaluation: (bagrutId: string, evaluationData: DirectorEvaluationUpdateData) => Promise<boolean>;
+  setRecitalConfiguration: (bagrutId: string, configData: RecitalConfigurationData) => Promise<boolean>;
+  getDefaultDetailedGrading: () => any;
+
   // Utilities
   clearError: () => void;
   refreshCache: () => void;
@@ -72,18 +81,42 @@ interface UseBagrutReturn {
 
 /**
  * Custom hook for Bagrut management
+ * Enhanced with state management context integration
  */
 export function useBagrut(): UseBagrutReturn {
-  const [bagrut, setBagrut] = useState<Bagrut | null>(null);
-  const [bagruts, setBagruts] = useState<Bagrut[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Try to use the new context-based state management if available
+  // Fall back to local state for backward compatibility
+  let contextActions, contextSelectors;
+  
+  try {
+    contextActions = useBagrutActions();
+    contextSelectors = useBagrutSelectors();
+    console.log('🔗 Using BagrutContext for state management');
+  } catch (error) {
+    // Context not available, use local state
+    console.log('⚠️ BagrutContext not available, falling back to local state:', error);
+  }
+
+  const [localBagrut, setLocalBagrut] = useState<Bagrut | null>(null);
+  const [localBagruts, setLocalBagruts] = useState<Bagrut[]>([]);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [pagination, setPagination] = useState<UseBagrutReturn['pagination']>(null);
+
+  // Use context state if available, otherwise local state
+  const bagrut = contextSelectors?.currentBagrut ?? localBagrut;
+  const bagruts = contextSelectors?.allBagruts ?? localBagruts;
+  const loading = contextSelectors?.loading ?? localLoading;
+  const error = contextSelectors?.error ?? localError;
 
   // Clear error
   const clearError = useCallback(() => {
-    setError(null);
-  }, []);
+    if (contextActions) {
+      contextActions.clearError();
+    } else {
+      setLocalError(null);
+    }
+  }, [contextActions]);
 
   // Refresh cache (placeholder)
   const refreshCache = useCallback(() => {
@@ -92,92 +125,124 @@ export function useBagrut(): UseBagrutReturn {
 
   // Fetch all bagruts
   const fetchAllBagruts = useCallback(async (params?: BagrutQueryParams) => {
-    setLoading(true);
-    setError(null);
+    if (contextActions) {
+      return contextActions.fetchAllBagruts(params);
+    }
+    
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
     try {
-      const bagruts = await bagrutService.getBagruts(params || {});
-      setBagruts(Array.isArray(bagruts) ? bagruts : []);
-      setPagination(null); // Existing API doesn't return pagination
+      const bagruts = await bagrutService.getAllBagruts(params || {});
+      setLocalBagruts(Array.isArray(bagruts) ? bagruts : []);
+      setPagination(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'שגיאה לא ידועה';
-      setError(errorMessage);
+      setLocalError(errorMessage);
       console.error('Error fetching bagruts:', err);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
-  }, []);
+  }, [contextActions]);
 
   // Fetch bagrut by ID
   const fetchBagrutById = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
+    if (contextActions) {
+      return contextActions.fetchBagrutById(id);
+    }
+    
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
     try {
-      const bagrut = await bagrutService.getBagrut(id);
-      setBagrut(bagrut || null);
+      const bagrut = await bagrutService.getBagrutById(id);
+      setLocalBagrut(bagrut || null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'שגיאה לא ידועה';
-      setError(errorMessage);
+      setLocalError(errorMessage);
       console.error('Error fetching bagrut:', err);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
-  }, []);
+  }, [contextActions]);
 
   // Fetch bagrut by student ID
   const fetchBagrutByStudentId = useCallback(async (studentId: string) => {
-    setLoading(true);
-    setError(null);
+    if (contextActions) {
+      return contextActions.fetchBagrutByStudentId(studentId);
+    }
+    
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
     try {
-      const bagrut = await bagrutService.getBagrutByStudent(studentId);
-      setBagrut(bagrut || null);
+      const bagrut = await bagrutService.getBagrutByStudentId(studentId);
+      setLocalBagrut(bagrut || null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'שגיאה לא ידועה';
-      setError(errorMessage);
+      setLocalError(errorMessage);
       console.error('Error fetching student bagrut:', err);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
-  }, []);
+  }, [contextActions]);
 
   // Create bagrut
   const createBagrut = useCallback(async (data: BagrutFormData): Promise<Bagrut | null> => {
-    setLoading(true);
-    setError(null);
+    if (contextActions) {
+      return contextActions.createBagrut(data);
+    }
+    
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
     try {
       const bagrut = await bagrutService.createBagrut(data);
-      setBagrut(bagrut || null);
+      setLocalBagrut(bagrut || null);
+      
+      // Also refresh the local bagruts list
+      if (bagrut) {
+        const updatedBagruts = await bagrutService.getAllBagruts({});
+        setLocalBagruts(Array.isArray(updatedBagruts) ? updatedBagruts : []);
+      }
+      
       return bagrut;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'שגיאה לא ידועה';
-      setError(errorMessage);
+      setLocalError(errorMessage);
       console.error('Error creating bagrut:', err);
       return null;
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
-  }, []);
+  }, [contextActions]);
 
   // Update bagrut
   const updateBagrut = useCallback(async (id: string, data: Partial<Bagrut>): Promise<Bagrut | null> => {
-    setLoading(true);
-    setError(null);
+    if (contextActions) {
+      return contextActions.updateBagrut(id, data);
+    }
+    
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
     try {
       const bagrut = await bagrutService.updateBagrut(id, data);
-      setBagrut(bagrut || null);
+      setLocalBagrut(bagrut || null);
       return bagrut;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'שגיאה לא ידועה';
-      setError(errorMessage);
+      setLocalError(errorMessage);
       console.error('Error updating bagrut:', err);
       return null;
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
-  }, []);
+  }, [contextActions]);
 
   // Delete bagrut (placeholder - not implemented in existing API)
   const deleteBagrut = useCallback(async (id: string): Promise<boolean> => {
-    setError('מחיקת בגרויות לא מושלמה עדיין');
+    setLocalError('מחיקת בגרויות לא מושלמה עדיין');
     return false;
   }, []);
 
@@ -187,51 +252,83 @@ export function useBagrut(): UseBagrutReturn {
     index: number,
     data: PresentationUpdateData
   ): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
+    if (contextActions) {
+      return contextActions.updatePresentation(bagrutId, index, data);
+    }
+    
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
     try {
       const bagrut = await bagrutService.updatePresentation(bagrutId, index, data);
-      setBagrut(bagrut || null);
+      setLocalBagrut(bagrut || null);
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'שגיאה בעדכון המצגת';
-      setError(errorMessage);
+      setLocalError(errorMessage);
       return false;
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
-  }, []);
+  }, [contextActions]);
 
   // Update Magen Bagrut (placeholder)
   const updateMagenBagrut = useCallback(async (
     bagrutId: string,
     data: MagenBagrutUpdateData
   ): Promise<boolean> => {
-    setError('עדכון מגן בגרות לא מושלם עדיין');
+    setLocalError('עדכון מגן בגרות לא מושלם עדיין');
     return false;
   }, []);
 
-  // Update grading details (placeholder)
+  // Update grading details using the new API structure
   const updateGradingDetails = useCallback(async (
     bagrutId: string,
     data: GradingDetailsUpdateData
   ): Promise<boolean> => {
-    setError('עדכון פרטי הציונים לא מושלם עדיין');
-    return false;
+    try {
+      setLocalError(null);
+      
+      // Use the new API endpoint that expects the updated structure
+      await apiService.bagrutApi.updateGradingDetails(bagrutId, data);
+      
+      console.log(`✅ Updated grading details for bagrut: ${bagrutId}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error updating grading details:', error);
+      setLocalError('שגיאה בעדכון פרטי הציונים');
+      return false;
+    }
   }, []);
 
-  // Calculate final grade (placeholder)
+  // Calculate final grade
   const calculateFinalGrade = useCallback(async (bagrutId: string): Promise<boolean> => {
-    setError('חישוב ציון סופי לא מושלם עדיין');
-    return false;
-  }, []);
+    if (contextActions) {
+      return contextActions.calculateFinalGrade(bagrutId);
+    }
+    
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
+    try {
+      const bagrut = await bagrutService.calculateFinalGrade(bagrutId);
+      setLocalBagrut(bagrut || null);
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'שגיאה בחישוב הציון הסופי';
+      setLocalError(errorMessage);
+      return false;
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [contextActions]);
 
   // Complete bagrut (placeholder)
   const completeBagrut = useCallback(async (
     bagrutId: string,
     signature: string
   ): Promise<boolean> => {
-    setError('השלמת בגרות לא מושלמת עדיין');
+    setLocalError('השלמת בגרות לא מושלמת עדיין');
     return false;
   }, []);
 
@@ -242,7 +339,7 @@ export function useBagrut(): UseBagrutReturn {
     category: string,
     description?: string
   ): Promise<boolean> => {
-    setError('העלאת מסמכים לא מושלמת עדיין');
+    setLocalError('העלאת מסמכים לא מושלמת עדיין');
     return false;
   }, []);
 
@@ -251,7 +348,7 @@ export function useBagrut(): UseBagrutReturn {
     bagrutId: string,
     documentId: string
   ): Promise<boolean> => {
-    setError('מחיקת מסמכים לא מושלמת עדיין');
+    setLocalError('מחיקת מסמכים לא מושלמת עדיין');
     return false;
   }, []);
 
@@ -260,7 +357,7 @@ export function useBagrut(): UseBagrutReturn {
     bagrutId: string,
     documentId: string
   ): Promise<Blob | null> => {
-    setError('הורדת מסמכים לא מושלמת עדיין');
+    setLocalError('הורדת מסמכים לא מושלמת עדיין');
     return null;
   }, []);
 
@@ -269,7 +366,7 @@ export function useBagrut(): UseBagrutReturn {
     bagrutId: string,
     piece: Omit<ProgramPiece, '_id'>
   ): Promise<boolean> => {
-    setError('הוספת יצירות לא מושלמת עדיין');
+    setLocalError('הוספת יצירות לא מושלמת עדיין');
     return false;
   }, []);
 
@@ -278,7 +375,7 @@ export function useBagrut(): UseBagrutReturn {
     bagrutId: string,
     program: ProgramPiece[]
   ): Promise<boolean> => {
-    setError('עדכון תכנית לא מושלם עדיין');
+    setLocalError('עדכון תכנית לא מושלם עדיין');
     return false;
   }, []);
 
@@ -287,7 +384,7 @@ export function useBagrut(): UseBagrutReturn {
     bagrutId: string,
     pieceId: string
   ): Promise<boolean> => {
-    setError('מחיקת יצירות לא מושלמת עדיין');
+    setLocalError('מחיקת יצירות לא מושלמת עדיין');
     return false;
   }, []);
 
@@ -296,7 +393,7 @@ export function useBagrut(): UseBagrutReturn {
     bagrutId: string,
     accompanist: Omit<Accompanist, '_id'>
   ): Promise<boolean> => {
-    setError('הוספת מלווים לא מושלמת עדיין');
+    setLocalError('הוספת מלווים לא מושלמת עדיין');
     return false;
   }, []);
 
@@ -305,8 +402,63 @@ export function useBagrut(): UseBagrutReturn {
     bagrutId: string,
     accompanistId: string
   ): Promise<boolean> => {
-    setError('מחיקת מלווים לא מושלמת עדיין');
+    setLocalError('מחיקת מלווים לא מושלמת עדיין');
     return false;
+  }, []);
+
+  // Update director evaluation
+  const updateDirectorEvaluation = useCallback(async (
+    bagrutId: string,
+    evaluationData: DirectorEvaluationUpdateData
+  ): Promise<boolean> => {
+    if (contextActions) {
+      return contextActions.updateDirectorEvaluation(bagrutId, evaluationData);
+    }
+    
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
+    try {
+      const bagrut = await bagrutService.updateDirectorEvaluation(bagrutId, evaluationData);
+      setLocalBagrut(bagrut || null);
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'שגיאה בעדכון הערכת המנהל';
+      setLocalError(errorMessage);
+      return false;
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [contextActions]);
+
+  // Set recital configuration
+  const setRecitalConfiguration = useCallback(async (
+    bagrutId: string,
+    configData: RecitalConfigurationData
+  ): Promise<boolean> => {
+    if (contextActions) {
+      return contextActions.setRecitalConfiguration(bagrutId, configData);
+    }
+    
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
+    try {
+      const bagrut = await bagrutService.setRecitalConfiguration(bagrutId, configData);
+      setLocalBagrut(bagrut || null);
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'שגיאה בהגדרת תצורת הרסיטל';
+      setLocalError(errorMessage);
+      return false;
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [contextActions]);
+
+  // Get default detailed grading
+  const getDefaultDetailedGrading = useCallback(() => {
+    return bagrutService.getDefaultDetailedGrading();
   }, []);
 
   return {
@@ -349,6 +501,11 @@ export function useBagrut(): UseBagrutReturn {
     // Accompanist management
     addAccompanist,
     removeAccompanist,
+
+    // New functionality
+    updateDirectorEvaluation,
+    setRecitalConfiguration,
+    getDefaultDetailedGrading,
 
     // Utilities
     clearError,

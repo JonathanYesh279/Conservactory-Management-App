@@ -16,7 +16,7 @@ import {
   UserMinus,
   Eye
 } from 'lucide-react'
-import Card from '../components/ui/Card'
+import { Card } from '../components/ui/card'
 import Table from '../components/ui/Table'
 import StatsCard from '../components/ui/StatsCard'
 import OrchestraForm from '../components/OrchestraForm'
@@ -419,7 +419,7 @@ export default function OrchestraDetails() {
 
               {readiness.strengths.length > 0 && (
                 <div className="mb-2">
-                  <div className="text-xs font-medium text-green-700 mb-1">נקודות חוזק:</div>
+                  <div className="text-xs font-medium text-black font-semibold mb-1" style={{color: '#000000'}}>נקודות חוזק:</div>
                   {readiness.strengths.map(strength => (
                     <div key={strength} className="text-xs text-green-600">✓ {strength}</div>
                   ))}
@@ -428,7 +428,7 @@ export default function OrchestraDetails() {
 
               {readiness.issues.length > 0 && (
                 <div>
-                  <div className="text-xs font-medium text-red-700 mb-1">נקודות לשיפור:</div>
+                  <div className="text-xs font-medium text-black font-semibold mb-1" style={{color: '#000000'}}>נקודות לשיפור:</div>
                   {readiness.issues.map(issue => (
                     <div key={issue} className="text-xs text-red-600">✗ {issue}</div>
                   ))}

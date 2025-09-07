@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Save, X, Calendar, Clock, BookOpen, AlertCircle } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 import type { PresentationUpdateData } from '../types/bagrut.types'
 
 interface PresentationFormProps {

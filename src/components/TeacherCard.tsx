@@ -1,6 +1,6 @@
 import React from 'react'
 import { Users, Calendar, Phone, Mail } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 
 interface Teacher {
   _id: string

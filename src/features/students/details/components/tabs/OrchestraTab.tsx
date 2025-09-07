@@ -30,19 +30,43 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
   // Fetch enrolled orchestras details
   useEffect(() => {
     const fetchEnrolledOrchestras = async () => {
-      if (!student?.enrollments?.orchestraIds || student.enrollments.orchestraIds.length === 0) {
-        setEnrolledOrchestras([])
-        return
-      }
-
       try {
         setIsLoadingOrchestras(true)
-        const orchestraPromises = student.enrollments.orchestraIds.map(async (orchestraId: string) => {
+        
+        // First, get all orchestras to check memberIds
+        const allOrchestras = await apiService.orchestras.getOrchestras()
+        
+        // Find orchestras where this student is listed as a member
+        const orchestrasWhereStudentIsMember = allOrchestras.filter((orchestra: any) => 
+          orchestra.memberIds?.includes(studentId)
+        )
+        
+        // Also check student's enrollments.orchestraIds
+        const enrolledOrchestraIds = student?.enrollments?.orchestraIds || []
+        
+        // Combine both sources (student's enrollments and orchestra's memberIds)
+        const allEnrolledIds = new Set([
+          ...enrolledOrchestraIds,
+          ...orchestrasWhereStudentIsMember.map((o: any) => o._id)
+        ])
+        
+        if (allEnrolledIds.size === 0) {
+          setEnrolledOrchestras([])
+          return
+        }
+
+        // Fetch details for all enrolled orchestras
+        const orchestraPromises = Array.from(allEnrolledIds).map(async (orchestraId: string) => {
           try {
             const orchestra = await apiService.orchestras.getOrchestra(orchestraId)
             return { ...orchestra, enrollmentStatus: 'enrolled' }
           } catch (error) {
             console.warn(`Failed to fetch orchestra ${orchestraId}:`, error)
+            // Try to get from the already fetched list
+            const fromList = orchestrasWhereStudentIsMember.find((o: any) => o._id === orchestraId)
+            if (fromList) {
+              return { ...fromList, enrollmentStatus: 'enrolled' }
+            }
             return {
               _id: orchestraId,
               name: 'תזמורת לא זמינה',
@@ -54,6 +78,8 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
 
         const orchestras = await Promise.all(orchestraPromises)
         setEnrolledOrchestras(orchestras)
+        
+        console.log(`Found ${orchestras.length} enrolled orchestras for student ${studentId}`)
       } catch (error) {
         console.error('Error fetching enrolled orchestras:', error)
       } finally {
@@ -62,7 +88,7 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
     }
 
     fetchEnrolledOrchestras()
-  }, [student?.enrollments?.orchestraIds])
+  }, [student?.enrollments?.orchestraIds, studentId])
 
   // Fetch available orchestras for enrollment
   useEffect(() => {
@@ -73,24 +99,37 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
         setIsLoadingOrchestras(true)
         const allOrchestras = await apiService.orchestras.getOrchestras()
         
-        // Filter out already enrolled orchestras and apply business rules
-        const available = allOrchestras.filter((orchestra: any) => {
-          // Skip if already enrolled
-          if (student?.enrollments?.orchestraIds?.includes(orchestra._id)) return false
+        // Show all orchestras, but mark which ones the student is already enrolled in
+        const processedOrchestras = allOrchestras.map((orchestra: any) => {
+          // Check if student is already enrolled (either in enrollments or in orchestra's memberIds)
+          const isEnrolled = student?.enrollments?.orchestraIds?.includes(orchestra._id) || 
+                            orchestra.memberIds?.includes(studentId)
           
           // Check instrument compatibility (if orchestra specifies required instruments)
+          let instrumentCompatible = true
           if (orchestra.requiredInstruments && orchestra.requiredInstruments.length > 0) {
-            if (!orchestra.requiredInstruments.includes(studentInstrument)) return false
+            instrumentCompatible = orchestra.requiredInstruments.includes(studentInstrument)
           }
           
           // Check grade level requirements (if specified)
+          let gradeCompatible = true
           if (orchestra.gradeRequirements && orchestra.gradeRequirements.length > 0) {
-            if (!orchestra.gradeRequirements.includes(studentGrade)) return false
+            gradeCompatible = orchestra.gradeRequirements.includes(studentGrade)
           }
           
-          return true
+          return {
+            ...orchestra,
+            isEnrolled,
+            instrumentCompatible,
+            gradeCompatible,
+            isCompatible: instrumentCompatible && gradeCompatible
+          }
         })
 
+        // Filter to show only non-enrolled orchestras in the available view
+        const available = processedOrchestras.filter((orchestra: any) => !orchestra.isEnrolled)
+        
+        console.log('All orchestras:', allOrchestras.length, 'Available:', available.length)
         setAvailableOrchestras(available)
       } catch (error) {
         console.error('Error fetching available orchestras:', error)
@@ -101,7 +140,7 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
     }
 
     fetchAvailableOrchestras()
-  }, [activeView, student?.enrollments?.orchestraIds, studentInstrument, studentGrade])
+  }, [activeView, student?.enrollments?.orchestraIds, studentInstrument, studentGrade, studentId])
 
   // Check for schedule conflicts
   const checkScheduleConflict = (orchestraSchedule: any) => {
@@ -263,7 +302,11 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
                 <div className="flex-1">
                   <h4 className="text-xl font-semibold text-gray-900">{orchestra.name}</h4>
                   {orchestra.conductor && (
-                    <p className="text-gray-600 mt-1">מנצח: {orchestra.conductor}</p>
+                    <p className="text-gray-600 mt-1">מנצח: {
+                      typeof orchestra.conductor === 'string' 
+                        ? orchestra.conductor 
+                        : orchestra.conductor.personalInfo?.name || 'לא ידוע'
+                    }</p>
                   )}
                   {orchestra.error && (
                     <p className="text-red-600 text-sm mt-1">שגיאה בטעינת פרטי התזמורת</p>
@@ -368,7 +411,7 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
             {availableOrchestras.map((orchestra) => {
               const hasConflict = checkScheduleConflict(orchestra.rehearsalSchedule)
               const isFull = orchestra.capacity && orchestra.currentMembers >= orchestra.capacity
-              const canEnroll = !hasConflict && !isFull
+              const canEnroll = !hasConflict && !isFull && orchestra.isCompatible
               
               return (
                 <div 
@@ -381,7 +424,11 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
                     <div className="flex-1">
                       <h4 className="text-xl font-semibold text-gray-900">{orchestra.name}</h4>
                       {orchestra.conductor && (
-                        <p className="text-gray-600 mt-1">מנצח: {orchestra.conductor}</p>
+                        <p className="text-gray-600 mt-1">מנצח: {
+                          typeof orchestra.conductor === 'string' 
+                            ? orchestra.conductor 
+                            : orchestra.conductor.personalInfo?.name || 'לא ידוע'
+                        }</p>
                       )}
                       
                       {/* Level and Type */}

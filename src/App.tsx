@@ -19,12 +19,12 @@ const Rehearsals = lazyWithRetry(() => import('./pages/Rehearsals'), 'Rehearsals
 const RehearsalDetails = lazyWithRetry(() => import('./pages/RehearsalDetails'), 'RehearsalDetails')
 const Bagruts = lazyWithRetry(() => import('./pages/Bagruts'), 'Bagruts')
 const BagrutDetails = lazyWithRetry(() => import('./pages/BagrutDetails'), 'BagrutDetails')
-import { lazy } from 'react'
+const Profile = lazyWithRetry(() => import('./pages/Profile'), 'Profile')
 
 // Lazy load detail pages with optimization
-const StudentDetailsPageOptimized = lazyWithRetry(
-  () => import('./features/students/details/components/StudentDetailsPageOptimized'), 
-  'StudentDetailsPageOptimized'
+const StudentDetailsPage = lazyWithRetry(
+  () => import('./features/students/details/components/StudentDetailsPageSimple'), 
+  'StudentDetailsPage'
 )
 const TeacherDetailsPage = lazyWithRetry(
   () => import('./features/teachers/details/components/TeacherDetailsPage'), 
@@ -147,7 +147,7 @@ function AppRoutes() {
             <ProtectedRoute>
               <Layout>
                 <Suspense fallback={<PageLoadingFallback message="טוען פרטי תלמיד..." />}>
-                  <StudentDetailsPageOptimized />
+                  <StudentDetailsPage />
                 </Suspense>
               </Layout>
             </ProtectedRoute>
@@ -290,6 +290,18 @@ function AppRoutes() {
         <Route
           path="/bagrut"
           element={<Navigate to="/bagruts" replace />}
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Suspense fallback={<PageLoadingFallback message="טוען עמוד אישי..." />}>
+                  <Profile />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
         />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

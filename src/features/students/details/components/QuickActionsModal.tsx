@@ -22,7 +22,10 @@ import {
   Plus,
   Trash2,
   Check,
-  AlertCircle
+  AlertCircle,
+  Shield,
+  Database,
+  Archive
 } from 'lucide-react'
 import { StudentDetails } from '../types'
 import { 
@@ -32,22 +35,34 @@ import {
   EmailOptions 
 } from '@/services/quickActionsService'
 import toast from 'react-hot-toast'
+import { cascadeDeletionService } from '../../../../services/cascadeDeletionService'
+import { useCascadeDeletion } from '../../../../hooks/useCascadeDeletion'
 
 interface QuickActionsModalProps {
   student: StudentDetails
   isOpen: boolean
   onClose: () => void
+  onDelete?: () => void
 }
 
-type ActionType = 'print' | 'export' | 'email' | 'certificate'
+type ActionType = 'print' | 'export' | 'email' | 'certificate' | 'deletion' | 'archive'
 
 const QuickActionsModal: React.FC<QuickActionsModalProps> = ({
   student,
   isOpen,
-  onClose
+  onClose,
+  onDelete
 }) => {
   const [activeAction, setActiveAction] = useState<ActionType>('print')
   const [isProcessing, setIsProcessing] = useState(false)
+  
+  // Cascade deletion states
+  const [deletionPreview, setDeletionPreview] = useState<any>(null)
+  const [deletionMethod, setDeletionMethod] = useState<'safe' | 'force' | 'archive'>('safe')
+  const [archiveReason, setArchiveReason] = useState('')
+  
+  // Cascade deletion hooks
+  const { previewDeletion, executeDeletion, isDeleting } = useCascadeDeletion()
   
   // Print options state
   const [printOptions, setPrintOptions] = useState<PrintOptions>({
@@ -154,6 +169,54 @@ const QuickActionsModal: React.FC<QuickActionsModalProps> = ({
     }
   }
 
+  // Cascade deletion handlers
+  const handleLoadDeletionPreview = async () => {
+    if (!student?.id) return
+    
+    setIsProcessing(true)
+    try {
+      const preview = await cascadeDeletionService.previewDeletion(student.id)
+      setDeletionPreview(preview)
+      toast.success('תצוגה מקדימה נטענה בהצלחה')
+    } catch (error) {
+      console.error('Preview loading failed:', error)
+      toast.error('שגיאה בטעינת תצוגה מקדימה')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleExecuteDeletion = async () => {
+    if (!student?.id) return
+    
+    setIsProcessing(true)
+    try {
+      const options = {
+        createSnapshot: deletionMethod === 'safe',
+        skipValidation: deletionMethod === 'force',
+        archive: deletionMethod === 'archive',
+        archiveReason: archiveReason,
+        reason: `Quick action deletion via UI - Method: ${deletionMethod}`
+      }
+      
+      await cascadeDeletionService.executeDelete(student.id, options)
+      
+      if (deletionMethod === 'archive') {
+        toast.success('תלמיד הועבר לארכיון בהצלחה')
+      } else {
+        toast.success('תלמיד נמחק בהצלחה')
+      }
+      
+      onDelete?.()
+      onClose()
+    } catch (error) {
+      console.error('Deletion failed:', error)
+      toast.error(`שגיאה ב${deletionMethod === 'archive' ? 'העברה לארכיון' : 'מחיקה'}`)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   const addEmailRecipient = () => {
     const newEmail = prompt('הזן כתובת אימייל:')
     if (newEmail && newEmail.includes('@')) {
@@ -245,6 +308,33 @@ const QuickActionsModal: React.FC<QuickActionsModalProps> = ({
               >
                 <Award className="w-5 h-5" />
                 תעודת הוקרה
+              </button>
+              
+              {/* Divider */}
+              <div className="border-t border-gray-200 my-2"></div>
+              
+              <button
+                onClick={() => setActiveAction('deletion')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-right transition-colors ${
+                  activeAction === 'deletion' 
+                    ? 'bg-red-100 text-red-700 border border-red-200' 
+                    : 'text-red-600 hover:bg-red-50'
+                }`}
+              >
+                <Shield className="w-5 h-5" />
+                מחיקה מאובטחת
+              </button>
+              
+              <button
+                onClick={() => setActiveAction('archive')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-right transition-colors ${
+                  activeAction === 'archive' 
+                    ? 'bg-orange-100 text-orange-700 border border-orange-200' 
+                    : 'text-orange-600 hover:bg-orange-50'
+                }`}
+              >
+                <Archive className="w-5 h-5" />
+                העברה לארכיון
               </button>
             </nav>
           </div>
@@ -525,6 +615,161 @@ const QuickActionsModal: React.FC<QuickActionsModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Deletion Options */}
+            {activeAction === 'deletion' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">מחיקה מאובטחת</h3>
+                  
+                  {/* Warning */}
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start gap-3">
+                      <Shield className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-medium text-red-900">מחיקת תלמיד</div>
+                        <div className="text-sm text-red-700 mt-1">
+                          פעולה זו תמחק את התלמיד וכל הנתונים הקשורים אליו. המערכת תבצע בדיקות בטיחות ותיצור גיבוי לפני המחיקה.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">שיטת מחיקה:</label>
+                      <div className="space-y-3">
+                        <label className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            name="deletionMethod"
+                            value="safe"
+                            checked={deletionMethod === 'safe'}
+                            onChange={(e) => setDeletionMethod(e.target.value as 'safe' | 'force' | 'archive')}
+                            className="mt-0.5 text-green-600 focus:ring-green-500"
+                          />
+                          <div>
+                            <span className="font-medium text-green-800">מחיקה בטוחה (מומלץ)</span>
+                            <div className="text-sm text-gray-600">בדיקות בטיחות מלאות, יצירת גיבוי, וולידציה של תלויות</div>
+                          </div>
+                        </label>
+                        
+                        <label className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            name="deletionMethod"
+                            value="force"
+                            checked={deletionMethod === 'force'}
+                            onChange={(e) => setDeletionMethod(e.target.value as 'safe' | 'force' | 'archive')}
+                            className="mt-0.5 text-orange-600 focus:ring-orange-500"
+                          />
+                          <div>
+                            <span className="font-medium text-orange-800">מחיקה מאולצת</span>
+                            <div className="text-sm text-gray-600">דלג על בדיקות תקינות (רק למשתמשים מתקדמים)</div>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Preview Section */}
+                    <div className="border-t pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-900">תצוגה מקדימה של השפעה</h4>
+                        <button
+                          onClick={handleLoadDeletionPreview}
+                          disabled={isProcessing}
+                          className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded hover:bg-blue-100 disabled:opacity-50"
+                        >
+                          {isProcessing ? 'טוען...' : 'טען תצוגה מקדימה'}
+                        </button>
+                      </div>
+                      
+                      {deletionPreview && (
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-600">סה"כ רשומות:</span>
+                              <span className="font-medium ml-2">{deletionPreview.summary?.totalRecords || 0}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">רמת סיכון:</span>
+                              <span className={`font-medium ml-2 ${
+                                deletionPreview.summary?.riskLevel === 'high' ? 'text-red-600' :
+                                deletionPreview.summary?.riskLevel === 'medium' ? 'text-yellow-600' :
+                                'text-green-600'
+                              }`}>
+                                {deletionPreview.summary?.riskLevel === 'high' ? 'גבוהה' :
+                                 deletionPreview.summary?.riskLevel === 'medium' ? 'בינונית' : 'נמוכה'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {deletionPreview.warnings?.length > 0 && (
+                            <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm">
+                              <div className="font-medium text-yellow-800 mb-1">אזהרות:</div>
+                              {deletionPreview.warnings.map((warning: string, idx: number) => (
+                                <div key={idx} className="text-yellow-700">• {warning}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Archive Options */}
+            {activeAction === 'archive' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">העברה לארכיון</h3>
+                  
+                  {/* Info */}
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start gap-3">
+                      <Archive className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-medium text-orange-900">העברת תלמיד לארכיון</div>
+                        <div className="text-sm text-orange-700 mt-1">
+                          התלמיד יועבר לארכיון וייסגר מהמערכת הפעילה, אך כל הנתונים יישמרו לצורך עיון עתידי.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        סיבת ההעברה לארכיון
+                      </label>
+                      <textarea
+                        value={archiveReason}
+                        onChange={(e) => setArchiveReason(e.target.value)}
+                        rows={4}
+                        placeholder="הזן סיבה להעברת התלמיד לארכיון (חובה)"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                      <div className="text-sm text-gray-500 mt-1">
+                        דרושה סיבה מפורטת להעברה לארכיון לצורכי ביקורת
+                      </div>
+                    </div>
+
+                    {/* Archive Benefits */}
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="font-medium text-blue-900 mb-2">יתרונות ארכיון:</div>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>• השמירה על כל הנתונים וההיסטוריה</li>
+                        <li>• אפשרות לשחזור בעתיד</li>
+                        <li>• מעקב אחר סיבת הסגירה</li>
+                        <li>• דיווחים סטטיסטיים</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -558,10 +803,22 @@ const QuickActionsModal: React.FC<QuickActionsModalProps> = ({
                   case 'certificate':
                     handleGenerateCertificate()
                     break
+                  case 'deletion':
+                    handleExecuteDeletion()
+                    break
+                  case 'archive':
+                    handleExecuteDeletion()
+                    break
                 }
               }}
-              disabled={isProcessing}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isProcessing || (activeAction === 'archive' && !archiveReason.trim())}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                activeAction === 'deletion' 
+                  ? 'bg-red-500 text-white hover:bg-red-600' 
+                  : activeAction === 'archive'
+                  ? 'bg-orange-500 text-white hover:bg-orange-600'
+                  : 'bg-primary-500 text-white hover:bg-primary-600'
+              }`}
             >
               {isProcessing ? (
                 <>
@@ -574,11 +831,15 @@ const QuickActionsModal: React.FC<QuickActionsModalProps> = ({
                   {activeAction === 'export' && <Download className="w-4 h-4" />}
                   {activeAction === 'email' && <Send className="w-4 h-4" />}
                   {activeAction === 'certificate' && <Award className="w-4 h-4" />}
+                  {activeAction === 'deletion' && <Shield className="w-4 h-4" />}
+                  {activeAction === 'archive' && <Archive className="w-4 h-4" />}
                   
                   {activeAction === 'print' && 'הדפס'}
                   {activeAction === 'export' && 'ייצא'}
                   {activeAction === 'email' && 'שלח'}
                   {activeAction === 'certificate' && 'צור תעודה'}
+                  {activeAction === 'deletion' && 'מחק תלמיד'}
+                  {activeAction === 'archive' && 'העבר לארכיון'}
                 </>
               )}
             </button>

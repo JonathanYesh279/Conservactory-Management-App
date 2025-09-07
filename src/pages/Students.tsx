@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Eye, Edit, Filter, Loader, X, Grid, List, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
+import { Search, Plus, Eye, Edit, Filter, Loader, X, Grid, List, Trash2, ChevronUp, ChevronDown, AlertTriangle, Shield, Archive, Clock, Users, Database } from 'lucide-react'
 import { clsx } from 'clsx'
-import Card from '../components/ui/Card'
+import { Card } from '../components/ui/card'
 import Table, { StatusBadge } from '../components/ui/Table'
 import StudentCard from '../components/StudentCard'
 import StudentForm from '../components/forms/StudentForm'
 import ConfirmationModal from '../components/ui/ConfirmationModal'
 import apiService from '../services/apiService'
 import { useSchoolYear } from '../services/schoolYearContext'
+import { useCascadeDeletion } from '../hooks/useCascadeDeletion'
+import { cascadeDeletionService } from '../services/cascadeDeletionService'
+import SafeDeleteModal from '../components/SafeDeleteModal'
+import DeletionImpactModal from '../components/DeletionImpactModal'
+import BatchDeletionModal from '../components/BatchDeletionModal'
 
 export default function Students() {
   const navigate = useNavigate()
@@ -21,7 +26,10 @@ export default function Students() {
     orchestra: '',
     instrument: '',
     teacher: '',
-    stageLevel: ''
+    stageLevel: '',
+    orphaned: '',
+    noActivity: '',
+    integrityStatus: ''
   })
   const [showForm, setShowForm] = useState(false)
   const [editingStudentId, setEditingStudentId] = useState(null)
@@ -37,6 +45,17 @@ export default function Students() {
   const [stageLevelConfirm, setStageLevelConfirm] = useState<{studentId: string, studentName: string, currentLevel: number, newLevel: number} | null>(null)
   const [updatingStageLevel, setUpdatingStageLevel] = useState<string | null>(null)
   const [editingStageLevelId, setEditingStageLevelId] = useState<string | null>(null)
+  
+  // Cascade deletion states
+  const [showSafeDeleteModal, setShowSafeDeleteModal] = useState(false)
+  const [showDeletionImpactModal, setShowDeletionImpactModal] = useState(false)
+  const [showBatchDeletionModal, setShowBatchDeletionModal] = useState(false)
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
+  const [deletionPreview, setDeletionPreview] = useState<any>(null)
+  const [isSelectMode, setIsSelectMode] = useState(false)
+  
+  // Cascade deletion hooks
+  const { previewDeletion, executeDeletion, isDeleting } = useCascadeDeletion()
 
   // Close stage level edit mode when clicking outside
   useEffect(() => {
@@ -109,11 +128,36 @@ export default function Students() {
           {student.isActive ? 'פעיל' : 'לא פעיל'}
         </StatusBadge>,
         teacherAssignments: student.teacherAssignments?.length || 0,
-        rawData: student,
+        rawData: {
+          ...student,
+          // Add cascade deletion related fields
+          referenceCount: student.referenceCount || 0,
+          isOrphaned: student.isOrphaned || false,
+          hasNoRecentActivity: student.hasNoRecentActivity || false,
+          integrityStatus: student.integrityStatus || 'healthy',
+          lastActivity: student.lastActivity || null
+        },
         // Add the original API response data for StudentCard compatibility
         originalStudent: response.find(s => s._id === student.id),
         actions: (
           <div className="flex space-x-2 space-x-reverse">
+            {isSelectMode && (
+              <input
+                type="checkbox"
+                checked={selectedStudents.has(student.id)}
+                onChange={(e) => {
+                  e.stopPropagation()
+                  const newSelected = new Set(selectedStudents)
+                  if (e.target.checked) {
+                    newSelected.add(student.id)
+                  } else {
+                    newSelected.delete(student.id)
+                  }
+                  setSelectedStudents(newSelected)
+                }}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+            )}
             <button 
               className="p-1.5 text-primary-600 hover:text-primary-900 hover:bg-primary-100 rounded transition-colors"
               onClick={(e) => {
@@ -136,15 +180,38 @@ export default function Students() {
               <Edit className="w-4 h-4" />
             </button>
             <button 
-              className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
+              className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
               onClick={(e) => {
                 e.stopPropagation() // Prevent row click
-                handleDeleteClick(student.id, student.name)
+                handleCheckReferences(student.id)
               }}
-              title="מחק תלמיד"
+              title="בדוק תלויות"
             >
-              <Trash2 className="w-4 h-4" />
+              <Database className="w-4 h-4" />
             </button>
+            {(student.referenceCount || student.rawData?.referenceCount || 0) > 0 ? (
+              <button 
+                className="p-1.5 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation() // Prevent row click
+                  handleSafeDeleteClick(student.id, student.name)
+                }}
+                title="מחיקה מאובטחת"
+              >
+                <Shield className="w-4 h-4" />
+              </button>
+            ) : (
+              <button 
+                className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation() // Prevent row click
+                  handleDeleteClick(student.id, student.name)
+                }}
+                title="מחק תלמיד"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
         )
       }))
@@ -308,6 +375,58 @@ export default function Students() {
     }
   }
 
+  // New cascade deletion handlers
+  const handleSafeDeleteClick = async (studentId: string, studentName: string) => {
+    setStudentToDelete({ id: studentId, name: studentName })
+    setShowSafeDeleteModal(true)
+  }
+
+  const handleCheckReferences = async (studentId: string) => {
+    try {
+      const preview = await cascadeDeletionService.previewDeletion(studentId)
+      setDeletionPreview(preview)
+      setShowDeletionImpactModal(true)
+    } catch (error) {
+      console.error('Error checking references:', error)
+      alert('שגיאה בבדיקת התלויות')
+    }
+  }
+
+  const handleBatchDelete = () => {
+    if (selectedStudents.size === 0) {
+      alert('יש לבחור לפחות תלמיד אחד')
+      return
+    }
+    setShowBatchDeletionModal(true)
+  }
+
+  const handleToggleSelectMode = () => {
+    setIsSelectMode(!isSelectMode)
+    setSelectedStudents(new Set())
+  }
+
+  const handleStudentSelection = (studentId: string, selected: boolean) => {
+    const newSelected = new Set(selectedStudents)
+    if (selected) {
+      newSelected.add(studentId)
+    } else {
+      newSelected.delete(studentId)
+    }
+    setSelectedStudents(newSelected)
+  }
+
+  const handleSafeDelete = async (studentId: string, options: any) => {
+    try {
+      await cascadeDeletionService.executeDelete(studentId, options)
+      setShowSafeDeleteModal(false)
+      setStudentToDelete(null)
+      loadStudents()
+    } catch (error) {
+      console.error('Error in safe deletion:', error)
+      alert('שגיאה במחיקה המאובטחת')
+    }
+  }
+
   const handleDeleteClick = (studentId: string, studentName: string) => {
     setStudentToDelete({ id: studentId, name: studentName })
     setShowDeleteModal(true)
@@ -419,7 +538,13 @@ export default function Students() {
       (student.rawData.teacherAssignments && 
        student.rawData.teacherAssignments.some(assignment => assignment.teacherId === filters.teacher))
     
-    return matchesSearch && matchesOrchestra && matchesInstrument && matchesStageLevel && matchesTeacher
+    // New filters for orphaned students and integrity status
+    const matchesOrphaned = !filters.orphaned || 
+      (filters.orphaned === 'true' ? student.rawData.isOrphaned : !student.rawData.isOrphaned)
+    const matchesActivity = !filters.noActivity || 
+      (filters.noActivity === 'true' ? student.rawData.hasNoRecentActivity : !student.rawData.hasNoRecentActivity)
+    
+    return matchesSearch && matchesOrchestra && matchesInstrument && matchesStageLevel && matchesTeacher && matchesOrphaned && matchesActivity
   })
 
   // Calculate statistics
@@ -429,8 +554,50 @@ export default function Students() {
   const studentsWithLessons = students.filter(s => s.teacherAssignments > 0).length
 
   const columns = [
+    ...(isSelectMode ? [{
+      key: 'select',
+      header: (
+        <input
+          type="checkbox"
+          checked={selectedStudents.size === filteredStudents.length && filteredStudents.length > 0}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setSelectedStudents(new Set(filteredStudents.map(s => s.id)))
+            } else {
+              setSelectedStudents(new Set())
+            }
+          }}
+          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+        />
+      ),
+      width: '50px',
+      align: 'center' as const
+    }] : []),
     { key: 'name', header: 'שם התלמיד' },
     { key: 'instrument', header: 'כלי נגינה' },
+    { 
+      key: 'references', 
+      header: 'תלויות', 
+      align: 'center' as const,
+      render: (student: any) => {
+        const count = student.rawData.referenceCount || 0
+        return count > 0 ? (
+          <div className="flex items-center justify-center">
+            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+              count > 10 ? 'bg-red-100 text-red-800' :
+              count > 5 ? 'bg-yellow-100 text-yellow-800' :
+              'bg-green-100 text-green-800'
+            }`}>
+              {count}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center">
+            <span className="text-gray-400 text-xs">-</span>
+          </div>
+        )
+      }
+    },
     { 
       key: 'stageLevel', 
       header: 'שלב', 
@@ -505,7 +672,56 @@ export default function Students() {
     { key: 'orchestra', header: 'תזמורת' },
     { key: 'grade', header: 'כיתה', align: 'center' as const },
     { key: 'status', header: 'סטטוס', align: 'center' as const },
-    { key: 'actions', header: 'פעולות', align: 'center' as const, width: '100px' },
+    {
+      key: 'integrity',
+      header: 'שלמות נתונים',
+      align: 'center' as const,
+      render: (student: any) => {
+        const status = student.rawData.integrityStatus || 'healthy'
+        const isOrphaned = student.rawData.isOrphaned
+        const hasNoActivity = student.rawData.hasNoRecentActivity
+        
+        return (
+          <div className="flex items-center justify-center gap-1">
+            {isOrphaned && (
+              <div className="w-2 h-2 bg-red-500 rounded-full" title="רשומה יתומה" />
+            )}
+            {hasNoActivity && (
+              <div className="w-2 h-2 bg-yellow-500 rounded-full" title="אין פעילות" />
+            )}
+            {status === 'healthy' && !isOrphaned && !hasNoActivity && (
+              <div className="w-2 h-2 bg-green-500 rounded-full" title="תקין" />
+            )}
+          </div>
+        )
+      }
+    },
+    { 
+      key: 'lastActivity', 
+      header: 'פעילות אחרונה', 
+      align: 'center' as const,
+      render: (student: any) => {
+        const lastActivity = student.rawData.lastActivity
+        if (!lastActivity) return <span className="text-gray-400 text-xs">-</span>
+        
+        const date = new Date(lastActivity)
+        const now = new Date()
+        const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+        
+        return (
+          <span className={`text-xs ${
+            diffDays > 30 ? 'text-red-600' :
+            diffDays > 7 ? 'text-yellow-600' :
+            'text-green-600'
+          }`}>
+            {diffDays === 0 ? 'היום' :
+             diffDays === 1 ? 'אתמול' :
+             `לפני ${diffDays} ימים`}
+          </span>
+        )
+      }
+    },
+    { key: 'actions', header: 'פעולות', align: 'center' as const, width: isSelectMode ? '120px' : '140px' },
   ]
 
   if (loading) {
@@ -693,6 +909,28 @@ export default function Students() {
               ))}
             </select>
 
+            {/* Orphaned Students Filter */}
+            <select 
+              value={filters.orphaned}
+              onChange={(e) => setFilters(prev => ({ ...prev, orphaned: e.target.value }))}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
+            >
+              <option value="">כל הסטטוסים</option>
+              <option value="true">רשומות יתומות</option>
+              <option value="false">רשומות תקינות</option>
+            </select>
+
+            {/* No Activity Filter */}
+            <select 
+              value={filters.noActivity}
+              onChange={(e) => setFilters(prev => ({ ...prev, noActivity: e.target.value }))}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
+            >
+              <option value="">כל הפעילויות</option>
+              <option value="true">אין פעילות</option>
+              <option value="false">יש פעילות</option>
+            </select>
+
             <button 
               onClick={handleAddStudent}
               className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
@@ -742,8 +980,32 @@ export default function Students() {
           )}
         </div>
         
-        {/* View Mode Toggle */}
-        <div className="flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200 shadow-sm">
+        {/* View Mode Toggle and Selection Controls */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleToggleSelectMode}
+            className={`flex items-center px-3 py-1 rounded-lg text-xs transition-colors ${
+              isSelectMode 
+                ? 'bg-gray-500 text-white hover:bg-gray-600' 
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
+            title={isSelectMode ? 'בטל בחירה מרובה' : 'הפעל בחירה מרובה'}
+          >
+            <Users className="w-3 h-3 ml-1" />
+            {isSelectMode ? 'בטל בחירה' : 'בחירה מרובה'}
+          </button>
+          
+          {isSelectMode && selectedStudents.size > 0 && (
+            <button 
+              onClick={handleBatchDelete}
+              className="flex items-center px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-xs"
+            >
+              <Trash2 className="w-3 h-3 ml-1" />
+              מחק נבחרים ({selectedStudents.size})
+            </button>
+          )}
+          
+          <div className="flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200 shadow-sm">
           <button
             onClick={() => setViewMode('table')}
             className={`relative px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out flex items-center gap-2 ${
@@ -777,6 +1039,7 @@ export default function Students() {
             )}
           </button>
         </div>
+        </div>
       </div>
 
       {/* Students Display */}
@@ -793,19 +1056,66 @@ export default function Students() {
           rowClassName="hover:bg-gray-50 cursor-pointer transition-colors"
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-          {filteredStudents.map((student) => (
+        <div>
+          {/* Grid Select All Header */}
+          {isSelectMode && (
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedStudents.size === filteredStudents.length && filteredStudents.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedStudents(new Set(filteredStudents.map(s => s.id)))
+                      } else {
+                        setSelectedStudents(new Set())
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 bg-white border-2 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    בחר הכל ({filteredStudents.length} תלמידים)
+                  </span>
+                </div>
+                {selectedStudents.size > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span>נבחרו: {selectedStudents.size}</span>
+                    <button
+                      onClick={() => setSelectedStudents(new Set())}
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      נקה בחירה
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            {filteredStudents.map((student) => (
             <StudentCard
               key={student.id}
               student={student.originalStudent}
               showInstruments={true}
               showTeacherAssignments={true}
               showParentContact={false}
-              onClick={() => handleViewStudent(student.id)}
+              onClick={() => {
+                if (isSelectMode) {
+                  handleStudentSelection(student.id, !selectedStudents.has(student.id))
+                } else {
+                  handleViewStudent(student.id)
+                }
+              }}
               onDelete={handleDeleteStudent}
               className="h-full hover:shadow-lg transition-all duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              isSelectMode={isSelectMode}
+              isSelected={selectedStudents.has(student.id)}
+              onSelectionChange={handleStudentSelection}
             />
           ))}
+        </div>
         </div>
       )}
 
@@ -840,6 +1150,35 @@ export default function Students() {
         onConfirm={handleConfirmStageLevelUpdate}
         onCancel={handleCancelStageLevelUpdate}
         variant="primary"
+      />
+      
+      {/* Safe Delete Modal */}
+      <SafeDeleteModal
+        isOpen={showSafeDeleteModal}
+        studentId={studentToDelete?.id || ''}
+        studentName={studentToDelete?.name || ''}
+        onClose={() => setShowSafeDeleteModal(false)}
+        onConfirm={handleSafeDelete}
+      />
+      
+      {/* Deletion Impact Modal */}
+      <DeletionImpactModal
+        isOpen={showDeletionImpactModal}
+        preview={deletionPreview}
+        onClose={() => setShowDeletionImpactModal(false)}
+      />
+      
+      {/* Batch Deletion Modal */}
+      <BatchDeletionModal
+        isOpen={showBatchDeletionModal}
+        selectedStudentIds={Array.from(selectedStudents)}
+        onClose={() => setShowBatchDeletionModal(false)}
+        onComplete={() => {
+          setShowBatchDeletionModal(false)
+          setSelectedStudents(new Set())
+          setIsSelectMode(false)
+          loadStudents()
+        }}
       />
     </div>
   )

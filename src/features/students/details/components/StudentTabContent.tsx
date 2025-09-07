@@ -16,10 +16,11 @@ import {
 // Import simplified tab components for now
 import PersonalInfoTab from './tabs/PersonalInfoTabSimple'
 import AcademicInfoTab from './tabs/AcademicInfoTabSimple'
-// Import working components
-import TheoryTab from './tabs/TheoryTab'
+// Import optimized components
+import TheoryTabOptimized from './tabs/TheoryTabOptimized'
 import ScheduleTab from './tabs/ScheduleTab'
 import OrchestraTab from './tabs/OrchestraTab'
+import BagrutTab from './tabs/BagrutTab'
 
 // Simple placeholder components for tabs that need more work
 
@@ -249,9 +250,22 @@ const StudentTabContent: React.FC<EnhancedStudentTabContentProps> = ({
         return (
           <TabErrorBoundary tabName="תיאוריה">
             <Suspense fallback={<TabLoadingFallback />}>
-              <TheoryTab 
+              <TheoryTabOptimized 
                 student={student}
                 studentId={studentId}
+              />
+            </Suspense>
+          </TabErrorBoundary>
+        )
+
+      case 'bagrut':
+        return (
+          <TabErrorBoundary tabName="בגרות">
+            <Suspense fallback={<TabLoadingFallback />}>
+              <BagrutTab 
+                student={student}
+                studentId={studentId}
+                onStudentUpdate={onStudentUpdate}
               />
             </Suspense>
           </TabErrorBoundary>

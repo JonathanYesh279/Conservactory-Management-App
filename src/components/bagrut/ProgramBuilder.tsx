@@ -11,7 +11,7 @@ import {
   ExternalLink,
   PlayCircle
 } from 'lucide-react'
-import Card from '../ui/Card'
+import { Card } from '../ui/card'
 
 interface Piece {
   pieceTitle: string
@@ -23,11 +23,12 @@ interface Piece {
 
 interface ProgramBuilderProps {
   program: Piece[]
-  onUpdate: (program: Piece[]) => void
+  onChange: (program: Piece[]) => void
+  requiredPieces: number
   readonly?: boolean
 }
 
-export default function ProgramBuilder({ program, onUpdate, readonly = false }: ProgramBuilderProps) {
+export default function ProgramBuilder({ program, onChange, requiredPieces, readonly = false }: ProgramBuilderProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editData, setEditData] = useState<Piece | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -53,7 +54,7 @@ export default function ProgramBuilder({ program, onUpdate, readonly = false }: 
     if (editingIndex !== null && editData) {
       const updatedProgram = [...program]
       updatedProgram[editingIndex] = editData
-      onUpdate(updatedProgram)
+      onChange(updatedProgram)
       setEditingIndex(null)
       setEditData(null)
     }
@@ -62,14 +63,14 @@ export default function ProgramBuilder({ program, onUpdate, readonly = false }: 
   const deletePiece = (index: number) => {
     if (window.confirm('האם אתה בטוח שברצונך למחוק יצירה זו?')) {
       const updatedProgram = program.filter((_, i) => i !== index)
-      onUpdate(updatedProgram)
+      onChange(updatedProgram)
     }
   }
 
   const addPiece = () => {
     if (newPiece.pieceTitle && newPiece.composer && newPiece.duration) {
       const updatedProgram = [...program, newPiece]
-      onUpdate(updatedProgram)
+      onChange(updatedProgram)
       setNewPiece({
         pieceTitle: '',
         composer: '',

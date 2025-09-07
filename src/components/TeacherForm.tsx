@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, X, AlertCircle } from 'lucide-react';
-import Card from './ui/Card';
+import { Card } from './ui/Card';
 import apiService from '../services/apiService';
 
 const VALID_CLASSES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'יא', 'יב', 'אחר'];

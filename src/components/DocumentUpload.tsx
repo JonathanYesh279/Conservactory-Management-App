@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { Upload, X, File, AlertCircle, CheckCircle, Loader } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 
 interface DocumentUploadProps {
   onUpload: (file: File, category: string, description?: string) => Promise<void>

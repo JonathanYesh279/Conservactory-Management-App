@@ -20,7 +20,7 @@ import {
   FileText,
   CheckCircle
 } from 'lucide-react'
-import Card from '../components/ui/Card'
+import { Card } from '../components/ui/card'
 import Table from '../components/ui/Table'
 import StatsCard from '../components/ui/StatsCard'
 import TheoryLessonForm from '../components/TheoryLessonForm'
@@ -581,21 +581,21 @@ export default function TheoryLessonDetails() {
                 
                 {theoryLesson.syllabus && (
                   <div className="mb-3">
-                    <div className="text-xs font-medium text-gray-700 mb-1">סילבוס:</div>
+                    <div className="text-xs font-medium text-black font-semibold mb-1" style={{color: '#000000'}}>סילבוס:</div>
                     <div className="text-sm text-gray-600 p-2 bg-gray-50 rounded">{theoryLesson.syllabus}</div>
                   </div>
                 )}
 
                 {theoryLesson.homework && (
                   <div className="mb-3">
-                    <div className="text-xs font-medium text-gray-700 mb-1">שיעורי בית:</div>
+                    <div className="text-xs font-medium text-black font-semibold mb-1" style={{color: '#000000'}}>שיעורי בית:</div>
                     <div className="text-sm text-gray-600 p-2 bg-gray-50 rounded">{theoryLesson.homework}</div>
                   </div>
                 )}
 
                 {theoryLesson.notes && (
                   <div>
-                    <div className="text-xs font-medium text-gray-700 mb-1">הערות:</div>
+                    <div className="text-xs font-medium text-black font-semibold mb-1" style={{color: '#000000'}}>הערות:</div>
                     <div className="text-sm text-gray-600 p-2 bg-gray-50 rounded">{theoryLesson.notes}</div>
                   </div>
                 )}
@@ -711,7 +711,7 @@ export default function TheoryLessonDetails() {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   תאריך השיעור
                 </label>
                 <input

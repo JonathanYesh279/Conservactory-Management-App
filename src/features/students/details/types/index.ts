@@ -247,6 +247,12 @@ export interface DocumentsTabData {
   documents: Document[];
 }
 
+export interface BagrutTabData {
+  bagrutId?: string;
+  isEnrolledInBagrut: boolean;
+  bagrutStatus: 'not_started' | 'in_progress' | 'completed';
+}
+
 // Tab navigation types
 export type TabType = 
   | 'personal' 
@@ -255,6 +261,7 @@ export type TabType =
   | 'attendance' 
   | 'orchestra' 
   | 'theory' 
+  | 'bagrut'
   | 'documents';
 
 export interface TabConfig {

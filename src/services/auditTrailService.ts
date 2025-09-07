@@ -1,615 +1,736 @@
 /**
- * Audit Trail Service
+ * Audit Trail Integration Service
  * 
- * Tracks and logs all user actions for security and compliance purposes.
+ * Provides comprehensive API integration for audit trail operations
+ * including query, filtering, rollback, and export functionality
  */
 
-export type AuditAction = 
-  | 'view'
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'upload'
-  | 'download'
-  | 'export'
-  | 'email'
-  | 'print'
-  | 'login'
-  | 'logout'
-  | 'permission_change'
+import {
+  AuditLogEntry,
+  AuditTrailQuery,
+  AuditTrailResponse,
+  AuditTrailExportRequest,
+  AuditTrailExportResponse,
+  RollbackOperation,
+  AuditChange,
+  AuditTrailError,
+  UseAuditTrailReturn,
+} from '@/types/cascade-deletion.types'
 
-export type AuditResourceType =
-  | 'student'
-  | 'personal_info'
-  | 'academic_info'
-  | 'attendance'
-  | 'schedule'
-  | 'orchestra'
-  | 'theory'
-  | 'document'
-  | 'report'
-  | 'user'
-  | 'permission'
-
-export interface AuditEntry {
-  id: string
-  timestamp: Date
-  userId: string
-  userRole: string
-  userName: string
-  action: AuditAction
-  resourceType: AuditResourceType
-  resourceId: string
-  resourceName?: string
-  details?: Record<string, any>
-  ipAddress?: string
-  userAgent?: string
-  success: boolean
-  errorMessage?: string
-  duration?: number // in milliseconds
-  metadata?: {
-    oldValues?: Record<string, any>
-    newValues?: Record<string, any>
-    changedFields?: string[]
-    reason?: string
-    batchId?: string // For bulk operations
-  }
+// Configuration
+const AUDIT_API_CONFIG = {
+  baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
+  timeout: 60000, // 1 minute for audit operations
+  retryAttempts: 2,
+  retryDelay: 1000,
+  exportTimeout: 300000, // 5 minutes for export operations
 }
 
-export interface AuditQuery {
-  userId?: string
-  userRole?: string
-  action?: AuditAction
-  resourceType?: AuditResourceType
-  resourceId?: string
-  dateFrom?: Date
-  dateTo?: Date
-  success?: boolean
-  limit?: number
-  offset?: number
-}
+/**
+ * HTTP Client for Audit Trail Operations
+ */
+class AuditTrailApiClient {
+  private baseUrl: string
+  private timeout: number
 
-export interface AuditStats {
-  totalEntries: number
-  entriesByAction: Record<AuditAction, number>
-  entriesByResourceType: Record<AuditResourceType, number>
-  entriesByUser: Record<string, number>
-  failureRate: number
-  avgDuration: number
-}
-
-class AuditTrailService {
-  private entries: AuditEntry[] = []
-  private isEnabled: boolean = true
-
-  /**
-   * Log an audit entry
-   */
-  async log(entry: Omit<AuditEntry, 'id' | 'timestamp'>): Promise<void> {
-    if (!this.isEnabled) {
-      return
-    }
-
-    try {
-      const auditEntry: AuditEntry = {
-        ...entry,
-        id: this.generateId(),
-        timestamp: new Date()
-      }
-
-      // Add to local storage (in production, this would be sent to backend)
-      this.entries.unshift(auditEntry)
-
-      // Keep only last 1000 entries in memory
-      if (this.entries.length > 1000) {
-        this.entries = this.entries.slice(0, 1000)
-      }
-
-      // Save to localStorage for persistence
-      this.saveToStorage()
-
-      console.log('Audit entry logged:', auditEntry)
-    } catch (error) {
-      console.error('Failed to log audit entry:', error)
-    }
+  constructor() {
+    this.baseUrl = AUDIT_API_CONFIG.baseUrl
+    this.timeout = AUDIT_API_CONFIG.timeout
   }
 
-  /**
-   * Log a view action
-   */
-  async logView(
-    userId: string,
-    userRole: string,
-    userName: string,
-    resourceType: AuditResourceType,
-    resourceId: string,
-    resourceName?: string
-  ): Promise<void> {
-    await this.log({
-      userId,
-      userRole,
-      userName,
-      action: 'view',
-      resourceType,
-      resourceId,
-      resourceName,
-      success: true
-    })
-  }
-
-  /**
-   * Log a create action
-   */
-  async logCreate(
-    userId: string,
-    userRole: string,
-    userName: string,
-    resourceType: AuditResourceType,
-    resourceId: string,
-    resourceName?: string,
-    newValues?: Record<string, any>
-  ): Promise<void> {
-    await this.log({
-      userId,
-      userRole,
-      userName,
-      action: 'create',
-      resourceType,
-      resourceId,
-      resourceName,
-      success: true,
-      metadata: { newValues }
-    })
-  }
-
-  /**
-   * Log an update action
-   */
-  async logUpdate(
-    userId: string,
-    userRole: string,
-    userName: string,
-    resourceType: AuditResourceType,
-    resourceId: string,
-    resourceName?: string,
-    oldValues?: Record<string, any>,
-    newValues?: Record<string, any>,
-    changedFields?: string[]
-  ): Promise<void> {
-    await this.log({
-      userId,
-      userRole,
-      userName,
-      action: 'update',
-      resourceType,
-      resourceId,
-      resourceName,
-      success: true,
-      metadata: { oldValues, newValues, changedFields }
-    })
-  }
-
-  /**
-   * Log a delete action
-   */
-  async logDelete(
-    userId: string,
-    userRole: string,
-    userName: string,
-    resourceType: AuditResourceType,
-    resourceId: string,
-    resourceName?: string,
-    reason?: string
-  ): Promise<void> {
-    await this.log({
-      userId,
-      userRole,
-      userName,
-      action: 'delete',
-      resourceType,
-      resourceId,
-      resourceName,
-      success: true,
-      metadata: { reason }
-    })
-  }
-
-  /**
-   * Log a file operation
-   */
-  async logFileOperation(
-    userId: string,
-    userRole: string,
-    userName: string,
-    action: 'upload' | 'download',
-    resourceId: string,
-    fileName: string,
-    fileSize?: number
-  ): Promise<void> {
-    await this.log({
-      userId,
-      userRole,
-      userName,
-      action,
-      resourceType: 'document',
-      resourceId,
-      resourceName: fileName,
-      success: true,
-      details: { fileSize }
-    })
-  }
-
-  /**
-   * Log an export action
-   */
-  async logExport(
-    userId: string,
-    userRole: string,
-    userName: string,
-    resourceType: AuditResourceType,
-    resourceId: string,
-    format: string,
-    options?: Record<string, any>
-  ): Promise<void> {
-    await this.log({
-      userId,
-      userRole,
-      userName,
-      action: 'export',
-      resourceType,
-      resourceId,
-      success: true,
-      details: { format, options }
-    })
-  }
-
-  /**
-   * Log an email action
-   */
-  async logEmail(
-    userId: string,
-    userRole: string,
-    userName: string,
-    resourceId: string,
-    recipients: string[],
-    subject: string
-  ): Promise<void> {
-    await this.log({
-      userId,
-      userRole,
-      userName,
-      action: 'email',
-      resourceType: 'report',
-      resourceId,
-      success: true,
-      details: { recipients: recipients.length, subject }
-    })
-  }
-
-  /**
-   * Log a print action
-   */
-  async logPrint(
-    userId: string,
-    userRole: string,
-    userName: string,
-    resourceType: AuditResourceType,
-    resourceId: string,
-    reportType: string
-  ): Promise<void> {
-    await this.log({
-      userId,
-      userRole,
-      userName,
-      action: 'print',
-      resourceType,
-      resourceId,
-      success: true,
-      details: { reportType }
-    })
-  }
-
-  /**
-   * Log a failed action
-   */
-  async logFailure(
-    userId: string,
-    userRole: string,
-    userName: string,
-    action: AuditAction,
-    resourceType: AuditResourceType,
-    resourceId: string,
-    error: string
-  ): Promise<void> {
-    await this.log({
-      userId,
-      userRole,
-      userName,
-      action,
-      resourceType,
-      resourceId,
-      success: false,
-      errorMessage: error
-    })
-  }
-
-  /**
-   * Query audit entries
-   */
-  async query(query: AuditQuery): Promise<{
-    entries: AuditEntry[]
-    total: number
-  }> {
-    let filteredEntries = [...this.entries]
-
-    // Apply filters
-    if (query.userId) {
-      filteredEntries = filteredEntries.filter(entry => entry.userId === query.userId)
-    }
-
-    if (query.userRole) {
-      filteredEntries = filteredEntries.filter(entry => entry.userRole === query.userRole)
-    }
-
-    if (query.action) {
-      filteredEntries = filteredEntries.filter(entry => entry.action === query.action)
-    }
-
-    if (query.resourceType) {
-      filteredEntries = filteredEntries.filter(entry => entry.resourceType === query.resourceType)
-    }
-
-    if (query.resourceId) {
-      filteredEntries = filteredEntries.filter(entry => entry.resourceId === query.resourceId)
-    }
-
-    if (query.dateFrom) {
-      filteredEntries = filteredEntries.filter(entry => entry.timestamp >= query.dateFrom!)
-    }
-
-    if (query.dateTo) {
-      filteredEntries = filteredEntries.filter(entry => entry.timestamp <= query.dateTo!)
-    }
-
-    if (query.success !== undefined) {
-      filteredEntries = filteredEntries.filter(entry => entry.success === query.success)
-    }
-
-    const total = filteredEntries.length
-
-    // Apply pagination
-    const offset = query.offset || 0
-    const limit = query.limit || 50
-    const entries = filteredEntries.slice(offset, offset + limit)
-
-    return { entries, total }
-  }
-
-  /**
-   * Get audit statistics
-   */
-  async getStats(dateFrom?: Date, dateTo?: Date): Promise<AuditStats> {
-    let entries = [...this.entries]
-
-    if (dateFrom) {
-      entries = entries.filter(entry => entry.timestamp >= dateFrom)
-    }
-
-    if (dateTo) {
-      entries = entries.filter(entry => entry.timestamp <= dateTo)
-    }
-
-    const totalEntries = entries.length
-    const successfulEntries = entries.filter(entry => entry.success)
-    const failureRate = totalEntries > 0 ? ((totalEntries - successfulEntries.length) / totalEntries) * 100 : 0
-
-    const entriesByAction: Record<AuditAction, number> = {} as Record<AuditAction, number>
-    const entriesByResourceType: Record<AuditResourceType, number> = {} as Record<AuditResourceType, number>
-    const entriesByUser: Record<string, number> = {}
-
-    let totalDuration = 0
-    let durationsCount = 0
-
-    entries.forEach(entry => {
-      // Count by action
-      entriesByAction[entry.action] = (entriesByAction[entry.action] || 0) + 1
-
-      // Count by resource type
-      entriesByResourceType[entry.resourceType] = (entriesByResourceType[entry.resourceType] || 0) + 1
-
-      // Count by user
-      entriesByUser[entry.userName] = (entriesByUser[entry.userName] || 0) + 1
-
-      // Calculate average duration
-      if (entry.duration) {
-        totalDuration += entry.duration
-        durationsCount++
-      }
-    })
-
-    const avgDuration = durationsCount > 0 ? totalDuration / durationsCount : 0
-
+  private getAuthHeaders(): HeadersInit {
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
     return {
-      totalEntries,
-      entriesByAction,
-      entriesByResourceType,
-      entriesByUser,
-      failureRate,
-      avgDuration
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
     }
   }
 
-  /**
-   * Get recent activity for a specific resource
-   */
-  async getRecentActivity(resourceType: AuditResourceType, resourceId: string, limit = 10): Promise<AuditEntry[]> {
-    return this.entries
-      .filter(entry => entry.resourceType === resourceType && entry.resourceId === resourceId)
-      .slice(0, limit)
-  }
-
-  /**
-   * Get user activity summary
-   */
-  async getUserActivity(userId: string, dateFrom?: Date, dateTo?: Date): Promise<{
-    totalActions: number
-    actionBreakdown: Record<AuditAction, number>
-    lastSeen: Date | null
-    mostAccessedResources: Array<{ resourceType: AuditResourceType; resourceId: string; count: number }>
-  }> {
-    let userEntries = this.entries.filter(entry => entry.userId === userId)
-
-    if (dateFrom) {
-      userEntries = userEntries.filter(entry => entry.timestamp >= dateFrom)
-    }
-
-    if (dateTo) {
-      userEntries = userEntries.filter(entry => entry.timestamp <= dateTo)
-    }
-
-    const totalActions = userEntries.length
-    const actionBreakdown: Record<AuditAction, number> = {} as Record<AuditAction, number>
-    const resourceAccess: Record<string, number> = {}
-
-    let lastSeen: Date | null = null
-
-    userEntries.forEach(entry => {
-      // Track last seen
-      if (!lastSeen || entry.timestamp > lastSeen) {
-        lastSeen = entry.timestamp
-      }
-
-      // Count actions
-      actionBreakdown[entry.action] = (actionBreakdown[entry.action] || 0) + 1
-
-      // Count resource access
-      const resourceKey = `${entry.resourceType}:${entry.resourceId}`
-      resourceAccess[resourceKey] = (resourceAccess[resourceKey] || 0) + 1
-    })
-
-    // Get most accessed resources
-    const mostAccessedResources = Object.entries(resourceAccess)
-      .map(([key, count]) => {
-        const [resourceType, resourceId] = key.split(':')
-        return { resourceType: resourceType as AuditResourceType, resourceId, count }
-      })
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
-
-    return {
-      totalActions,
-      actionBreakdown,
-      lastSeen,
-      mostAccessedResources
-    }
-  }
-
-  /**
-   * Generate unique ID for audit entries
-   */
-  private generateId(): string {
-    return `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  }
-
-  /**
-   * Save entries to localStorage
-   */
-  private saveToStorage(): void {
-    try {
-      localStorage.setItem('audit_trail', JSON.stringify(this.entries.slice(0, 100)))
-    } catch (error) {
-      console.error('Failed to save audit trail to storage:', error)
-    }
-  }
-
-  /**
-   * Load entries from localStorage
-   */
-  loadFromStorage(): void {
-    try {
-      const stored = localStorage.getItem('audit_trail')
-      if (stored) {
-        const entries = JSON.parse(stored)
-        this.entries = entries.map((entry: any) => ({
-          ...entry,
-          timestamp: new Date(entry.timestamp)
-        }))
-      }
-    } catch (error) {
-      console.error('Failed to load audit trail from storage:', error)
-    }
-  }
-
-  /**
-   * Clear audit trail
-   */
-  clear(): void {
-    this.entries = []
-    localStorage.removeItem('audit_trail')
-  }
-
-  /**
-   * Enable or disable audit logging
-   */
-  setEnabled(enabled: boolean): void {
-    this.isEnabled = enabled
-  }
-
-  /**
-   * Check if audit logging is enabled
-   */
-  isAuditEnabled(): boolean {
-    return this.isEnabled
-  }
-
-  /**
-   * Export audit trail as CSV
-   */
-  exportAsCSV(entries?: AuditEntry[]): string {
-    const auditEntries = entries || this.entries
+  private async handleResponse<T>(response: Response): Promise<T> {
+    const contentType = response.headers.get('content-type')
     
-    const headers = [
-      'ID',
-      'תאריך ושעה',
-      'משתמש',
-      'תפקיד',
-      'פעולה',
-      'סוג משאב',
-      'מזהה משאב',
-      'שם משאב',
-      'הצלחה',
-      'הודעת שגיאה',
-      'משך (מילישניות)',
-      'כתובת IP',
-      'פרטים נוספים'
-    ]
+    let data: any
+    if (contentType?.includes('application/json')) {
+      data = await response.json()
+    } else {
+      data = await response.text()
+    }
 
-    const rows = auditEntries.map(entry => [
-      entry.id,
-      entry.timestamp.toISOString(),
-      entry.userName,
-      entry.userRole,
-      entry.action,
-      entry.resourceType,
-      entry.resourceId,
-      entry.resourceName || '',
-      entry.success ? 'כן' : 'לא',
-      entry.errorMessage || '',
-      entry.duration?.toString() || '',
-      entry.ipAddress || '',
-      JSON.stringify(entry.details || {})
-    ])
+    if (!response.ok) {
+      const errorCode = data?.code || `HTTP_${response.status}`
+      const errorMessage = data?.message || data?.error || `Request failed with status ${response.status}`
+      
+      throw new AuditTrailError(
+        errorMessage,
+        data?.entryId,
+        data?.rollbackable || false
+      )
+    }
 
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n')
+    return data
+  }
 
-    // Add BOM for Hebrew support
-    return '\uFEFF' + csvContent
+  private async makeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    timeout?: number,
+    retryCount = 0
+  ): Promise<T> {
+    const requestTimeout = timeout || this.timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), requestTimeout)
+
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        headers: this.getAuthHeaders(),
+        signal: controller.signal,
+        ...options,
+      })
+
+      clearTimeout(timeoutId)
+      return await this.handleResponse<T>(response)
+    } catch (error) {
+      clearTimeout(timeoutId)
+      
+      // Handle abort/timeout
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new AuditTrailError('Request timed out')
+      }
+
+      // Handle network errors with retry logic
+      if (
+        retryCount < AUDIT_API_CONFIG.retryAttempts &&
+        error instanceof Error &&
+        (error.message.includes('fetch') || error.message.includes('network'))
+      ) {
+        const delay = AUDIT_API_CONFIG.retryDelay * Math.pow(2, retryCount)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        return this.makeRequest<T>(endpoint, options, timeout, retryCount + 1)
+      }
+
+      throw error
+    }
+  }
+
+  // ==================== Query Operations ====================
+
+  async queryAuditTrail(query: AuditTrailQuery): Promise<AuditTrailResponse> {
+    const params = new URLSearchParams()
+    
+    Object.entries(query).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, value.toString())
+      }
+    })
+
+    return this.makeRequest<AuditTrailResponse>(`/audit-trail?${params}`)
+  }
+
+  async getAuditEntry(entryId: string): Promise<{
+    entry: AuditLogEntry
+    relatedEntries: AuditLogEntry[]
+    rollbackPreview?: {
+      affectedEntries: string[]
+      estimatedImpact: {
+        entityType: string
+        entityId: string
+        changeType: string
+      }[]
+      warnings: string[]
+    }
+  }> {
+    return this.makeRequest<{
+      entry: AuditLogEntry
+      relatedEntries: AuditLogEntry[]
+      rollbackPreview?: {
+        affectedEntries: string[]
+        estimatedImpact: {
+          entityType: string
+          entityId: string
+          changeType: string
+        }[]
+        warnings: string[]
+      }
+    }>(`/audit-trail/${entryId}`)
+  }
+
+  async getAuditTrailSummary(
+    filters?: Pick<AuditTrailQuery, 'startDate' | 'endDate' | 'entityType' | 'userId'>
+  ): Promise<{
+    totalEntries: number
+    entriesByAction: Record<string, number>
+    entriesByEntityType: Record<string, number>
+    entriesByUser: Record<string, number>
+    rollbackableEntries: number
+    timeRange: {
+      startDate: string
+      endDate: string
+    }
+  }> {
+    const params = new URLSearchParams()
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined) {
+          params.append(key, value.toString())
+        }
+      })
+    }
+
+    return this.makeRequest<{
+      totalEntries: number
+      entriesByAction: Record<string, number>
+      entriesByEntityType: Record<string, number>
+      entriesByUser: Record<string, number>
+      rollbackableEntries: number
+      timeRange: {
+        startDate: string
+        endDate: string
+      }
+    }>(`/audit-trail/summary?${params}`)
+  }
+
+  // ==================== Rollback Operations ====================
+
+  async previewRollback(entryId: string): Promise<{
+    operationId: string
+    affectedEntries: AuditLogEntry[]
+    estimatedImpact: {
+      entityType: string
+      entityId: string
+      changeType: 'revert' | 'cascade_revert' | 'dependency_check'
+      description: string
+    }[]
+    warnings: string[]
+    risks: Array<{
+      type: 'data_loss' | 'integrity_violation' | 'dependency_conflict'
+      severity: 'low' | 'medium' | 'high' | 'critical'
+      description: string
+    }>
+    canRollback: boolean
+    requiresConfirmation: boolean
+  }> {
+    return this.makeRequest<{
+      operationId: string
+      affectedEntries: AuditLogEntry[]
+      estimatedImpact: {
+        entityType: string
+        entityId: string
+        changeType: 'revert' | 'cascade_revert' | 'dependency_check'
+        description: string
+      }[]
+      warnings: string[]
+      risks: Array<{
+        type: 'data_loss' | 'integrity_violation' | 'dependency_conflict'
+        severity: 'low' | 'medium' | 'high' | 'critical'
+        description: string
+      }>
+      canRollback: boolean
+      requiresConfirmation: boolean
+    }>(`/audit-trail/${entryId}/rollback/preview`)
+  }
+
+  async executeRollback(
+    operationId: string,
+    options?: {
+      skipWarnings?: boolean
+      confirmationToken?: string
+    }
+  ): Promise<{
+    rollbackId: string
+    status: 'started' | 'queued'
+    estimatedDuration?: number
+    websocketChannel: string
+  }> {
+    return this.makeRequest<{
+      rollbackId: string
+      status: 'started' | 'queued'
+      estimatedDuration?: number
+      websocketChannel: string
+    }>(
+      '/audit-trail/rollback',
+      {
+        method: 'POST',
+        body: JSON.stringify({ operationId, options }),
+      }
+    )
+  }
+
+  async getRollbackStatus(rollbackId: string): Promise<RollbackOperation> {
+    return this.makeRequest<RollbackOperation>(`/audit-trail/rollback/${rollbackId}/status`)
+  }
+
+  async getRollbackProgress(rollbackId: string): Promise<{
+    rollbackId: string
+    status: 'pending' | 'in_progress' | 'completed' | 'failed'
+    progress: number
+    currentStep: string
+    totalSteps: number
+    processedEntries: number
+    failedEntries: number
+    estimatedTimeRemaining?: number
+    startedAt?: string
+    completedAt?: string
+    errors: string[]
+  }> {
+    return this.makeRequest<{
+      rollbackId: string
+      status: 'pending' | 'in_progress' | 'completed' | 'failed'
+      progress: number
+      currentStep: string
+      totalSteps: number
+      processedEntries: number
+      failedEntries: number
+      estimatedTimeRemaining?: number
+      startedAt?: string
+      completedAt?: string
+      errors: string[]
+    }>(`/audit-trail/rollback/${rollbackId}/progress`)
+  }
+
+  async cancelRollback(rollbackId: string): Promise<{ success: boolean; message: string }> {
+    return this.makeRequest<{ success: boolean; message: string }>(
+      `/audit-trail/rollback/${rollbackId}/cancel`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  // ==================== Batch Operations ====================
+
+  async batchRollback(
+    entryIds: string[],
+    options?: {
+      rollbackType: 'individual' | 'grouped'
+      skipWarnings?: boolean
+    }
+  ): Promise<{
+    batchId: string
+    rollbackIds: string[]
+    estimatedDuration: number
+  }> {
+    return this.makeRequest<{
+      batchId: string
+      rollbackIds: string[]
+      estimatedDuration: number
+    }>(
+      '/audit-trail/rollback/batch',
+      {
+        method: 'POST',
+        body: JSON.stringify({ entryIds, options }),
+      }
+    )
+  }
+
+  // ==================== Export Operations ====================
+
+  async exportAuditTrail(request: AuditTrailExportRequest): Promise<AuditTrailExportResponse> {
+    return this.makeRequest<AuditTrailExportResponse>(
+      '/audit-trail/export',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      },
+      AUDIT_API_CONFIG.exportTimeout
+    )
+  }
+
+  async getExportStatus(exportId: string): Promise<{
+    exportId: string
+    status: 'pending' | 'processing' | 'completed' | 'failed'
+    progress: number
+    downloadUrl?: string
+    expiresAt?: string
+    recordCount?: number
+    fileSize?: number
+    error?: string
+  }> {
+    return this.makeRequest<{
+      exportId: string
+      status: 'pending' | 'processing' | 'completed' | 'failed'
+      progress: number
+      downloadUrl?: string
+      expiresAt?: string
+      recordCount?: number
+      fileSize?: number
+      error?: string
+    }>(`/audit-trail/export/${exportId}/status`)
+  }
+
+  async downloadExport(exportId: string): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}/audit-trail/export/${exportId}/download`, {
+      headers: this.getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      throw new AuditTrailError(`Export download failed: ${response.statusText}`)
+    }
+
+    return response.blob()
+  }
+
+  // ==================== Search and Filtering ====================
+
+  async searchAuditTrail(
+    searchTerm: string,
+    filters?: AuditTrailQuery
+  ): Promise<AuditTrailResponse> {
+    const params = new URLSearchParams({ search: searchTerm })
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString())
+        }
+      })
+    }
+
+    return this.makeRequest<AuditTrailResponse>(`/audit-trail/search?${params}`)
+  }
+
+  async getFilterOptions(): Promise<{
+    actions: string[]
+    entityTypes: string[]
+    users: Array<{ id: string; name: string }>
+    dateRanges: Array<{
+      label: string
+      startDate: string
+      endDate: string
+    }>
+  }> {
+    return this.makeRequest<{
+      actions: string[]
+      entityTypes: string[]
+      users: Array<{ id: string; name: string }>
+      dateRanges: Array<{
+        label: string
+        startDate: string
+        endDate: string
+      }>
+    }>('/audit-trail/filter-options')
+  }
+
+  // ==================== Analytics ====================
+
+  async getAuditAnalytics(
+    timeframe: 'day' | 'week' | 'month' | 'year',
+    filters?: Pick<AuditTrailQuery, 'startDate' | 'endDate' | 'entityType' | 'userId'>
+  ): Promise<{
+    timeline: Array<{
+      date: string
+      count: number
+      actionBreakdown: Record<string, number>
+    }>
+    topUsers: Array<{
+      userId: string
+      userName: string
+      actionCount: number
+    }>
+    topActions: Array<{
+      action: string
+      count: number
+      percentage: number
+    }>
+    entityTypeDistribution: Array<{
+      entityType: string
+      count: number
+      percentage: number
+    }>
+    rollbackStats: {
+      total: number
+      successful: number
+      failed: number
+      successRate: number
+    }
+  }> {
+    const params = new URLSearchParams({ timeframe })
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined) {
+          params.append(key, value.toString())
+        }
+      })
+    }
+
+    return this.makeRequest<{
+      timeline: Array<{
+        date: string
+        count: number
+        actionBreakdown: Record<string, number>
+      }>
+      topUsers: Array<{
+        userId: string
+        userName: string
+        actionCount: number
+      }>
+      topActions: Array<{
+        action: string
+        count: number
+        percentage: number
+      }>
+      entityTypeDistribution: Array<{
+        entityType: string
+        count: number
+        percentage: number
+      }>
+      rollbackStats: {
+        total: number
+        successful: number
+        failed: number
+        successRate: number
+      }
+    }>(`/audit-trail/analytics?${params}`)
   }
 }
 
+/**
+ * High-level Audit Trail Service
+ */
+export class AuditTrailService {
+  private client: AuditTrailApiClient
+  private queryCache = new Map<string, { data: AuditTrailResponse; timestamp: number }>()
+  private readonly CACHE_TTL = 30 * 1000 // 30 seconds
+
+  constructor() {
+    this.client = new AuditTrailApiClient()
+  }
+
+  // ==================== Query Operations with Caching ====================
+
+  async queryAuditTrail(query: AuditTrailQuery, useCache = true): Promise<AuditTrailResponse> {
+    const cacheKey = JSON.stringify(query)
+    
+    if (useCache && this.queryCache.has(cacheKey)) {
+      const cached = this.queryCache.get(cacheKey)!
+      if (Date.now() - cached.timestamp < this.CACHE_TTL) {
+        return cached.data
+      }
+    }
+
+    try {
+      const data = await this.client.queryAuditTrail(query)
+      
+      this.queryCache.set(cacheKey, {
+        data,
+        timestamp: Date.now(),
+      })
+
+      return data
+    } catch (error) {
+      if (error instanceof AuditTrailError) {
+        throw error
+      }
+      throw new AuditTrailError(
+        `Failed to query audit trail: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+
+  async searchAuditTrail(
+    searchTerm: string,
+    filters?: AuditTrailQuery
+  ): Promise<AuditTrailResponse> {
+    try {
+      return await this.client.searchAuditTrail(searchTerm, filters)
+    } catch (error) {
+      if (error instanceof AuditTrailError) {
+        throw error
+      }
+      throw new AuditTrailError(
+        `Failed to search audit trail: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+
+  // ==================== Entry Operations ====================
+
+  async getEntry(entryId: string) {
+    try {
+      return await this.client.getAuditEntry(entryId)
+    } catch (error) {
+      if (error instanceof AuditTrailError) {
+        throw error
+      }
+      throw new AuditTrailError(
+        `Failed to get audit entry: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        entryId
+      )
+    }
+  }
+
+  async canRollback(entry: AuditLogEntry): Promise<boolean> {
+    if (!entry.rollbackable) {
+      return false
+    }
+
+    // Additional business logic for rollback eligibility
+    const entryAge = Date.now() - new Date(entry.timestamp).getTime()
+    const maxAge = 30 * 24 * 60 * 60 * 1000 // 30 days
+
+    if (entryAge > maxAge) {
+      return false
+    }
+
+    // Check if entry involves cascade deletions or critical system changes
+    const criticalActions = ['cascade_delete', 'system_update', 'schema_change']
+    if (criticalActions.includes(entry.action)) {
+      return false
+    }
+
+    return true
+  }
+
+  // ==================== Rollback Operations ====================
+
+  async previewRollback(entryId: string) {
+    try {
+      return await this.client.previewRollback(entryId)
+    } catch (error) {
+      if (error instanceof AuditTrailError) {
+        throw error
+      }
+      throw new AuditTrailError(
+        `Failed to preview rollback: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        entryId
+      )
+    }
+  }
+
+  async executeRollback(
+    operationId: string,
+    options?: {
+      skipWarnings?: boolean
+      confirmationToken?: string
+    }
+  ) {
+    try {
+      return await this.client.executeRollback(operationId, options)
+    } catch (error) {
+      if (error instanceof AuditTrailError) {
+        throw error
+      }
+      throw new AuditTrailError(
+        `Failed to execute rollback: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+
+  // ==================== Export Operations ====================
+
+  async exportAuditTrail(
+    query: AuditTrailQuery,
+    format: 'json' | 'csv' | 'excel',
+    options?: {
+      includeChanges?: boolean
+      maxRecords?: number
+    }
+  ): Promise<string> {
+    try {
+      const response = await this.client.exportAuditTrail({
+        query,
+        format,
+        includeChanges: options?.includeChanges,
+      })
+
+      return response.exportId
+    } catch (error) {
+      if (error instanceof AuditTrailError) {
+        throw error
+      }
+      throw new AuditTrailError(
+        `Failed to export audit trail: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+
+  async downloadExport(exportId: string, filename?: string): Promise<void> {
+    try {
+      const blob = await this.client.downloadExport(exportId)
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename || `audit-trail-export-${exportId}.zip`
+      
+      // Trigger download
+      document.body.appendChild(link)
+      link.click()
+      
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      if (error instanceof AuditTrailError) {
+        throw error
+      }
+      throw new AuditTrailError(
+        `Failed to download export: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+
+  // ==================== Analytics ====================
+
+  async getAnalytics(
+    timeframe: 'day' | 'week' | 'month' | 'year' = 'week',
+    filters?: Pick<AuditTrailQuery, 'startDate' | 'endDate' | 'entityType' | 'userId'>
+  ) {
+    try {
+      return await this.client.getAuditAnalytics(timeframe, filters)
+    } catch (error) {
+      if (error instanceof AuditTrailError) {
+        throw error
+      }
+      throw new AuditTrailError(
+        `Failed to get audit analytics: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+
+  async getSummary(
+    filters?: Pick<AuditTrailQuery, 'startDate' | 'endDate' | 'entityType' | 'userId'>
+  ) {
+    try {
+      return await this.client.getAuditTrailSummary(filters)
+    } catch (error) {
+      if (error instanceof AuditTrailError) {
+        throw error
+      }
+      throw new AuditTrailError(
+        `Failed to get audit summary: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+
+  // ==================== Utility Functions ====================
+
+  async getFilterOptions() {
+    try {
+      return await this.client.getFilterOptions()
+    } catch (error) {
+      throw new AuditTrailError(
+        `Failed to get filter options: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+
+  // ==================== Cache Management ====================
+
+  clearCache(): void {
+    this.queryCache.clear()
+  }
+
+  clearQueryCache(query: AuditTrailQuery): void {
+    const cacheKey = JSON.stringify(query)
+    this.queryCache.delete(cacheKey)
+  }
+}
+
+// Singleton instance
 export const auditTrailService = new AuditTrailService()
 
-// Initialize from storage on load
-auditTrailService.loadFromStorage()
+// Export for testing
+export { AuditTrailApiClient }

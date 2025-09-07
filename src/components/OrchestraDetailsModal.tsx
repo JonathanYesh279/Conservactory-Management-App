@@ -18,7 +18,7 @@ import {
   Activity,
   AlertCircle
 } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 import { orchestraService, studentService, teacherService, rehearsalService } from '../services/apiService'
 import { 
   getOrchestraTypeInfo,

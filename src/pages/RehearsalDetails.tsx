@@ -9,7 +9,7 @@ import {
   getRehearsalColor,
   type Rehearsal 
 } from '../utils/rehearsalUtils'
-import Card from '../components/ui/Card'
+import { Card } from '../components/ui/card'
 import ConfirmationModal from '../components/ui/ConfirmationModal'
 import RehearsalForm from '../components/RehearsalForm'
 

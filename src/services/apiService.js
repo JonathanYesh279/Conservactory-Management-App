@@ -389,6 +389,96 @@ export const studentService = {
   },
 
   /**
+   * Get multiple students by their IDs (batch fetch)
+   * @param {Array<string>} studentIds - Array of student IDs
+   * @returns {Promise<Array>} Array of student objects
+   */
+  async getBatchStudents(studentIds) {
+    try {
+      if (!studentIds || studentIds.length === 0) {
+        return [];
+      }
+      
+      console.log(`🔍 Requesting batch students for IDs:`, studentIds);
+      
+      let students = [];
+      
+      // Method 1: Try with comma-separated IDs
+      try {
+        students = await apiClient.get('/student', {
+          ids: studentIds.join(',')
+        });
+        
+        console.log(`📊 Backend returned ${Array.isArray(students) ? students.length : 0} students from batch of ${studentIds.length} IDs`);
+        
+        // Client-side filtering as fallback if backend returns too many
+        if (Array.isArray(students) && students.length > studentIds.length) {
+          console.warn('⚠️ Backend returned more students than requested - applying client-side filter');
+          students = students.filter(student => 
+            studentIds.includes(student._id) || studentIds.includes(student.id)
+          );
+          console.log(`✅ After client-side filtering: ${students.length} students`);
+        }
+        
+      } catch (error) {
+        console.warn('Method 1 failed, trying alternative approaches:', error.message);
+        
+        // Method 2: Try with studentIds parameter
+        try {
+          students = await apiClient.get('/student', {
+            studentIds: studentIds.join(',')
+          });
+          
+          if (Array.isArray(students) && students.length > studentIds.length) {
+            students = students.filter(student => 
+              studentIds.includes(student._id) || studentIds.includes(student.id)
+            );
+          }
+          
+        } catch (error2) {
+          console.warn('Method 2 failed, trying POST request:', error2.message);
+          
+          // Method 3: Try POST request with body
+          try {
+            students = await apiClient.post('/student/batch', {
+              ids: studentIds
+            });
+            
+            if (Array.isArray(students) && students.length > studentIds.length) {
+              students = students.filter(student => 
+                studentIds.includes(student._id) || studentIds.includes(student.id)
+              );
+            }
+            
+          } catch (error3) {
+            console.warn('Method 3 failed, fetching all and filtering:', error3.message);
+            
+            // Method 4: Fallback - get all students and filter client-side
+            try {
+              const allStudents = await apiClient.get('/student');
+              if (Array.isArray(allStudents)) {
+                students = allStudents.filter(student => 
+                  studentIds.includes(student._id) || studentIds.includes(student.id)
+                );
+                console.log(`🔧 Fallback method: filtered ${students.length} students from ${allStudents.length} total`);
+              }
+            } catch (error4) {
+              console.error('All methods failed:', error4.message);
+              throw error4;
+            }
+          }
+        }
+      }
+      
+      return Array.isArray(students) ? students : [];
+      
+    } catch (error) {
+      console.error('Error fetching batch students:', error);
+      return [];
+    }
+  },
+
+  /**
    * Create new student
    * @param {Object} studentData - Student data (handles both old and new schema)
    * @param {string} schoolYearId - Current school year ID
@@ -596,6 +686,62 @@ export const studentService = {
  * Uses exact backend schema: teacher.personalInfo.fullName, teacher.teaching.studentIds
  */
 export const teacherService = {
+  /**
+   * Get current teacher's profile (authenticated user)
+   * @returns {Promise<Object>} Current teacher's profile data
+   */
+  async getMyProfile() {
+    try {
+      const response = await apiClient.get('/teacher/profile/me');
+      
+      console.log('👤 Retrieved current teacher profile:', response);
+      
+      // Handle different response formats from backend
+      const profile = response?.data || response;
+      
+      console.log(`✅ Current teacher profile: ${profile?.personalInfo?.fullName}`);
+      
+      return profile;
+    } catch (error) {
+      console.error('Error fetching teacher profile:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update current teacher's profile (authenticated user)
+   * @param {Object} profileData - Updated profile data
+   * @returns {Promise<Object>} Updated teacher profile
+   */
+  async updateMyProfile(profileData) {
+    try {
+      // Format the data to match backend schema
+      const formattedData = {
+        personalInfo: {
+          fullName: profileData.fullName || profileData.personalInfo?.fullName || '',
+          email: profileData.email || profileData.personalInfo?.email || '',
+          phone: profileData.phone || profileData.personalInfo?.phone || '',
+          address: profileData.address || profileData.personalInfo?.address || '',
+          birthDate: profileData.birthDate || profileData.personalInfo?.birthDate || ''
+        }
+      };
+
+      const response = await apiClient.put('/teacher/profile/me', formattedData);
+      
+      console.log('✏️ Updated teacher profile:', response);
+      
+      // Handle different response formats
+      const updatedProfile = response?.data || response;
+      
+      console.log(`✅ Profile updated: ${updatedProfile?.personalInfo?.fullName}`);
+      
+      return updatedProfile;
+    } catch (error) {
+      console.error('Error updating teacher profile:', error);
+      throw error;
+    }
+  },
+
   /**
    * Get all teachers with optional filters
    * @param {Object} filters - Filter options (including schoolYearId)
@@ -1170,13 +1316,51 @@ export const theoryService = {
    */
   async bulkCreateTheoryLessons(bulkData) {
     try {
-      const result = await apiClient.post('/theory/bulk', bulkData);
+      console.log('📤 Sending bulk theory lesson creation request:', JSON.stringify(bulkData, null, 2));
+      
+      const result = await apiClient.post('/theory/bulk-create', bulkData);
       
       console.log(`📚 Bulk created theory lessons: ${result.insertedCount} lessons`);
       
       return result;
     } catch (error) {
-      console.error('Error bulk creating theory lessons:', error);
+      console.error('❌ Error bulk creating theory lessons:', error);
+      
+      // Enhanced error handling for missing fields
+      if (error.response?.data?.error === 'MISSING_REQUIRED_FIELDS') {
+        const missingFields = error.response.data.missingFields || [];
+        const fieldNames = missingFields.join(', ');
+        console.error('Missing required fields:', missingFields);
+        throw new Error(`חסרים שדות חובה: ${fieldNames}`);
+      }
+      
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk update theory lessons
+   * @param {Array<string>} lessonIds - Array of lesson IDs to update
+   * @param {Object} updateData - Data to update in the lessons
+   * @returns {Promise<Object>} Bulk update result
+   */
+  async bulkUpdateTheoryLessons(lessonIds, updateData) {
+    try {
+      console.log('📤 Sending bulk theory lesson update request:', {
+        lessonIds: lessonIds.length,
+        updateData: JSON.stringify(updateData, null, 2)
+      });
+      
+      const result = await apiClient.put('/theory/bulk-update', {
+        lessonIds,
+        updateData
+      });
+      
+      console.log(`✏️ Bulk updated theory lessons: ${result.modifiedCount} lessons`);
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error bulk updating theory lessons:', error);
       throw error;
     }
   },
@@ -1197,6 +1381,64 @@ export const theoryService = {
       return stats;
     } catch (error) {
       console.error('Error fetching student theory attendance stats:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk delete theory lessons by date range
+   * @param {string} startDate - Start date (YYYY-MM-DD)
+   * @param {string} endDate - End date (YYYY-MM-DD)
+   * @returns {Promise<Object>} Delete operation result
+   */
+  async deleteTheoryLessonsByDateRange(startDate, endDate) {
+    try {
+      const result = await apiClient.delete('/theory/bulk-delete-by-date', {
+        startDate,
+        endDate
+      });
+      
+      console.log(`🗑️ Deleted theory lessons in date range ${startDate} to ${endDate}: ${result.deletedCount} lessons deleted`);
+      
+      return result;
+    } catch (error) {
+      console.error('Error deleting theory lessons by date range:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk delete theory lessons by category
+   * @param {string} category - Theory lesson category
+   * @returns {Promise<Object>} Delete operation result
+   */
+  async deleteTheoryLessonsByCategory(category) {
+    try {
+      const result = await apiClient.delete(`/theory/bulk-delete-by-category/${category}`);
+      
+      console.log(`🗑️ Deleted theory lessons for category ${category}: ${result.deletedCount} lessons deleted`);
+      
+      return result;
+    } catch (error) {
+      console.error('Error deleting theory lessons by category:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk delete theory lessons by teacher
+   * @param {string} teacherId - Teacher ID
+   * @returns {Promise<Object>} Delete operation result
+   */
+  async deleteTheoryLessonsByTeacher(teacherId) {
+    try {
+      const result = await apiClient.delete(`/theory/bulk-delete-by-teacher/${teacherId}`);
+      
+      console.log(`🗑️ Deleted theory lessons for teacher ${teacherId}: ${result.deletedCount} lessons deleted`);
+      
+      return result;
+    } catch (error) {
+      console.error('Error deleting theory lessons by teacher:', error);
       throw error;
     }
   }
@@ -1292,6 +1534,44 @@ export const orchestraService = {
     } catch (error) {
       console.error('Error fetching orchestra:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Get multiple orchestras by their IDs (batch fetch)
+   * @param {Array<string>} orchestraIds - Array of orchestra IDs
+   * @returns {Promise<Array>} Array of orchestra objects
+   */
+  async getBatchOrchestras(orchestraIds) {
+    try {
+      if (!orchestraIds || orchestraIds.length === 0) {
+        return [];
+      }
+
+      console.log(`🔍 Requesting batch orchestras for IDs:`, orchestraIds);
+
+      // Use the existing orchestras endpoint with ids filter
+      const orchestras = await apiClient.get('/orchestra', {
+        ids: orchestraIds.join(',')
+      });
+      
+      console.log(`🎼 Backend returned ${Array.isArray(orchestras) ? orchestras.length : 0} orchestras from batch of ${orchestraIds.length} IDs`);
+      
+      let filteredOrchestras = Array.isArray(orchestras) ? orchestras : [];
+      
+      // Client-side filtering as fallback if backend returns too many
+      if (filteredOrchestras.length > orchestraIds.length) {
+        console.warn('⚠️ Backend returned more orchestras than requested - applying client-side filter');
+        filteredOrchestras = filteredOrchestras.filter(orchestra => 
+          orchestraIds.includes(orchestra._id) || orchestraIds.includes(orchestra.id)
+        );
+        console.log(`✅ After client-side filtering: ${filteredOrchestras.length} orchestras`);
+      }
+      
+      return filteredOrchestras;
+    } catch (error) {
+      console.error('Error fetching batch orchestras:', error);
+      return [];
     }
   },
 

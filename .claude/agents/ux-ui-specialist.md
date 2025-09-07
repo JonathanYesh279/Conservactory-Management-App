@@ -1,7 +1,7 @@
 ---
 name: ux-ui-specialist
 description: Use for all user interface design and user experience decisions. Invoke when you need:\n- Component design and styling\n- User workflow and navigation design\n- Accessibility implementation\n- Responsive design for mobile/desktop\n- Design system creation and maintenance\n- Data visualization for charts and analytics
-model: sonnet
+model: opus
 color: blue
 ---
 

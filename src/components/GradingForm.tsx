@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Save, X, Award, Calculator, AlertCircle, CheckCircle } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 import type { GradingDetailsUpdateData } from '../types/bagrut.types'
 
 interface GradingFormProps {

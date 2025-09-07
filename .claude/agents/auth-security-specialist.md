@@ -1,12 +1,7 @@
+---
 name: auth-security-specialist
-description: Use for authentication flows and security implementation. Invoke when you need:
-- Login/logout functionality
-- Protected routes and role-based access
-- User session management
-- Password reset and verification flows
-- Security best practices implementation
-- Form validation and input sanitization
-model: sonnet
+description: Use for authentication flows and security implementation. Invoke when you need:\n- Login/logout functionality\n- Protected routes and role-based access\n- User session management\n- Password reset and verification flows\n- Security best practices implementation\n- Form validation and input sanitization
+model: opus
 color: purple
 ---
 

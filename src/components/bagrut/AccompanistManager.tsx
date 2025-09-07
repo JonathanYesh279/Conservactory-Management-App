@@ -12,7 +12,8 @@ import {
   Calendar,
   Clock
 } from 'lucide-react'
-import Card from '../ui/Card'
+import { Card } from '../ui/card'
+import EnhancedAccompanistForm from '../EnhancedAccompanistForm'
 
 interface Accompanist {
   name: string
@@ -39,11 +40,6 @@ export default function AccompanistManager({
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editData, setEditData] = useState<Accompanist | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newAccompanist, setNewAccompanist] = useState<Accompanist>({
-    name: '',
-    instrument: '',
-    phone: null
-  })
 
   const ACCOMPANIMENT_TYPES = ['נגן מלווה', 'הרכב'] as const
   
@@ -104,28 +100,22 @@ export default function AccompanistManager({
     }
   }
 
-  const addAccompanist = () => {
-    if (newAccompanist.name && newAccompanist.instrument) {
-      const updatedAccompanists = [...accompaniment.accompanists, newAccompanist]
+  const addAccompanist = (accompanistData: { name: string; instrument: string; phone: string | null; email?: string }) => {
+    if (accompanistData.name && accompanistData.instrument) {
+      const updatedAccompanists = [...accompaniment.accompanists, {
+        name: accompanistData.name,
+        instrument: accompanistData.instrument,
+        phone: accompanistData.phone
+      }]
       onUpdate({
         ...accompaniment,
         accompanists: updatedAccompanists
-      })
-      setNewAccompanist({
-        name: '',
-        instrument: '',
-        phone: null
       })
       setShowAddForm(false)
     }
   }
 
   const cancelAdd = () => {
-    setNewAccompanist({
-      name: '',
-      instrument: '',
-      phone: null
-    })
     setShowAddForm(false)
   }
 
@@ -197,7 +187,7 @@ export default function AccompanistManager({
                         ? 'border-red-300 focus:ring-red-500'
                         : 'border-gray-300'
                     }`}
-                    placeholder="050-1234567"
+                    placeholder="0501234567"
                   />
                   {editData?.phone && !validatePhone(editData.phone) && (
                     <p className="text-red-500 text-xs mt-1">מספר טלפון חייב להתחיל ב-05 ולהכיל 10 ספרות</p>
@@ -333,122 +323,13 @@ export default function AccompanistManager({
         </div>
       </Card>
 
-      {/* Accompaniment Requirements */}
-      <Card padding="md" className="bg-blue-50 border-blue-200">
-        <div className="flex items-start">
-          <Users className="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
-          <div>
-            <h3 className="text-sm font-semibold text-blue-900 mb-2">דרישות הליווי</h3>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• יש לציין לפחות נגן אחד מלווה</li>
-              <li>• חובה לכלול פרטי קשר של הנגן המלווה</li>
-              <li>• במידה ומדובר בהרכב - יש לציין את כל הנגנים</li>
-              <li>• יש לתאם עם הנגן המלווה מספר חזרות לפני הבגרות</li>
-            </ul>
-            
-            <div className="mt-3 flex items-center gap-6">
-              <div className={`flex items-center text-sm ${
-                accompaniment.accompanists.length > 0 ? 'text-green-700' : 'text-red-700'
-              }`}>
-                <span className="font-medium">נגנים:</span>
-                <span className="mr-1">{accompaniment.accompanists.length} (מינימום 1)</span>
-                {accompaniment.accompanists.length > 0 ? ' ✓' : ' ⚠️'}
-              </div>
-              
-              <div className={`flex items-center text-sm ${
-                accompaniment.accompanists.some(a => a.phone) ? 'text-green-700' : 'text-amber-700'
-              }`}>
-                <span className="font-medium">פרטי קשר:</span>
-                <span className="mr-1">{accompaniment.accompanists.filter(a => a.phone).length} מתוך {accompaniment.accompanists.length}</span>
-                {accompaniment.accompanists.some(a => a.phone) ? ' ✓' : ' ⚠️'}
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
 
-      {/* Add New Accompanist Form */}
+      {/* Enhanced Accompanist Form */}
       {showAddForm && !readonly && (
-        <Card padding="md" className="border-2 border-primary-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">הוספת נגן מלווה</h3>
-            <button
-              onClick={cancelAdd}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  שם הנגן *
-                </label>
-                <input
-                  type="text"
-                  value={newAccompanist.name}
-                  onChange={(e) => setNewAccompanist(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="שם מלא"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  כלי נגינה *
-                </label>
-                <select
-                  value={newAccompanist.instrument}
-                  onChange={(e) => setNewAccompanist(prev => ({ ...prev, instrument: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="">בחר כלי נגינה</option>
-                  {COMMON_INSTRUMENTS.map(instrument => (
-                    <option key={instrument} value={instrument}>{instrument}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                מספר טלפון
-              </label>
-              <input
-                type="tel"
-                value={newAccompanist.phone || ''}
-                onChange={(e) => setNewAccompanist(prev => ({ ...prev, phone: e.target.value || null }))}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  newAccompanist.phone && !validatePhone(newAccompanist.phone)
-                    ? 'border-red-300 focus:ring-red-500'
-                    : 'border-gray-300'
-                }`}
-                placeholder="050-1234567"
-              />
-              {newAccompanist.phone && !validatePhone(newAccompanist.phone) && (
-                <p className="text-red-500 text-xs mt-1">מספר טלפון חייב להתחיל ב-05 ולהכיל 10 ספרות</p>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                onClick={cancelAdd}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                ביטול
-              </button>
-              <button
-                onClick={addAccompanist}
-                disabled={!newAccompanist.name || !newAccompanist.instrument}
-                className="px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                הוסף נגן
-              </button>
-            </div>
-          </div>
-        </Card>
+        <EnhancedAccompanistForm
+          onSubmit={addAccompanist}
+          onCancel={cancelAdd}
+        />
       )}
 
       {/* Accompanists List */}
@@ -480,36 +361,6 @@ export default function AccompanistManager({
         </Card>
       )}
 
-      {/* Rehearsal Scheduling Section */}
-      {accompaniment.accompanists.length > 0 && (
-        <Card padding="md" className="bg-yellow-50 border-yellow-200">
-          <div className="flex items-start">
-            <Calendar className="w-5 h-5 text-yellow-600 mr-3 mt-0.5" />
-            <div>
-              <h3 className="text-sm font-semibold text-yellow-900 mb-2">תיאום חזרות</h3>
-              <p className="text-sm text-yellow-800 mb-3">
-                חשוב לתאם עם הנגנים המלווים מספר חזרות לפני הבגרות כדי להבטיח ביצוע מוצלח.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white p-3 rounded border">
-                  <div className="flex items-center text-sm text-yellow-800 mb-1">
-                    <Clock className="w-4 h-4 mr-1" />
-                    מספר חזרות מומלץ
-                  </div>
-                  <div className="font-medium">3-5 חזרות</div>
-                </div>
-                <div className="bg-white p-3 rounded border">
-                  <div className="flex items-center text-sm text-yellow-800 mb-1">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    תדירות
-                  </div>
-                  <div className="font-medium">פעמיים בשבוע</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
     </div>
   )
 }

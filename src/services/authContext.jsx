@@ -80,22 +80,57 @@ export const AuthProvider = ({ children }) => {
         
         if (!mountedRef.current) return
         
-        // Extract user data from various possible response structures
-        const userData = validation.teacher || 
-                         validation.user || 
-                         validation.data?.teacher || 
-                         validation.data?.user ||
-                         validation.data ||
-                         validation
+        // Extract basic user data from validation response
+        const basicUserData = validation?.data?.user || 
+                             validation?.user || 
+                             validation?.data ||
+                             validation
         
-        console.log('🔐 AUTH CONTEXT - Token validation successful:', {
-          hasUserData: !!userData,
-          userRole: userData?.role || userData?.roles,
-          userId: userData?.teacherId || userData?.id
+        console.log('🔐 AUTH CONTEXT - Token validation successful, fetching full teacher data')
+        
+        // Fetch complete teacher data using the ID from the validation response
+        let fullTeacherData = null
+        if (basicUserData?._id) {
+          try {
+            fullTeacherData = await apiService.teachers.getTeacher(basicUserData._id)
+            console.log('🔐 AUTH CONTEXT - Full teacher data fetched:', {
+              hasPersonalInfo: !!fullTeacherData?.personalInfo,
+              hasRoles: !!fullTeacherData?.roles,
+              fullName: fullTeacherData?.personalInfo?.fullName
+            })
+          } catch (fetchError) {
+            console.warn('🔐 AUTH CONTEXT - Could not fetch full teacher data:', fetchError)
+            // Fall back to basic user data if fetch fails
+            fullTeacherData = basicUserData
+          }
+        }
+        
+        // Use full teacher data if available, otherwise use basic data
+        const userData = fullTeacherData || basicUserData
+        
+        // Ensure the user object has the expected structure
+        const normalizedUser = {
+          ...userData,
+          teacherId: userData?.teacherId || userData?._id,
+          personalInfo: userData?.personalInfo || {
+            fullName: userData?.fullName || basicUserData?.fullName || '',
+            email: userData?.email || basicUserData?.email || '',
+            phone: userData?.phone || '',
+            address: userData?.address || ''
+          },
+          roles: userData?.roles || basicUserData?.roles || [],
+          role: userData?.role || userData?.roles?.[0] || basicUserData?.roles?.[0] || ''
+        }
+        
+        console.log('🔐 AUTH CONTEXT - User data normalized:', {
+          hasUserData: !!normalizedUser,
+          userRole: normalizedUser?.role || normalizedUser?.roles,
+          userId: normalizedUser?.teacherId || normalizedUser?._id,
+          fullName: normalizedUser?.personalInfo?.fullName
         })
         
         setIsAuthenticated(true)
-        setUser(userData)
+        setUser(normalizedUser)
         setLastValidation(now)
       } else {
         console.log('🔐 AUTH CONTEXT - No valid token found')
@@ -141,21 +176,65 @@ export const AuthProvider = ({ children }) => {
       })
       
       const { token } = loginResponse
-      // Extract user data from various possible response structures
-      const userData = loginResponse.teacher || 
-                       loginResponse.user || 
-                       loginResponse.data?.teacher || 
-                       loginResponse.data?.user ||
-                       loginResponse.data
+      // Extract basic user data from login response
+      const basicUserData = loginResponse.teacher || 
+                           loginResponse.user || 
+                           loginResponse.data?.teacher || 
+                           loginResponse.data?.user ||
+                           loginResponse.data
       
-      if (token && userData) {
-        setIsAuthenticated(true)
-        setUser(userData)
-        setLastValidation(Date.now())
-        return { success: true, user: userData }
-      } else {
+      if (!token || !basicUserData) {
         throw new Error('Invalid login response: missing token or user data')
       }
+      
+      console.log('🔐 AUTH CONTEXT - Fetching full teacher data after login')
+      
+      // Fetch complete teacher data using the ID from the login response
+      let fullTeacherData = null
+      if (basicUserData?._id || basicUserData?.teacherId) {
+        try {
+          const teacherId = basicUserData._id || basicUserData.teacherId
+          fullTeacherData = await apiService.teachers.getTeacher(teacherId)
+          console.log('🔐 AUTH CONTEXT - Full teacher data fetched after login:', {
+            hasPersonalInfo: !!fullTeacherData?.personalInfo,
+            hasRoles: !!fullTeacherData?.roles,
+            fullName: fullTeacherData?.personalInfo?.fullName
+          })
+        } catch (fetchError) {
+          console.warn('🔐 AUTH CONTEXT - Could not fetch full teacher data after login:', fetchError)
+          // Fall back to basic user data if fetch fails
+          fullTeacherData = basicUserData
+        }
+      }
+      
+      // Use full teacher data if available, otherwise use basic data
+      const userData = fullTeacherData || basicUserData
+      
+      // Ensure the user object has the expected structure
+      const normalizedUser = {
+        ...userData,
+        teacherId: userData?.teacherId || userData?._id,
+        personalInfo: userData?.personalInfo || {
+          fullName: userData?.fullName || basicUserData?.personalInfo?.fullName || basicUserData?.fullName || '',
+          email: userData?.email || basicUserData?.credentials?.email || basicUserData?.personalInfo?.email || basicUserData?.email || email,
+          phone: userData?.phone || basicUserData?.personalInfo?.phone || '',
+          address: userData?.address || basicUserData?.personalInfo?.address || ''
+        },
+        roles: userData?.roles || basicUserData?.roles || [],
+        role: userData?.role || userData?.roles?.[0] || basicUserData?.roles?.[0] || ''
+      }
+      
+      console.log('🔐 AUTH CONTEXT - User data normalized after login:', {
+        hasUserData: !!normalizedUser,
+        userRole: normalizedUser?.role || normalizedUser?.roles,
+        userId: normalizedUser?.teacherId || normalizedUser?._id,
+        fullName: normalizedUser?.personalInfo?.fullName
+      })
+      
+      setIsAuthenticated(true)
+      setUser(normalizedUser)
+      setLastValidation(Date.now())
+      return { success: true, user: normalizedUser }
     } catch (error) {
       console.error('🔐 AUTH CONTEXT - Login failed:', error)
       

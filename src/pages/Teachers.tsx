@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Plus, Filter, Loader, Calendar, Users, X, Grid, List, Eye, Edit } from 'lucide-react'
-import Card from '../components/ui/Card'
+import { Card } from '../components/ui/card'
 import Table, { StatusBadge } from '../components/ui/Table'
 import TeacherCard from '../components/TeacherCard'
 import AddTeacherModal from '../components/modals/AddTeacherModal'
@@ -119,8 +119,9 @@ export default function Teachers() {
       const filters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
       const teachersData = await apiService.teachers.getTeachers(filters)
       
-      // Use processed data from API service with computed fields
-      const transformedTeachers = teachersData.map(teacher => ({
+      // Filter out current user from the list and use processed data from API service with computed fields
+      const filteredTeachers = teachersData.filter(teacher => teacher._id !== user?._id)
+      const transformedTeachers = filteredTeachers.map(teacher => ({
         id: teacher._id,
         name: teacher.personalInfo?.fullName || 'לא צוין',
         specialization: teacher.professionalInfo?.instrument || 'לא צוין',

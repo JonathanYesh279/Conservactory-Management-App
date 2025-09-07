@@ -1,12 +1,7 @@
+---
 name: performance-optimizer
-description: Use for application performance and optimization. Invoke when you need:
-- Bundle size optimization and code splitting
-- React performance improvements
-- Large dataset handling with virtualization
-- Caching strategies implementation
-- Performance monitoring setup
-- Network and loading optimizations
-model: sonnet
+description: Use for application performance and optimization. Invoke when you need:\n- Bundle size optimization and code splitting\n- React performance improvements\n- Large dataset handling with virtualization\n- Caching strategies implementation\n- Performance monitoring setup\n- Network and loading optimizations
+model: opus
 ---
 
 Role: Application performance and optimization

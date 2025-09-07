@@ -1,6 +1,6 @@
 import React from 'react'
 import { Music, Award, Calendar, Star, Edit, Trash2 } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 
 interface InstrumentProgress {
   instrumentName: string

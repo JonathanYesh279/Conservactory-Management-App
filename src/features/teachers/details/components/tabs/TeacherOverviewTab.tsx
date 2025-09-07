@@ -55,7 +55,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="flex items-center space-x-3 space-x-reverse">
               <User className="w-4 h-4 text-gray-500" />
               <div>
-                <p className="text-sm text-gray-500">שם מלא</p>
+                <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>שם מלא:</p>
                 <p className="font-medium text-gray-900">{teacher.personalInfo?.fullName || 'ללא מידע'}</p>
               </div>
             </div>
@@ -63,7 +63,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="flex items-center space-x-3 space-x-reverse">
               <Phone className="w-4 h-4 text-gray-500" />
               <div>
-                <p className="text-sm text-gray-500">טלפון</p>
+                <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>טלפון:</p>
                 <p className="font-medium text-gray-900">{teacher.personalInfo?.phone || 'ללא מידע'}</p>
               </div>
             </div>
@@ -71,7 +71,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="flex items-center space-x-3 space-x-reverse">
               <Mail className="w-4 h-4 text-gray-500" />
               <div>
-                <p className="text-sm text-gray-500">אימייל</p>
+                <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>אימייל:</p>
                 <p className="font-medium text-gray-900">{teacher.personalInfo?.email || 'ללא מידע'}</p>
               </div>
             </div>
@@ -81,7 +81,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="flex items-start space-x-3 space-x-reverse">
               <MapPin className="w-4 h-4 text-gray-500 mt-1" />
               <div>
-                <p className="text-sm text-gray-500">כתובת</p>
+                <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>כתובת:</p>
                 <p className="font-medium text-gray-900">{teacher.personalInfo?.address || 'ללא מידע'}</p>
               </div>
             </div>
@@ -89,7 +89,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="flex items-center space-x-3 space-x-reverse">
               <CheckCircle className="w-4 h-4 text-gray-500" />
               <div>
-                <p className="text-sm text-gray-500">סטטוס</p>
+                <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>סטטוס:</p>
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                   teacher.isActive 
                     ? 'bg-green-100 text-green-800' 
@@ -115,7 +115,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="flex items-center space-x-3 space-x-reverse">
               <BookOpen className="w-4 h-4 text-gray-500" />
               <div>
-                <p className="text-sm text-gray-500">כלי נגינה</p>
+                <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>כלי נגינה:</p>
                 <p className="font-medium text-gray-900">{teacher.professionalInfo?.instrument || 'ללא מידע'}</p>
               </div>
             </div>
@@ -123,7 +123,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="flex items-center space-x-3 space-x-reverse">
               <Award className="w-4 h-4 text-gray-500" />
               <div>
-                <p className="text-sm text-gray-500">תפקידים</p>
+                <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>תפקידים:</p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {teacher.roles && teacher.roles.length > 0 ? (
                     teacher.roles.map((role, index) => (
@@ -146,7 +146,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="flex items-center space-x-3 space-x-reverse">
               <Users className="w-4 h-4 text-gray-500" />
               <div>
-                <p className="text-sm text-gray-500">מספר תלמידים</p>
+                <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>מספר תלמידים:</p>
                 <p className="font-medium text-gray-900">{totalStudents}</p>
               </div>
             </div>
@@ -154,7 +154,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="flex items-center space-x-3 space-x-reverse">
               <Clock className="w-4 h-4 text-gray-500" />
               <div>
-                <p className="text-sm text-gray-500">שעות הוראה שבועיות</p>
+                <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>שעות הוראה שבועיות:</p>
                 <p className="font-medium text-gray-900">{weeklyHours.toFixed(1)} שעות</p>
               </div>
             </div>
@@ -174,15 +174,15 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-white rounded-lg border">
                 <div className="text-2xl font-bold text-purple-600">{totalTimeBlocks}</div>
-                <div className="text-sm text-gray-500">סך בלוקי זמן</div>
+                <div className="text-sm text-black font-semibold" style={{color: '#000000'}}>סך בלוקי זמן:</div>
               </div>
               <div className="text-center p-4 bg-white rounded-lg border">
                 <div className="text-2xl font-bold text-green-600">{activeTimeBlocks}</div>
-                <div className="text-sm text-gray-500">בלוקים פעילים</div>
+                <div className="text-sm text-black font-semibold" style={{color: '#000000'}}>בלוקים פעילים:</div>
               </div>
               <div className="text-center p-4 bg-white rounded-lg border">
                 <div className="text-2xl font-bold text-blue-600">{weeklyHours.toFixed(1)}</div>
-                <div className="text-sm text-gray-500">שעות בשבוע</div>
+                <div className="text-sm text-black font-semibold" style={{color: '#000000'}}>שעות בשבוע:</div>
               </div>
             </div>
             
@@ -259,26 +259,26 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <p className="text-sm text-gray-500">תאריך יצירה</p>
+            <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>תאריך יצירה:</p>
             <p className="font-medium text-gray-900">
               {teacher.createdAt ? new Date(teacher.createdAt).toLocaleDateString('he-IL') : 'ללא מידע'}
             </p>
           </div>
           
           <div className="space-y-2">
-            <p className="text-sm text-gray-500">עדכון אחרון</p>
+            <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>עדכון אחרון:</p>
             <p className="font-medium text-gray-900">
               {teacher.updatedAt ? new Date(teacher.updatedAt).toLocaleDateString('he-IL') : 'ללא מידע'}
             </p>
           </div>
           
           <div className="space-y-2">
-            <p className="text-sm text-gray-500">מזהה מורה</p>
+            <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>מזהה מורה:</p>
             <p className="font-medium text-gray-900 font-mono">{teacher._id}</p>
           </div>
           
           <div className="space-y-2">
-            <p className="text-sm text-gray-500">התחברות אחרונה</p>
+            <p className="text-sm text-black font-semibold" style={{color: '#000000'}}>התחברות אחרונה:</p>
             <p className="font-medium text-gray-900">
               {teacher.credentials?.lastLogin 
                 ? new Date(teacher.credentials.lastLogin).toLocaleDateString('he-IL')

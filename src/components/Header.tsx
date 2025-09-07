@@ -1,11 +1,17 @@
-import { Bell, Calendar, Settings, Music, ChevronDown, ChevronUp } from 'lucide-react'
+import { Bell, Calendar, Settings, Music, ChevronDown, ChevronUp, User, LogOut } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../services/authContext.jsx'
 import SchoolYearSelector from './SchoolYearSelector'
 
 export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const profileDropdownRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
 
   // Check if screen is mobile size
   useEffect(() => {
@@ -24,6 +30,9 @@ export default function Header() {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false)
       }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        setIsProfileDropdownOpen(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
@@ -35,6 +44,51 @@ export default function Header() {
     { icon: Calendar, label: 'לוח שנה', action: () => console.log('Calendar') },
     { icon: Settings, label: 'הגדרות', action: () => console.log('Settings') },
   ]
+
+  const handleProfileClick = () => {
+    navigate('/profile')
+    setIsProfileDropdownOpen(false)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      navigate('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+    setIsProfileDropdownOpen(false)
+  }
+
+  const getInitials = () => {
+    const fullName = user?.personalInfo?.fullName || user?.fullName || user?.name || ''
+    if (!fullName) return 'מ'
+    const words = fullName.trim().split(' ')
+    if (words.length >= 2) {
+      return words[0][0] + words[1][0]
+    }
+    return words[0][0] || 'מ'
+  }
+  
+  const getUserFullName = () => {
+    return user?.personalInfo?.fullName || user?.fullName || user?.name || 'משתמש'
+  }
+  
+  const getUserRole = () => {
+    const role = user?.role || user?.roles?.[0] || ''
+    // Handle Hebrew role names from backend
+    switch (role) {
+      case 'teacher': return 'מורה'
+      case 'מורה': return 'מורה'
+      case 'conductor': return 'מנצח'
+      case 'מנצח': return 'מנצח'
+      case 'theory_teacher': return 'מורה תיאוריה'
+      case 'מורה תיאוריה': return 'מורה תיאוריה'
+      case 'admin': return 'מנהל'
+      case 'מנהל': return 'מנהל'
+      default: return role || 'משתמש'
+    }
+  }
 
   return (
     <header className="fixed top-0 right-0 left-0 md:right-[280px] h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 pr-16 md:pr-6 z-[999]" style={{ direction: 'rtl' }}>
@@ -113,9 +167,52 @@ export default function Header() {
           </div>
         )}
 
-        {/* User Avatar */}
-        <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center cursor-pointer">
-          <span className="text-sm font-semibold text-white font-reisinger-michal">מ</span>
+        {/* User Avatar with Profile Dropdown */}
+        <div className="relative" ref={profileDropdownRef}>
+          <div 
+            className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors"
+            onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+          >
+            <span className="text-sm font-semibold text-white font-reisinger-michal">
+              {getInitials()}
+            </span>
+          </div>
+
+          {/* Profile Dropdown */}
+          {isProfileDropdownOpen && (
+            <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[1000]">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <div className="text-sm font-medium text-gray-700 font-reisinger-michal">
+                  {getUserFullName()}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {getUserRole()}
+                </div>
+              </div>
+              
+              <button
+                onClick={handleProfileClick}
+                className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between transition-colors duration-150"
+                style={{ direction: 'rtl' }}
+              >
+                <span className="text-sm font-medium text-gray-700 font-reisinger-michal">
+                  עמוד אישי
+                </span>
+                <User className="w-4 h-4 text-gray-500" />
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between transition-colors duration-150 text-red-600 hover:bg-red-50"
+                style={{ direction: 'rtl' }}
+              >
+                <span className="text-sm font-medium font-reisinger-michal">
+                  יציאה
+                </span>
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

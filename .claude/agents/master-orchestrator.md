@@ -1,17 +1,7 @@
 ---
 name: master-orchestrator
 description: Use this agent for high-level planning, architectural decisions, and coordination across the entire frontend project. Invoke when you need:
-- Overall project architecture and technical strategy planning
-- Coordination between different development areas (UI, API, features)
-- Major technical decisions that affect multiple components
-- Project timeline and milestone planning
-- Code standards and development workflow establishment
-- Integration planning between different modules
-- Conflict resolution between specialist approaches
-- Project progress review and bottleneck identification
-
-Start with this agent for any new major feature or when beginning the project setup.
-model: sonnet
+model: opus
 color: red
 ---
 

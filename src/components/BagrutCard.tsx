@@ -3,7 +3,7 @@ import {
   User, Calendar, CheckCircle, 
   FileText, Eye, Edit, Download, Trash2, Music 
 } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 import type { Bagrut } from '../types/bagrut.types'
 
 interface BagrutCardProps {

@@ -158,7 +158,7 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
         <div className="mb-4 pb-4 border-b border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <span className="text-xs font-medium text-gray-600">כיתה:</span>
+              <span className="text-xs font-medium text-black font-semibold" style={{color: '#000000'}}>כיתה:</span>
               {isEditing ? (
                 <input
                   type="text"
@@ -175,7 +175,7 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
             {/* Only show stage from academicInfo if no instruments with stage info */}
             {(!academicInfo.instrumentProgress || academicInfo.instrumentProgress.length === 0) && (
               <div>
-                <span className="text-xs font-medium text-gray-600">שלב:</span>
+                <span className="text-xs font-medium text-black font-semibold" style={{color: '#000000'}}>שלב:</span>
                 {isEditing ? (
                   <input
                     type="text"
@@ -191,7 +191,7 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
             )}
             
             <div>
-              <span className="text-xs font-medium text-gray-600">תאריך התחלה:</span>
+              <span className="text-xs font-medium text-black font-semibold" style={{color: '#000000'}}>תאריך התחלה:</span>
               {isEditing ? (
                 <input
                   type="date"
@@ -238,7 +238,7 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
                     <div className="mt-2 space-y-1">
                       {instrument.tests.stageTest && (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-600">מבחן שלב:</span>
+                          <span className="text-xs text-black font-semibold" style={{color: '#000000'}}>מבחן שלב:</span>
                           <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getExamStatusColor(instrument.tests.stageTest.status || 'לא נבחן')}`}>
                             {getExamStatusIcon(instrument.tests.stageTest.status || 'לא נבחן')}
                             {instrument.tests.stageTest.status || 'לא נבחן'}
@@ -250,7 +250,7 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
                       )}
                       {instrument.tests.technicalTest && (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-600">מבחן טכני:</span>
+                          <span className="text-xs text-black font-semibold" style={{color: '#000000'}}>מבחן טכני:</span>
                           <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getExamStatusColor(instrument.tests.technicalTest.status || 'לא נבחן')}`}>
                             {getExamStatusIcon(instrument.tests.technicalTest.status || 'לא נבחן')}
                             {instrument.tests.technicalTest.status || 'לא נבחן'}

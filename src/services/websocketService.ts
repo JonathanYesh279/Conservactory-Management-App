@@ -1,17 +1,19 @@
 /**
  * WebSocket Service for Real-time Updates
  * 
- * Manages WebSocket connections for real-time student data updates
+ * Manages Socket.IO connections for real-time student data updates
  * with automatic reconnection and proper error handling
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/features/students/details/hooks/useStudentDetailsHooks'
+import { io, Socket } from 'socket.io-client'
 
-// WebSocket configuration
+// Socket.IO configuration
 const WS_CONFIG = {
-  url: import.meta.env.VITE_WS_URL || 'ws://localhost:3001',
+  // Remove /api from the URL if present - Socket.IO connects to the base URL
+  url: (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/api\/?$/, ''),
   reconnectDelay: 1000,
   maxReconnectAttempts: 5,
   heartbeatInterval: 30000, // 30 seconds
@@ -68,9 +70,9 @@ interface DocumentUpdateMessage extends WebSocketMessage {
   }
 }
 
-// WebSocket Manager Class
+// Socket.IO Manager Class
 class WebSocketManager {
-  private ws: WebSocket | null = null
+  private socket: Socket | null = null
   private reconnectAttempts = 0
   private heartbeatTimer: NodeJS.Timeout | null = null
   private reconnectTimer: NodeJS.Timeout | null = null
@@ -102,62 +104,107 @@ class WebSocketManager {
     try {
       // Don't attempt connection if we've exceeded max attempts
       if (this.reconnectAttempts >= WS_CONFIG.maxReconnectAttempts) {
-        console.warn('WebSocket max reconnection attempts reached. Stopping reconnection.')
+        console.warn('Socket.IO max reconnection attempts reached. Stopping reconnection.')
         this.shouldReconnect = false
         this.isConnecting = false
         return
       }
 
-      this.ws = new WebSocket(WS_CONFIG.url)
+      // Get authentication token
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
       
-      // Add connection timeout
-      const connectionTimeout = setTimeout(() => {
-        if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-          console.warn('WebSocket connection timeout')
-          this.ws.close()
-        }
-      }, WS_CONFIG.connectionTimeout)
+      console.log('Attempting Socket.IO connection to:', WS_CONFIG.url)
       
-      this.ws.onopen = () => {
-        clearTimeout(connectionTimeout)
-        this.handleOpen()
-      }
-      this.ws.onmessage = this.handleMessage.bind(this)
-      this.ws.onclose = (event) => {
-        clearTimeout(connectionTimeout)
-        this.handleClose(event)
-      }
-      this.ws.onerror = (event) => {
-        clearTimeout(connectionTimeout)
-        this.handleError(event)
-      }
+      this.socket = io(WS_CONFIG.url, {
+        auth: token ? { token } : undefined,
+        transports: ['polling', 'websocket'], // Start with polling, upgrade to websocket
+        reconnection: false, // We handle reconnection manually
+        autoConnect: true,
+        withCredentials: true
+      })
+      
+      this.setupSocketHandlers()
     } catch (error) {
-      console.warn('WebSocket connection failed:', error)
+      console.warn('Socket.IO connection failed:', error)
       this.isConnecting = false
       this.scheduleReconnect()
     }
   }
 
+  private setupSocketHandlers() {
+    if (!this.socket) return
+
+    this.socket.on('connect', () => {
+      console.log('Socket.IO connected event fired')
+      this.handleOpen()
+    })
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('Socket.IO disconnected:', reason)
+      this.handleClose({ code: 1006, reason })
+    })
+
+    this.socket.on('connect_error', (error: any) => {
+      console.error('Socket.IO connect_error:', error.message, error.type)
+      this.handleError(error)
+    })
+
+    // Handle all custom message types
+    this.socket.on('student_update', (data) => {
+      this.handleMessage({ data: { type: 'student_update', data, timestamp: new Date().toISOString() } })
+    })
+
+    this.socket.on('attendance_update', (data) => {
+      this.handleMessage({ data: { type: 'attendance_update', data, timestamp: new Date().toISOString() } })
+    })
+
+    this.socket.on('schedule_update', (data) => {
+      this.handleMessage({ data: { type: 'schedule_update', data, timestamp: new Date().toISOString() } })
+    })
+
+    this.socket.on('document_update', (data) => {
+      this.handleMessage({ data: { type: 'document_update', data, timestamp: new Date().toISOString() } })
+    })
+
+    this.socket.on('heartbeat', () => {
+      this.handleMessage({ data: { type: 'heartbeat', timestamp: new Date().toISOString() } })
+    })
+
+    // Cascade deletion events
+    this.socket.on('cascade.progress', (data) => {
+      this.handleMessage({ data: { type: 'deletion_progress', ...data, timestamp: new Date().toISOString() } })
+    })
+
+    this.socket.on('cascade.complete', (data) => {
+      this.handleMessage({ data: { type: 'deletion_complete', ...data, timestamp: new Date().toISOString() } })
+    })
+
+    this.socket.on('deletion.warning', (data) => {
+      this.handleMessage({ data: { type: 'deletion_error', ...data, timestamp: new Date().toISOString() } })
+    })
+
+    this.socket.on('notification', (data) => {
+      this.handleMessage({ data: { type: 'notification', ...data, timestamp: new Date().toISOString() } })
+    })
+
+    this.socket.on('system.alert', (data) => {
+      this.handleMessage({ data: { type: 'system_alert', ...data, timestamp: new Date().toISOString() } })
+    })
+  }
+
   private handleOpen() {
-    console.log('WebSocket connected successfully')
+    console.log('Socket.IO connected successfully')
     this.isConnected = true
     this.isConnecting = false
     this.reconnectAttempts = 0
     this.startHeartbeat()
     
-    // Send authentication if available
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
-    if (token) {
-      this.send({
-        type: 'auth',
-        token
-      })
-    }
+    // Authentication is handled automatically via auth object in connection
   }
 
-  private handleMessage(event: MessageEvent) {
+  private handleMessage(event: { data: WebSocketMessage }) {
     try {
-      const message: WebSocketMessage = JSON.parse(event.data)
+      const message: WebSocketMessage = event.data
       
       // Handle heartbeat responses
       if (message.type === 'heartbeat') {
@@ -188,12 +235,12 @@ class WebSocketManager {
         })
       }
     } catch (error) {
-      console.error('Error parsing WebSocket message:', error)
+      console.error('Error processing Socket.IO message:', error)
     }
   }
 
-  private handleClose(event: CloseEvent) {
-    console.log('WebSocket disconnected:', event.code, event.reason)
+  private handleClose(event: { code: number; reason: string }) {
+    console.log('Socket.IO disconnected:', event.code, event.reason)
     this.isConnected = false
     this.isConnecting = false
     this.stopHeartbeat()
@@ -206,13 +253,13 @@ class WebSocketManager {
     if (this.shouldReconnect && shouldAttemptReconnect && this.reconnectAttempts < WS_CONFIG.maxReconnectAttempts) {
       this.scheduleReconnect()
     } else if (this.reconnectAttempts >= WS_CONFIG.maxReconnectAttempts) {
-      console.warn('WebSocket max reconnection attempts reached')
+      console.warn('Socket.IO max reconnection attempts reached')
       this.shouldReconnect = false
     }
   }
 
-  private handleError(event: Event) {
-    console.warn('WebSocket connection error:', event)
+  private handleError(event: Error) {
+    console.warn('Socket.IO connection error:', event)
     this.isConnecting = false
     // Don't throw errors that could crash the application
   }
@@ -234,7 +281,7 @@ class WebSocketManager {
     const jitter = Math.random() * 1000 // Add up to 1 second of jitter
     const delay = Math.min(baseDelay + jitter, 30000) // Cap at 30 seconds
     
-    console.log(`WebSocket scheduling reconnect attempt ${this.reconnectAttempts}/${WS_CONFIG.maxReconnectAttempts} in ${Math.round(delay)}ms`)
+    console.log(`Socket.IO scheduling reconnect attempt ${this.reconnectAttempts}/${WS_CONFIG.maxReconnectAttempts} in ${Math.round(delay)}ms`)
     
     this.reconnectTimer = setTimeout(() => {
       if (this.shouldReconnect && !this.isConnected && !this.isConnecting) {
@@ -245,7 +292,7 @@ class WebSocketManager {
 
   private startHeartbeat() {
     this.heartbeatTimer = setInterval(() => {
-      if (this.isConnected && this.ws?.readyState === WebSocket.OPEN) {
+      if (this.isConnected && this.socket?.connected) {
         this.send({ type: 'heartbeat', timestamp: new Date().toISOString() })
       }
     }, WS_CONFIG.heartbeatInterval)
@@ -260,14 +307,19 @@ class WebSocketManager {
 
   // Public methods
   send(message: any) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.socket?.connected) {
       try {
-        this.ws.send(JSON.stringify(message))
+        // Send based on message type
+        if (message.type) {
+          this.socket.emit(message.type, message)
+        } else {
+          this.socket.emit('message', message)
+        }
       } catch (error) {
-        console.warn('Failed to send WebSocket message:', error)
+        console.warn('Failed to send Socket.IO message:', error)
       }
     } else {
-      console.warn('WebSocket not connected, cannot send message. Connection state:', this.ws?.readyState)
+      console.warn('Socket.IO not connected, cannot send message. Connection state:', this.socket?.connected)
       // Attempt to reconnect if not already trying
       if (!this.isConnecting && this.shouldReconnect) {
         this.connectInternal()
@@ -294,27 +346,56 @@ class WebSocketManager {
 
   subscribeToStudent(studentId: string) {
     // Only try to subscribe if connected, otherwise queue for later
-    if (this.isConnected) {
-      this.send({
-        type: 'subscribe',
+    if (this.isConnected && this.socket) {
+      this.socket.emit('subscribe', {
         channel: `student/${studentId}/updates`
       })
     } else {
-      console.log(`WebSocket not connected, queuing subscription for student ${studentId}`)
+      console.log(`Socket.IO not connected, queuing subscription for student ${studentId}`)
     }
   }
 
   unsubscribeFromStudent(studentId: string) {
-    if (this.isConnected) {
-      this.send({
-        type: 'unsubscribe',
+    if (this.isConnected && this.socket) {
+      this.socket.emit('unsubscribe', {
         channel: `student/${studentId}/updates`
       })
     }
   }
 
+  // Cascade deletion subscriptions
+  subscribeToCascadeDeletion(studentId: string) {
+    if (this.isConnected && this.socket) {
+      this.socket.emit('subscribe.cascade', {
+        studentId
+      })
+    } else {
+      console.log(`Socket.IO not connected, queuing cascade subscription for student ${studentId}`)
+    }
+  }
+
+  unsubscribeFromCascadeDeletion(studentId: string) {
+    if (this.isConnected && this.socket) {
+      this.socket.emit('unsubscribe.cascade', {
+        studentId
+      })
+    }
+  }
+
+  subscribeToIntegrityUpdates() {
+    if (this.isConnected && this.socket) {
+      this.socket.emit('subscribe.integrity')
+    }
+  }
+
+  subscribeToJobUpdates() {
+    if (this.isConnected && this.socket) {
+      this.socket.emit('subscribe.jobs')
+    }
+  }
+
   disconnect() {
-    console.log('WebSocket disconnecting manually')
+    console.log('Socket.IO disconnecting manually')
     this.shouldReconnect = false
     this.stopHeartbeat()
     
@@ -324,9 +405,9 @@ class WebSocketManager {
       this.reconnectTimer = null
     }
     
-    if (this.ws) {
-      this.ws.close(1000, 'Manual disconnect') // Normal closure
-      this.ws = null
+    if (this.socket) {
+      this.socket.disconnect()
+      this.socket = null
     }
     
     this.isConnected = false
@@ -338,7 +419,7 @@ class WebSocketManager {
     return {
       isConnected: this.isConnected,
       reconnectAttempts: this.reconnectAttempts,
-      readyState: this.ws?.readyState
+      connected: this.socket?.connected
     }
   }
 }
@@ -356,7 +437,7 @@ export function useWebSocketUpdates(studentId: string | null) {
     if (!studentId) return
 
     try {
-      // Ensure WebSocket is connected before subscribing
+      // Ensure Socket.IO is connected before subscribing
       if (!wsManager.getConnectionStatus().isConnected) {
         wsManager.connect()
       }
@@ -365,7 +446,7 @@ export function useWebSocketUpdates(studentId: string | null) {
       wsManager.subscribeToStudent(studentId)
       subscribedStudentId.current = studentId
     } catch (error) {
-      console.warn('Failed to setup WebSocket subscription:', error)
+      console.warn('Failed to setup Socket.IO subscription:', error)
     }
 
     return () => {
@@ -375,7 +456,7 @@ export function useWebSocketUpdates(studentId: string | null) {
           subscribedStudentId.current = null
         }
       } catch (error) {
-        console.warn('Failed to cleanup WebSocket subscription:', error)
+        console.warn('Failed to cleanup Socket.IO subscription:', error)
       }
     }
   }, [studentId])
@@ -489,7 +570,7 @@ export function useWebSocketStatus() {
     try {
       return wsManager.getConnectionStatus()
     } catch (error) {
-      console.warn('Failed to get WebSocket status:', error)
+      console.warn('Failed to get Socket.IO status:', error)
       return {
         isConnected: false,
         reconnectAttempts: 0,
@@ -503,7 +584,7 @@ export function useWebSocketStatus() {
       try {
         setStatus(wsManager.getConnectionStatus())
       } catch (error) {
-        console.warn('Failed to update WebSocket status:', error)
+        console.warn('Failed to update Socket.IO status:', error)
         setStatus({
           isConnected: false,
           reconnectAttempts: 0,

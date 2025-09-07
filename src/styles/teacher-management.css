@@ -90,7 +90,8 @@
 }
 
 .time-block-form {
-  @apply bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto;
+  @apply bg-white rounded-lg w-full max-w-md overflow-y-auto;
+  max-height: 90vh;
 }
 
 .form-row {

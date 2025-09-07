@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import Card from './Card'
+import { Card } from './Card'
 
 interface Event {
   id: string

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Save, X, Music, Clock, User, AlertCircle } from 'lucide-react'
-import Card from './ui/Card'
+import { Card } from './ui/Card'
 import type { ProgramPiece } from '../types/bagrut.types'
 
 interface ProgramPieceFormProps {
