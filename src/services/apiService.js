@@ -410,14 +410,31 @@ export const studentService = {
         });
         
         console.log(`📊 Backend returned ${Array.isArray(students) ? students.length : 0} students from batch of ${studentIds.length} IDs`);
+        console.log('🔍 Requested IDs:', studentIds);
         
-        // Client-side filtering as fallback if backend returns too many
-        if (Array.isArray(students) && students.length > studentIds.length) {
-          console.warn('⚠️ Backend returned more students than requested - applying client-side filter');
-          students = students.filter(student => 
-            studentIds.includes(student._id) || studentIds.includes(student.id)
-          );
-          console.log(`✅ After client-side filtering: ${students.length} students`);
+        if (Array.isArray(students) && students.length > 0) {
+          console.log('🔍 Sample student IDs from backend:', students.slice(0, 3).map(s => ({ _id: s._id, id: s.id })));
+        }
+        
+        // Client-side filtering as fallback if backend returns too many or different students
+        if (Array.isArray(students) && students.length > 0) {
+          const originalCount = students.length;
+          students = students.filter(student => {
+            const studentId = student._id || student.id;
+            const isMatch = studentIds.includes(studentId);
+            if (!isMatch && originalCount <= studentIds.length + 5) {
+              // Only log mismatches if we don't have way too many results
+              console.log(`🔍 Student ${studentId} not in requested IDs:`, studentIds);
+            }
+            return isMatch;
+          });
+          console.log(`✅ After client-side filtering: ${students.length} students (from ${originalCount})`);
+          
+          // If we still don't have the expected students, check for ID format issues
+          if (students.length < studentIds.length) {
+            console.warn(`⚠️ Expected ${studentIds.length} students, got ${students.length}`);
+            console.log('🔍 Missing student IDs:', studentIds.filter(id => !students.some(s => s._id === id || s.id === id)));
+          }
         }
         
       } catch (error) {
@@ -429,10 +446,12 @@ export const studentService = {
             studentIds: studentIds.join(',')
           });
           
-          if (Array.isArray(students) && students.length > studentIds.length) {
+          if (Array.isArray(students) && students.length > 0) {
+            const originalCount = students.length;
             students = students.filter(student => 
               studentIds.includes(student._id) || studentIds.includes(student.id)
             );
+            console.log(`✅ Method 2 - After client-side filtering: ${students.length} students (from ${originalCount})`);
           }
           
         } catch (error2) {
@@ -444,10 +463,12 @@ export const studentService = {
               ids: studentIds
             });
             
-            if (Array.isArray(students) && students.length > studentIds.length) {
+            if (Array.isArray(students) && students.length > 0) {
+              const originalCount = students.length;
               students = students.filter(student => 
                 studentIds.includes(student._id) || studentIds.includes(student.id)
               );
+              console.log(`✅ Method 3 - After client-side filtering: ${students.length} students (from ${originalCount})`);
             }
             
           } catch (error3) {
@@ -566,13 +587,41 @@ export const studentService = {
   },
 
   /**
+   * Deep clone function that preserves Date objects and handles complex structures
+   * @param {any} obj - Object to clone
+   * @returns {any} Deep cloned object
+   */
+  deepCloneWithDates(obj) {
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+    
+    if (obj instanceof Date) {
+      return new Date(obj.getTime());
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.deepCloneWithDates(item));
+    }
+    
+    const cloned = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        cloned[key] = this.deepCloneWithDates(obj[key]);
+      }
+    }
+    
+    return cloned;
+  },
+
+  /**
    * Clean student data for update by removing fields that backend validation rejects
    * @param {Object} studentData - Raw student data
    * @returns {Object} Cleaned student data
    */
   cleanStudentDataForUpdate(studentData) {
-    // Create a deep copy to avoid modifying the original data
-    const cleanedData = JSON.parse(JSON.stringify(studentData));
+    // Create a deep copy that preserves Date objects
+    const cleanedData = this.deepCloneWithDates(studentData);
     
     // Remove top-level fields that aren't allowed in updates
     delete cleanedData._id;
@@ -592,6 +641,45 @@ export const studentService = {
         delete cleanedProgress.stage; // This is derived from currentStage
         
         return cleanedProgress;
+      });
+    }
+    
+    // Clean teacher assignments - keep valid fields but remove problematic ones
+    if (cleanedData.teacherAssignments) {
+      cleanedData.teacherAssignments = cleanedData.teacherAssignments.map(assignment => {
+        const cleanedAssignment = this.deepCloneWithDates(assignment);
+        
+        // Remove auto-generated fields that might cause validation issues
+        delete cleanedAssignment._id; // Backend will generate new IDs if needed
+        
+        // Ensure Date fields are properly formatted if they exist
+        if (cleanedAssignment.startDate && !(cleanedAssignment.startDate instanceof Date)) {
+          cleanedAssignment.startDate = new Date(cleanedAssignment.startDate);
+        }
+        if (cleanedAssignment.createdAt && !(cleanedAssignment.createdAt instanceof Date)) {
+          cleanedAssignment.createdAt = new Date(cleanedAssignment.createdAt);
+        }
+        if (cleanedAssignment.updatedAt && !(cleanedAssignment.updatedAt instanceof Date)) {
+          cleanedAssignment.updatedAt = new Date(cleanedAssignment.updatedAt);
+        }
+        
+        // Clean nested scheduleInfo if it exists
+        if (cleanedAssignment.scheduleInfo) {
+          const cleanedScheduleInfo = { ...cleanedAssignment.scheduleInfo };
+          delete cleanedScheduleInfo._id; // Remove any IDs from nested objects
+          
+          // Ensure Date fields in scheduleInfo are properly formatted
+          if (cleanedScheduleInfo.createdAt && !(cleanedScheduleInfo.createdAt instanceof Date)) {
+            cleanedScheduleInfo.createdAt = new Date(cleanedScheduleInfo.createdAt);
+          }
+          if (cleanedScheduleInfo.updatedAt && !(cleanedScheduleInfo.updatedAt instanceof Date)) {
+            cleanedScheduleInfo.updatedAt = new Date(cleanedScheduleInfo.updatedAt);
+          }
+          
+          cleanedAssignment.scheduleInfo = cleanedScheduleInfo;
+        }
+        
+        return cleanedAssignment;
       });
     }
     
@@ -1568,7 +1656,35 @@ export const orchestraService = {
         console.log(`✅ After client-side filtering: ${filteredOrchestras.length} orchestras`);
       }
       
-      return filteredOrchestras;
+      // Process orchestras to add computed fields - SAME AS getOrchestras
+      const processedOrchestras = filteredOrchestras.map(orchestra => ({
+        ...orchestra,
+        // Add computed fields for easier frontend use
+        memberCount: orchestra.memberIds?.length || 0,
+        rehearsalCount: orchestra.rehearsalIds?.length || 0,
+        hasConductor: !!orchestra.conductorId,
+        hasMembers: orchestra.memberIds?.length > 0,
+        
+        // Type validation
+        orchestraType: orchestra.type, // "תזמורת" or "הרכב"
+        
+        // Status information
+        statusInfo: {
+          isActive: orchestra.isActive,
+          hasRehearsals: orchestra.rehearsalIds?.length > 0,
+          lastModified: orchestra.lastModified || orchestra.updatedAt
+        },
+        
+        // Create basicInfo structure for consistency (if it doesn't exist)
+        basicInfo: orchestra.basicInfo || {
+          name: orchestra.name || '',
+          description: orchestra.description || '',
+          level: orchestra.level || orchestra.difficulty || ''
+        }
+      }));
+      
+      console.log(`🎼 Processed ${processedOrchestras.length} orchestras with computed data for batch fetch`);
+      return processedOrchestras;
     } catch (error) {
       console.error('Error fetching batch orchestras:', error);
       return [];
@@ -3408,23 +3524,36 @@ export const teacherScheduleService = {
     }
   },
 
+  // Get time blocks for teacher
+  async getTimeBlocks(teacherId) {
+    try {
+      return await apiClient.get(`/teacher/${teacherId}/time-blocks`);
+    } catch (error) {
+      console.error('Error fetching time blocks:', error);
+      throw error;
+    }
+  },
+
   // Create new time block for teacher
   async createTimeBlock(teacherId, timeBlockData) {
     try {
+      // Only send fields that are allowed by the backend validation schema
       const timeBlock = {
         day: timeBlockData.day,
         startTime: timeBlockData.startTime,
         endTime: timeBlockData.endTime,
-        totalDuration: this.calculateDuration(timeBlockData.startTime, timeBlockData.endTime),
         location: timeBlockData.location,
         notes: timeBlockData.notes || null,
-        isActive: true,
-        assignedLessons: [],
-        recurring: {
+        recurring: timeBlockData.recurring || {
           isRecurring: timeBlockData.isRecurring || true,
           excludeDates: timeBlockData.excludeDates || []
         }
       };
+
+      // Add schoolYearId if provided
+      if (timeBlockData.schoolYearId) {
+        timeBlock.schoolYearId = timeBlockData.schoolYearId;
+      }
 
       return await apiClient.post(`/teacher/${teacherId}/time-block`, timeBlock);
     } catch (error) {

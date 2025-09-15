@@ -60,7 +60,21 @@ const PersonalInfoTabSimple: React.FC<PersonalInfoTabProps> = ({ student, studen
       setIsEditing(false)
     } catch (error) {
       console.error('Error saving student personal info:', error)
-      alert('שגיאה בשמירת הנתונים')
+      
+      // Provide more specific error messages
+      let errorMessage = 'שגיאה בשמירת הנתונים'
+      
+      if (error.message.includes('Authentication failed')) {
+        errorMessage = 'פג תוקף הפנייה. אנא התחבר מחדש.'
+      } else if (error.message.includes('validation')) {
+        errorMessage = 'שגיאה בנתונים שהוזנו. אנא בדוק את הפרטים האישיים.'
+      } else if (error.message.includes('not found')) {
+        errorMessage = 'התלמיד לא נמצא במערכת.'
+      } else if (error.message.includes('Network')) {
+        errorMessage = 'שגיאת רשת. אנא בדוק את החיבור לאינטרנט.'
+      }
+      
+      alert(errorMessage)
     } finally {
       setIsSaving(false)
     }

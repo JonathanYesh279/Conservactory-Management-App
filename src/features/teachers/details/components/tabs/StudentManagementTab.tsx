@@ -227,37 +227,15 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
         (instrument: any) => instrument.isPrimary
       )?.instrumentName || 'כלי נגינה'
 
-      // Generate a unique ID for the schedule slot (MongoDB ObjectId format)
-      const generateObjectId = () => {
-        const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0')
-        const random = Math.random().toString(16).substring(2, 18).padStart(16, '0')
-        return timestamp + random
-      }
-
       // Create the teacher assignment matching the exact backend structure
+      // Backend expects: { teacherId, day, time, duration, location, isActive }
       const newAssignment = {
         teacherId: teacherId,
-        scheduleSlotId: generateObjectId(), // Generate a unique ID for the schedule slot
         day: lessonData.day,
-        time: lessonData.startTime,
-        duration: lessonData.duration,
-        notes: '',
-        startDate: new Date().toISOString(),
-        isActive: true,
-        isRecurring: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        scheduleInfo: {
-          day: lessonData.day,
-          startTime: lessonData.startTime,
-          endTime: calculateEndTime(lessonData.startTime, lessonData.duration),
-          duration: lessonData.duration,
-          location: null,
-          notes: null,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        time: lessonData.startTime, // HH:MM format
+        duration: lessonData.duration, // minutes
+        location: '', // Empty string for now, can be filled later
+        isActive: true
       }
 
       // Add the new assignment to the existing teacher assignments
@@ -266,19 +244,13 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
       console.log('📤 Adding new teacher assignment:', newAssignment)
       console.log('📝 All assignments to be saved:', updatedAssignments)
 
-      // Also ensure the teacherId is in the teacherIds array
-      const updatedTeacherIds = currentStudent.teacherIds || []
-      if (!updatedTeacherIds.includes(teacherId)) {
-        updatedTeacherIds.push(teacherId)
-      }
-
-      // Update the student record with both teacherAssignments and teacherIds
+      // Update the student record with teacher assignments
+      // Backend will handle teacher-student relationship sync automatically
       const updateData = {
-        teacherAssignments: updatedAssignments,
-        teacherIds: updatedTeacherIds
+        teacherAssignments: updatedAssignments
       }
 
-      console.log('📤 Sending complete update data:', updateData)
+      console.log('📤 Sending update data:', updateData)
 
       // Update the student record
       const result = await apiService.students.updateStudent(schedulingStudent._id, updateData)
@@ -301,7 +273,32 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
 
     } catch (error) {
       console.error('❌ Failed to schedule lesson:', error)
-      alert('שגיאה בקביעת השיעור. אנא נסה שוב.')
+      
+      // Provide more specific error messages based on the error type
+      let errorMessage = 'שגיאה בקביעת השיעור. אנא נסה שוב.'
+      
+      if (error.message.includes('Authentication failed')) {
+        errorMessage = 'פג תוקף הפנייה. אנא התחבר מחדש.'
+      } else if (error.message.includes('validation')) {
+        errorMessage = 'שגיאה בנתונים שהוזנו. אנא בדוק את פרטי השיעור.'
+      } else if (error.message.includes('not found')) {
+        errorMessage = 'התלמיד לא נמצא במערכת.'
+      } else if (error.message.includes('Network')) {
+        errorMessage = 'שגיאת רשת. אנא בדוק את החיבור לאינטרנט.'
+      } else if (error.message.includes('שגיאה בשמירת הנתונים')) {
+        errorMessage = 'שגיאה בשמירת הנתונים במסד הנתונים. אנא נסה שוב.'
+      }
+      
+      alert(errorMessage)
+      
+      // Log detailed error information for debugging
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        studentId: schedulingStudent._id,
+        teacherId: teacherId,
+        lessonData: lessonData
+      })
     }
   }
 
