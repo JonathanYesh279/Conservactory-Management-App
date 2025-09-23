@@ -31,7 +31,7 @@ export interface Orchestra {
   schoolYearId: string;
   location: LocationType;
   isActive: boolean;
-  
+
   // Populated fields (may be present when fetched with population)
   conductor?: {
     _id: string;
@@ -43,7 +43,7 @@ export interface Orchestra {
     professionalInfo?: {
       instrument?: string;
     };
-  };
+  } | null;
   members?: Array<{
     _id: string;
     personalInfo: {
@@ -201,11 +201,12 @@ export const filterOrchestras = (
     // Search query filter
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
-      const matchesSearch = 
+      const conductorName = getConductorName(orchestra);
+      const matchesSearch =
         orchestra.name?.toLowerCase().includes(query) ||
-        orchestra.conductor?.personalInfo?.fullName?.toLowerCase().includes(query) ||
+        conductorName.toLowerCase().includes(query) ||
         orchestra.location?.toLowerCase().includes(query);
-      
+
       if (!matchesSearch) return false;
     }
 
@@ -264,8 +265,8 @@ export const sortOrchestras = (
         compareValue = a.type.localeCompare(b.type, 'he');
         break;
       case 'conductor':
-        const conductorA = a.conductor?.personalInfo?.fullName || '';
-        const conductorB = b.conductor?.personalInfo?.fullName || '';
+        const conductorA = getConductorName(a);
+        const conductorB = getConductorName(b);
         compareValue = conductorA.localeCompare(conductorB, 'he');
         break;
       case 'memberCount':
@@ -313,11 +314,31 @@ export const formatRehearsalCount = (rehearsalCount: number): string => {
 
 /**
  * Get conductor display name
- * @param orchestra - Orchestra object
+ * @param orchestra - Orchestra object with conductor data
  * @returns Conductor name or default text
  */
 export const getConductorName = (orchestra: Orchestra): string => {
-  return orchestra.conductor?.personalInfo?.fullName || 'לא הוקצה מנצח';
+  // Check for populated conductor data first
+  if (orchestra.conductor?.personalInfo?.fullName) {
+    return orchestra.conductor.personalInfo.fullName;
+  }
+
+  // Check for conductorInfo (from detailed fetch)
+  if ((orchestra as any).conductorInfo?.name) {
+    return (orchestra as any).conductorInfo.name;
+  }
+
+  // Check for conductorDetails (from management dashboard)
+  if ((orchestra as any).conductorDetails?.personalInfo?.fullName) {
+    return (orchestra as any).conductorDetails.personalInfo.fullName;
+  }
+
+  // Check if conductorId exists but no populated data
+  if (orchestra.conductorId) {
+    return 'טוען נתוני מנצח...';
+  }
+
+  return 'לא הוקצה מנצח';
 };
 
 /**

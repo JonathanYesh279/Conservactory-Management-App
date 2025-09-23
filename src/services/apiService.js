@@ -79,7 +79,7 @@ class ApiClient {
   /**
    * Handle API response with better error handling
    */
-  async handleResponse(response) {
+  async handleResponse(response, endpoint = '') {
     const contentType = response.headers.get('content-type');
     
     let data;
@@ -97,8 +97,14 @@ class ApiClient {
     if (!response.ok) {
       // Handle different error types
       if (response.status === 401) {
-        console.log('🔐 API Client - 401 Unauthorized, clearing token');
-        this.removeToken();
+        console.log('🔐 API Client - 401 Unauthorized detected for:', endpoint);
+        // Be more conservative about token removal - only for critical auth failures
+        if (endpoint === '/auth/validate' || endpoint === '/auth/login' || endpoint === '/auth/refresh') {
+          console.log('🔐 API Client - Removing token due to auth endpoint failure');
+          this.removeToken();
+        } else {
+          console.log('🔐 API Client - Keeping token, might be temporary issue');
+        }
         throw new Error('Authentication failed. Please login again.');
       } else if (response.status === 403) {
         throw new Error('Access denied. Insufficient permissions.');
@@ -184,7 +190,7 @@ class ApiClient {
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
       
-      const result = await this.handleResponse(response);
+      const result = await this.handleResponse(response, endpoint);
       
       // Only log non-validation responses to reduce noise
       if (endpoint !== '/auth/validate') {
@@ -248,11 +254,24 @@ const apiClient = new ApiClient();
  */
 export const authService = {
   /**
-   * Login with email and password
+   * Login with email/username and password
+   * Supports both email and username authentication
    */
-  async login(email, password) {
+  async login(identifier, password) {
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      // Import auth utilities dynamically to avoid circular imports
+      const { createLoginPayload, getAuthErrorMessage } = await import('../utils/authUtils.ts');
+      
+      // Create login payload that supports both email and username
+      const loginPayload = createLoginPayload(identifier, password);
+      
+      console.log('🔐 Attempting login with:', { 
+        identifier, 
+        type: loginPayload.email ? 'email' : 'username',
+        password: '***' 
+      });
+      
+      const response = await apiClient.post('/auth/login', loginPayload);
       
       // Handle both old and new response formats from backend
       // Backend sends: { data: { accessToken, teacher }, success: true }
@@ -263,12 +282,26 @@ export const authService = {
         apiClient.setToken(token);
         // Update the token in the apiClient instance immediately
         apiClient.token = token;
+        console.log('🔐 Login successful, token stored');
+      }
+      
+      if (!teacher) {
+        console.warn('🔐 No teacher data in login response');
       }
       
       return { token, teacher, success: true };
     } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      console.error('🔐 Login error:', error);
+      
+      // Dynamically import error handling
+      const { getAuthErrorMessage } = await import('../utils/authUtils.ts');
+      const errorMessage = getAuthErrorMessage(error);
+      
+      // Create a new error with the localized message
+      const localizedError = new Error(errorMessage);
+      localizedError.originalError = error;
+      
+      throw localizedError;
     }
   },
 
@@ -301,13 +334,8 @@ export const authService = {
     } catch (error) {
       console.log('🔐 Auth Service - Token validation failed:', error.message);
       
-      // Only remove token on certain types of failures
-      if (error.message.includes('Authentication failed') || 
-          error.message.includes('401') ||
-          error.message.includes('Unauthorized')) {
-        apiClient.removeToken();
-      }
-      
+      // Don't remove token here - the handleResponse already handles it
+      // This prevents double token removal
       throw error;
     }
   },
@@ -524,7 +552,7 @@ export const studentService = {
             instrumentName: progress.instrument || progress.instrumentName, // Use correct DB field
             currentStage: progress.stage || progress.currentStage || 1,     // Use correct DB field
             isPrimary: progress.isPrimary || false,
-            tests: {
+            tests: progress.tests || {
               stageTest: {
                 status: "לא נבחן",
                 lastTestDate: null,
@@ -539,7 +567,8 @@ export const studentService = {
               }
             }
           })) || [],
-          class: studentData.academicInfo?.class || 'א'
+          class: studentData.academicInfo?.class || 'א',
+          tests: studentData.academicInfo?.tests || { bagrutId: null }
         },
         enrollments: {
           orchestraIds: studentData.enrollments?.orchestraIds || [],
@@ -553,13 +582,17 @@ export const studentService = {
         schoolYearId: schoolYearId || studentData.schoolYearId
       };
 
+      console.log('📤 API Service: Sending formatted student data:', JSON.stringify(formattedData, null, 2));
+      
       const student = await apiClient.post('/student', formattedData);
       
       console.log(`➕ Created student: ${student.personalInfo?.fullName}`);
       
       return student;
     } catch (error) {
-      console.error('Error creating student:', error);
+      console.error('❌ Error creating student:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
       throw error;
     }
   },
@@ -651,6 +684,9 @@ export const studentService = {
         
         // Remove auto-generated fields that might cause validation issues
         delete cleanedAssignment._id; // Backend will generate new IDs if needed
+        
+        // Remove location field as it's not allowed in backend validation schema
+        delete cleanedAssignment.location;
         
         // Ensure Date fields are properly formatted if they exist
         if (cleanedAssignment.startDate && !(cleanedAssignment.startDate instanceof Date)) {
@@ -1207,11 +1243,14 @@ export const theoryService = {
     try {
       // Ensure schoolYearId is included if provided
       const params = { ...filters };
-      
-      const lessons = await apiClient.get('/theory', params);
-      
+
+      const response = await apiClient.get('/theory', params);
+
+      // Extract data from the backend response structure
+      const lessons = response?.data || [];
+
       console.log(`📖 Retrieved ${Array.isArray(lessons) ? lessons.length : 0} theory lessons`);
-      
+
       return Array.isArray(lessons) ? lessons : [];
     } catch (error) {
       console.error('Error fetching theory lessons:', error);
@@ -1228,7 +1267,7 @@ export const theoryService = {
     try {
       // Ensure data matches exact backend schema
       const formattedData = {
-        category: lessonData.category || 'תיאוריה כללית',
+        category: lessonData.category || 'מגמה',
         title: lessonData.title || '',
         description: lessonData.description || '',
         teacherId: lessonData.teacherId || '',
@@ -1282,10 +1321,13 @@ export const theoryService = {
    */
   async getTheoryLesson(lessonId) {
     try {
-      const lesson = await apiClient.get(`/theory/${lessonId}`);
-      
+      const response = await apiClient.get(`/theory/${lessonId}`);
+
+      // Extract data from the backend response structure
+      const lesson = response?.data || null;
+
       console.log(`📖 Retrieved theory lesson: ${lessonId}`);
-      
+
       return lesson;
     } catch (error) {
       console.error('Error fetching theory lesson:', error);
@@ -1462,10 +1504,13 @@ export const theoryService = {
   async getStudentTheoryAttendanceStats(studentId, category = null) {
     try {
       const params = category ? { category } : {};
-      const stats = await apiClient.get(`/theory/attendance/student/${studentId}`, params);
-      
+      const response = await apiClient.get(`/theory/attendance/student/${studentId}`, params);
+
+      // Extract data from the backend response structure
+      const stats = response?.data || null;
+
       console.log(`📊 Retrieved theory attendance stats for student: ${studentId}`);
-      
+
       return stats;
     } catch (error) {
       console.error('Error fetching student theory attendance stats:', error);
@@ -1545,21 +1590,54 @@ export const orchestraService = {
     try {
       // Ensure schoolYearId is included if provided
       const params = { ...filters };
-      
+
       const orchestras = await apiClient.get('/orchestra', params);
-      
-      // Process orchestras to add computed fields
+
+      // Get all unique conductor IDs to fetch conductor data in batch
+      const conductorIds = [...new Set(
+        orchestras
+          .filter(orchestra => orchestra.conductorId)
+          .map(orchestra => orchestra.conductorId)
+      )];
+
+      // Fetch all conductors in parallel if there are any
+      let conductorsMap = {};
+      if (conductorIds.length > 0) {
+        try {
+          const conductors = await Promise.all(
+            conductorIds.map(conductorId =>
+              apiClient.get(`/teacher/${conductorId}`).catch(() => null)
+            )
+          );
+
+          // Create a map of conductor ID to conductor data
+          conductors.forEach((conductor, index) => {
+            if (conductor) {
+              conductorsMap[conductorIds[index]] = conductor;
+            }
+          });
+        } catch (error) {
+          console.warn('Error fetching conductor data for orchestras:', error);
+        }
+      }
+
+      // Process orchestras to add computed fields and populate conductor data
       const processedOrchestras = Array.isArray(orchestras) ? orchestras.map(orchestra => ({
         ...orchestra,
+        // Add populated conductor data
+        conductor: orchestra.conductorId && conductorsMap[orchestra.conductorId]
+          ? conductorsMap[orchestra.conductorId]
+          : null,
+
         // Add computed fields for easier frontend use
         memberCount: orchestra.memberIds?.length || 0,
         rehearsalCount: orchestra.rehearsalIds?.length || 0,
         hasConductor: !!orchestra.conductorId,
         hasMembers: orchestra.memberIds?.length > 0,
-        
+
         // Type validation
         orchestraType: orchestra.type, // "תזמורת" or "הרכב"
-        
+
         // Status information
         statusInfo: {
           isActive: orchestra.isActive,
@@ -1567,8 +1645,8 @@ export const orchestraService = {
           lastModified: orchestra.lastModified || orchestra.updatedAt
         }
       })) : [];
-      
-      console.log(`🎼 Retrieved ${processedOrchestras.length} orchestras with processed data`);
+
+      console.log(`🎼 Retrieved ${processedOrchestras.length} orchestras with conductor data populated`);
       return processedOrchestras;
     } catch (error) {
       console.error('Error fetching orchestras:', error);
@@ -1597,6 +1675,8 @@ export const orchestraService = {
 
       const processedOrchestra = {
         ...orchestra,
+        // Add populated conductor data for consistency with getOrchestras
+        conductor: conductor,
         conductorInfo: conductor ? {
           id: conductor._id,
           name: conductor.personalInfo?.fullName,
@@ -1656,18 +1736,51 @@ export const orchestraService = {
         console.log(`✅ After client-side filtering: ${filteredOrchestras.length} orchestras`);
       }
       
-      // Process orchestras to add computed fields - SAME AS getOrchestras
+      // Get all unique conductor IDs to fetch conductor data in batch
+      const conductorIds = [...new Set(
+        filteredOrchestras
+          .filter(orchestra => orchestra.conductorId)
+          .map(orchestra => orchestra.conductorId)
+      )];
+
+      // Fetch all conductors in parallel if there are any
+      let conductorsMap = {};
+      if (conductorIds.length > 0) {
+        try {
+          const conductors = await Promise.all(
+            conductorIds.map(conductorId =>
+              apiClient.get(`/teacher/${conductorId}`).catch(() => null)
+            )
+          );
+
+          // Create a map of conductor ID to conductor data
+          conductors.forEach((conductor, index) => {
+            if (conductor) {
+              conductorsMap[conductorIds[index]] = conductor;
+            }
+          });
+        } catch (error) {
+          console.warn('Error fetching conductor data for batch orchestras:', error);
+        }
+      }
+
+      // Process orchestras to add computed fields and populate conductor data - SAME AS getOrchestras
       const processedOrchestras = filteredOrchestras.map(orchestra => ({
         ...orchestra,
+        // Add populated conductor data
+        conductor: orchestra.conductorId && conductorsMap[orchestra.conductorId]
+          ? conductorsMap[orchestra.conductorId]
+          : null,
+
         // Add computed fields for easier frontend use
         memberCount: orchestra.memberIds?.length || 0,
         rehearsalCount: orchestra.rehearsalIds?.length || 0,
         hasConductor: !!orchestra.conductorId,
         hasMembers: orchestra.memberIds?.length > 0,
-        
+
         // Type validation
         orchestraType: orchestra.type, // "תזמורת" or "הרכב"
-        
+
         // Status information
         statusInfo: {
           isActive: orchestra.isActive,
