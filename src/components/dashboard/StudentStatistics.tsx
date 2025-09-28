@@ -216,7 +216,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
           error={error}
           chart={
             <div className="space-y-2">
-              <div className="text-xs text-gray-600 font-reisinger-michal mb-3">התפלגות לפי כיתות</div>
+              <div className="text-xs text-gray-600 font-reisinger-yonatan mb-3">התפלגות לפי כיתות</div>
               {Object.entries(classDistribution)
                 .sort(([,a], [,b]) => b - a)
                 .slice(0, 5)
@@ -228,7 +228,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
                   return (
                     <div key={className} className="flex items-center justify-between">
                       <div className="flex items-center flex-1">
-                        <span className="text-sm font-reisinger-michal w-8">{className}</span>
+                        <span className="text-sm font-reisinger-yonatan w-8">{className}</span>
                         <div className="flex-1 mx-3">
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
@@ -238,7 +238,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
                           </div>
                         </div>
                       </div>
-                      <span className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                      <span className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                         {count}
                       </span>
                     </div>
@@ -258,7 +258,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
           error={error}
           chart={
             <div className="space-y-2">
-              <div className="text-xs text-gray-600 font-reisinger-michal mb-3">הכלים הפופולריים</div>
+              <div className="text-xs text-gray-600 font-reisinger-yonatan mb-3">הכלים הפופולריים</div>
               {topInstruments.map((instrument, index) => {
                 const maxCount = topInstruments[0]?.count || 1
                 const percentage = (instrument.count / maxCount) * 100
@@ -266,7 +266,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
                 return (
                   <div key={instrument.name} className="flex items-center justify-between">
                     <div className="flex items-center flex-1">
-                      <span className="text-sm font-reisinger-michal w-16 truncate">{instrument.name}</span>
+                      <span className="text-sm font-reisinger-yonatan w-16 truncate">{instrument.name}</span>
                       <div className="flex-1 mx-3">
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
@@ -280,7 +280,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
                         </div>
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                    <span className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                       {instrument.count}
                     </span>
                   </div>
@@ -302,7 +302,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
           error={error}
           chart={
             <div className="space-y-2 mt-4">
-              <div className="text-xs text-gray-600 font-reisinger-michal mb-3">התפלגות לפי שלבים</div>
+              <div className="text-xs text-gray-600 font-reisinger-yonatan mb-3">התפלגות לפי שלבים</div>
               {Object.entries(stageDistribution)
                 .sort(([a], [b]) => Number(a) - Number(b))
                 .map(([stage, count]) => {
@@ -312,7 +312,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
                   return (
                     <div key={stage} className="flex items-center justify-between">
                       <div className="flex items-center flex-1">
-                        <span className="text-sm font-reisinger-michal w-12">שלב {stage}</span>
+                        <span className="text-sm font-reisinger-yonatan w-12">שלב {stage}</span>
                         <div className="flex-1 mx-3">
                           <div className="w-full bg-gray-200 rounded-full h-1.5">
                             <div
@@ -327,7 +327,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
                           </div>
                         </div>
                       </div>
-                      <span className="text-xs font-medium text-gray-700 font-reisinger-michal">
+                      <span className="text-xs font-medium text-gray-700 font-reisinger-yonatan">
                         {count}
                       </span>
                     </div>
@@ -341,7 +341,7 @@ const StudentStatistics: React.FC<StudentStatisticsProps> = ({
 
       {/* Last Updated */}
       {lastUpdated && (
-        <div className="text-xs text-gray-500 text-center font-reisinger-michal">
+        <div className="text-xs text-gray-500 text-center font-reisinger-yonatan">
           עודכן לאחרונה: {lastUpdated.toLocaleString('he-IL')}
         </div>
       )}

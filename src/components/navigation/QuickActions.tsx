@@ -183,7 +183,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
           <Link
             key={action.id}
             to={action.href}
-            className="flex items-center justify-between px-4 py-2 mx-3 rounded-lg text-sm font-medium transition-all duration-150 rtl font-reisinger-michal text-gray-600 hover:bg-green-50 hover:text-green-700 group"
+            className="flex items-center justify-between px-4 py-2 mx-3 rounded-lg text-sm font-medium transition-all duration-150 rtl font-reisinger-yonatan text-gray-600 hover:bg-green-50 hover:text-green-700 group"
             title={action.description}
           >
             <span className="text-right">{action.label}</span>
@@ -255,7 +255,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
                 <Zap className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               
-              <h3 className="font-semibold text-sm mb-1 font-reisinger-michal text-right">
+              <h3 className="font-semibold text-sm mb-1 font-reisinger-yonatan text-right">
                 {action.label}
               </h3>
               

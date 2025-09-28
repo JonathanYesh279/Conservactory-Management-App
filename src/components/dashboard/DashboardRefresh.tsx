@@ -144,7 +144,7 @@ const DashboardRefresh: React.FC<DashboardRefreshProps> = ({
     <div className={`flex items-center space-x-3 space-x-reverse ${className}`} dir="rtl">
       {/* Last Updated */}
       {lastUpdated && (
-        <div className="flex items-center text-sm text-gray-600 font-reisinger-michal">
+        <div className="flex items-center text-sm text-gray-600 font-reisinger-yonatan">
           <Clock className="w-4 h-4 ml-1" />
           <span>עודכן: {formatLastUpdated(lastUpdated)}</span>
         </div>
@@ -152,7 +152,7 @@ const DashboardRefresh: React.FC<DashboardRefreshProps> = ({
 
       {/* Auto-refresh countdown */}
       {settings.autoRefresh && isAutoRefresh && !loading && (
-        <div className="flex items-center text-sm text-gray-600 font-reisinger-michal">
+        <div className="flex items-center text-sm text-gray-600 font-reisinger-yonatan">
           <div className="w-8 h-8 relative">
             <svg className="w-8 h-8 transform -rotate-90" viewBox="0 0 32 32">
               <circle
@@ -229,19 +229,19 @@ const DashboardRefresh: React.FC<DashboardRefreshProps> = ({
         {showSettings && (
           <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
             <div className="p-4 space-y-4">
-              <h4 className="text-sm font-semibold text-gray-900 font-reisinger-michal">
+              <h4 className="text-sm font-semibold text-gray-900 font-reisinger-yonatan">
                 הגדרות רענון
               </h4>
 
               {/* Refresh interval */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-michal">
+                <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
                   תדירות רענון
                 </label>
                 <select
                   value={settings.interval}
                   onChange={(e) => updateSettings({ interval: Number(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-reisinger-michal"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-reisinger-yonatan"
                 >
                   <option value={30}>30 שניות</option>
                   <option value={60}>דקה</option>
@@ -254,7 +254,7 @@ const DashboardRefresh: React.FC<DashboardRefreshProps> = ({
 
               {/* Auto-refresh toggle */}
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700 font-reisinger-michal">
+                <label className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
                   רענון אוטומטי
                 </label>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -270,7 +270,7 @@ const DashboardRefresh: React.FC<DashboardRefreshProps> = ({
 
               {/* Notifications toggle */}
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700 font-reisinger-michal">
+                <label className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
                   הודעות רענון
                 </label>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -287,7 +287,7 @@ const DashboardRefresh: React.FC<DashboardRefreshProps> = ({
               {/* Close button */}
               <button
                 onClick={() => setShowSettings(false)}
-                className="w-full px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors font-reisinger-michal"
+                className="w-full px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors font-reisinger-yonatan"
               >
                 שמור הגדרות
               </button>

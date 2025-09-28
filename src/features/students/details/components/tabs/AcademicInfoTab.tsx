@@ -530,21 +530,21 @@ const AcademicInfoTab: React.FC<AcademicInfoTabProps> = ({ student, studentId })
       {academicInfo.theoreticalKnowledge && (
         <InfoSection title="ידע תיאורטי" icon={BookOpen}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <ProgressBar 
-              current={academicInfo.theoreticalKnowledge.musicTheory} 
-              target={10} 
-              label="תיאוריית המוזיקה"
-              color="primary"
-            />
-            <ProgressBar 
-              current={academicInfo.theoreticalKnowledge.solfege} 
-              target={10} 
+            <ProgressBar
+              current={academicInfo.theoreticalKnowledge.solfege}
+              target={10}
               label="סולפז'"
               color="success"
             />
-            <ProgressBar 
-              current={academicInfo.theoreticalKnowledge.musicHistory} 
-              target={10} 
+            <ProgressBar
+              current={academicInfo.theoreticalKnowledge.musicTheory}
+              target={10}
+              label="תיאוריית המוזיקה"
+              color="primary"
+            />
+            <ProgressBar
+              current={academicInfo.theoreticalKnowledge.musicHistory}
+              target={10}
               label="היסטוריה של המוזיקה"
               color="info"
             />

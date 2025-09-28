@@ -321,7 +321,7 @@ export default function TeacherScheduleTab() {
   if (error && !weekSchedule) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div className="text-red-800 font-reisinger-michal">{error}</div>
+        <div className="text-red-800 font-reisinger-yonatan">{error}</div>
       </div>
     )
   }
@@ -333,7 +333,7 @@ export default function TeacherScheduleTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold text-gray-900 font-reisinger-michal">
+          <h3 className="text-xl font-bold text-gray-900 font-reisinger-yonatan">
             לוח זמנים שבועי
           </h3>
           <p className="text-gray-600 mt-1">
@@ -349,7 +349,7 @@ export default function TeacherScheduleTab() {
           </button>
           <button
             onClick={() => setCurrentWeek(new Date())}
-            className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors font-reisinger-michal"
+            className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors font-reisinger-yonatan"
           >
             השבוע
           </button>
@@ -366,15 +366,15 @@ export default function TeacherScheduleTab() {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {/* Days Header */}
         <div className="grid grid-cols-8 border-b border-gray-200">
-          <div className="p-3 bg-gray-50 font-medium text-gray-700 font-reisinger-michal">
+          <div className="p-3 bg-gray-50 font-medium text-gray-700 font-reisinger-yonatan">
             שעה
           </div>
           {weekSchedule?.days.map((day) => (
             <div key={day.date} className="p-3 bg-gray-50 text-center">
-              <div className="font-medium text-gray-900 font-reisinger-michal">
+              <div className="font-medium text-gray-900 font-reisinger-yonatan">
                 {day.dayName}
               </div>
-              <div className="text-sm text-gray-500 font-reisinger-michal">
+              <div className="text-sm text-gray-500 font-reisinger-yonatan">
                 {formatDate(day.date)}
               </div>
             </div>
@@ -385,7 +385,7 @@ export default function TeacherScheduleTab() {
         <div className="max-h-96 overflow-y-auto">
           {timeSlots.map((time) => (
             <div key={time} className="grid grid-cols-8 border-b border-gray-100">
-              <div className="p-3 bg-gray-50 text-sm font-medium text-gray-600 font-reisinger-michal">
+              <div className="p-3 bg-gray-50 text-sm font-medium text-gray-600 font-reisinger-yonatan">
                 {formatTime(time)}
               </div>
               {weekSchedule?.days.map((day) => {
@@ -394,7 +394,7 @@ export default function TeacherScheduleTab() {
                   <div key={`${day.date}-${time}`} className="p-1 border-l border-gray-100 min-h-[60px]">
                     {lesson ? (
                       <div 
-                        className={`h-full p-2 rounded text-xs font-reisinger-michal cursor-pointer group relative transition-all hover:scale-[1.02] ${
+                        className={`h-full p-2 rounded text-xs font-reisinger-yonatan cursor-pointer group relative transition-all hover:scale-[1.02] ${
                           lesson.status === 'available' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300' :
                           lesson.status === 'scheduled' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-300 shadow-sm' :
                           lesson.status === 'completed' ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300' :
@@ -528,11 +528,11 @@ export default function TeacherScheduleTab() {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-blue-600" />
-            <span className="font-medium text-blue-900 font-reisinger-michal">
+            <span className="font-medium text-blue-900 font-reisinger-yonatan">
               שיעורים קבועים
             </span>
           </div>
-          <div className="text-2xl font-bold text-blue-900 mt-2 font-reisinger-michal">
+          <div className="text-2xl font-bold text-blue-900 mt-2 font-reisinger-yonatan">
             {weekSchedule?.days.reduce((total, day) => 
               total + day.lessons.filter(lesson => lesson.lessonType !== 'availability').length, 0) || 0}
           </div>
@@ -544,11 +544,11 @@ export default function TeacherScheduleTab() {
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-green-600" />
-            <span className="font-medium text-green-900 font-reisinger-michal">
+            <span className="font-medium text-green-900 font-reisinger-yonatan">
               שעות הוראה
             </span>
           </div>
-          <div className="text-2xl font-bold text-green-900 mt-2 font-reisinger-michal">
+          <div className="text-2xl font-bold text-green-900 mt-2 font-reisinger-yonatan">
             {weekSchedule?.days.reduce((total, day) => {
               return total + day.lessons.filter(lesson => lesson.lessonType !== 'availability').reduce((dayTotal, lesson) => {
                 const start = new Date(`2000-01-01T${lesson.startTime}`)
@@ -565,11 +565,11 @@ export default function TeacherScheduleTab() {
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
           <div className="flex items-center gap-2">
             <User className="w-5 h-5 text-purple-600" />
-            <span className="font-medium text-purple-900 font-reisinger-michal">
+            <span className="font-medium text-purple-900 font-reisinger-yonatan">
               תלמידים פעילים
             </span>
           </div>
-          <div className="text-2xl font-bold text-purple-900 mt-2 font-reisinger-michal">
+          <div className="text-2xl font-bold text-purple-900 mt-2 font-reisinger-yonatan">
             {new Set(
               weekSchedule?.days.flatMap(day => 
                 day.lessons.filter(lesson => lesson.lessonType !== 'availability')
@@ -585,11 +585,11 @@ export default function TeacherScheduleTab() {
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-center gap-2">
             <Star className="w-5 h-5 text-yellow-600" />
-            <span className="font-medium text-yellow-900 font-reisinger-michal">
+            <span className="font-medium text-yellow-900 font-reisinger-yonatan">
               זמינות
             </span>
           </div>
-          <div className="text-2xl font-bold text-yellow-900 mt-2 font-reisinger-michal">
+          <div className="text-2xl font-bold text-yellow-900 mt-2 font-reisinger-yonatan">
             {weekSchedule?.days.reduce((total, day) => 
               total + day.lessons.filter(lesson => lesson.lessonType === 'availability').length, 0) || 0}
           </div>
@@ -713,14 +713,14 @@ function LessonModal({ lesson, timeSlot, onClose, onSubmit }: LessonModalProps) 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" dir="rtl">
-        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-michal">
+        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-yonatan">
           {lesson ? 'עריכת שיעור' : 'הוספת שיעור חדש'}
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 שעת התחלה *
               </label>
               <input
@@ -732,7 +732,7 @@ function LessonModal({ lesson, timeSlot, onClose, onSubmit }: LessonModalProps) 
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 שעת סיום *
               </label>
               <input
@@ -746,7 +746,7 @@ function LessonModal({ lesson, timeSlot, onClose, onSubmit }: LessonModalProps) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               תלמיד
             </label>
             <select
@@ -773,7 +773,7 @@ function LessonModal({ lesson, timeSlot, onClose, onSubmit }: LessonModalProps) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               כלי נגינה
             </label>
             <input
@@ -786,7 +786,7 @@ function LessonModal({ lesson, timeSlot, onClose, onSubmit }: LessonModalProps) 
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 סוג שיעור
               </label>
               <select
@@ -800,7 +800,7 @@ function LessonModal({ lesson, timeSlot, onClose, onSubmit }: LessonModalProps) 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 סטטוס
               </label>
               <select
@@ -816,7 +816,7 @@ function LessonModal({ lesson, timeSlot, onClose, onSubmit }: LessonModalProps) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               הערות
             </label>
             <textarea
@@ -831,7 +831,7 @@ function LessonModal({ lesson, timeSlot, onClose, onSubmit }: LessonModalProps) 
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-michal"
+              className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-yonatan"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mx-auto"></div>
@@ -843,7 +843,7 @@ function LessonModal({ lesson, timeSlot, onClose, onSubmit }: LessonModalProps) 
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-michal"
+              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-yonatan"
             >
               ביטול
             </button>

@@ -141,7 +141,7 @@ export default function Sidebar() {
               placeholder="חיפוש..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pr-10 pl-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-reisinger-michal text-right rtl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pr-10 pl-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-reisinger-yonatan text-right rtl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -162,7 +162,7 @@ export default function Sidebar() {
                   key={item.name}
                   to={item.href}
                   onClick={closeMobileMenu}
-                  className={`flex items-center justify-between px-4 py-3 mx-3 rounded-lg text-sm font-medium transition-all duration-150 rtl font-reisinger-michal ${
+                  className={`flex items-center justify-between px-4 py-3 mx-3 rounded-lg text-sm font-medium transition-all duration-150 rtl font-reisinger-yonatan ${
                     active
                       ? 'bg-primary-50 text-primary-700 border border-primary-200'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
@@ -188,7 +188,7 @@ export default function Sidebar() {
                   key={action.name}
                   to={action.href}
                   onClick={closeMobileMenu}
-                  className="flex items-center justify-between px-4 py-2 mx-3 rounded-lg text-sm font-medium transition-all duration-150 rtl font-reisinger-michal text-gray-600 hover:bg-green-50 hover:text-green-700 group"
+                  className="flex items-center justify-between px-4 py-2 mx-3 rounded-lg text-sm font-medium transition-all duration-150 rtl font-reisinger-yonatan text-gray-600 hover:bg-green-50 hover:text-green-700 group"
                 >
                   <span className="text-right">{action.name}</span>
                   <div className="flex items-center space-x-1 space-x-reverse">

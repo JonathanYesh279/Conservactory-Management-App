@@ -267,17 +267,17 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
           <div className="space-y-6">
             <div className="text-center py-8">
               <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 font-reisinger-michal mb-2">
+              <h3 className="text-xl font-semibold text-gray-900 font-reisinger-yonatan mb-2">
                 ניתוח השפעת המחיקה
               </h3>
-              <p className="text-gray-600 font-reisinger-michal">
+              <p className="text-gray-600 font-reisinger-yonatan">
                 בוחן את כל הרשומות והקישורים הקשורים לישות זו
               </p>
               
               {!impact && !isAnalyzing && (
                 <button
                   onClick={analyzeImpact}
-                  className="mt-6 flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto font-reisinger-michal"
+                  className="mt-6 flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto font-reisinger-yonatan"
                   aria-describedby="analysis-description"
                 >
                   <Loader2 className="w-5 h-5" />
@@ -288,7 +288,7 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
               {isAnalyzing && (
                 <div className="mt-6 flex items-center justify-center gap-3">
                   <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                  <span className="text-blue-600 font-reisinger-michal">מנתח השפעה...</span>
+                  <span className="text-blue-600 font-reisinger-yonatan">מנתח השפעה...</span>
                 </div>
               )}
             </div>
@@ -309,10 +309,10 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
                 <div className="flex items-center gap-3">
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                   <div>
-                    <h3 className="text-lg font-semibold text-red-900 font-reisinger-michal">
+                    <h3 className="text-lg font-semibold text-red-900 font-reisinger-yonatan">
                       אישור מחיקה
                     </h3>
-                    <p className="text-sm text-red-700 font-reisinger-michal">
+                    <p className="text-sm text-red-700 font-reisinger-yonatan">
                       פעולה זו בלתי הפיכה ותמחק לצמיתות את כל הנתונים הקשורים
                     </p>
                   </div>
@@ -320,7 +320,7 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-red-900 mb-2 font-reisinger-michal">
+                    <label className="block text-sm font-medium text-red-900 mb-2 font-reisinger-yonatan">
                       להמשך, הזן: <code className="bg-red-100 px-2 py-1 rounded font-mono">DELETE {entityName}</code>
                     </label>
                     <input
@@ -336,13 +336,13 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
                       aria-describedby="confirmation-help"
                       aria-required="true"
                     />
-                    <div id="confirmation-help" className="mt-1 text-xs text-red-600 font-reisinger-michal">
+                    <div id="confirmation-help" className="mt-1 text-xs text-red-600 font-reisinger-yonatan">
                       הזן את הטקסט המדויק כפי שמוצג למעלה
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-red-900 mb-2 font-reisinger-michal">
+                    <label className="block text-sm font-medium text-red-900 mb-2 font-reisinger-yonatan">
                       סיבת המחיקה (אופציונלי)
                     </label>
                     <textarea
@@ -351,14 +351,14 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
                         ...prev, 
                         reason: e.target.value 
                       }))}
-                      className="w-full px-4 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 font-reisinger-michal"
+                      className="w-full px-4 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 font-reisinger-yonatan"
                       rows={3}
                       placeholder="תאר את הסיבה למחיקת הרשומה..."
                     />
                   </div>
 
                   <div className="space-y-3">
-                    <h4 className="text-sm font-medium text-red-900 font-reisinger-michal">
+                    <h4 className="text-sm font-medium text-red-900 font-reisinger-yonatan">
                       אפשרויות מחיקה
                     </h4>
                     
@@ -376,7 +376,7 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
                           }))}
                           className="rounded border-red-300 text-red-600 focus:ring-red-500"
                         />
-                        <span className="text-sm text-red-900 font-reisinger-michal">
+                        <span className="text-sm text-red-900 font-reisinger-yonatan">
                           נקה הפניות יתומות
                         </span>
                       </label>
@@ -394,7 +394,7 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
                           }))}
                           className="rounded border-red-300 text-red-600 focus:ring-red-500"
                         />
-                        <span className="text-sm text-red-900 font-reisinger-michal">
+                        <span className="text-sm text-red-900 font-reisinger-yonatan">
                           מחק מסמכים קשורים
                         </span>
                       </label>
@@ -412,7 +412,7 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
                           }))}
                           className="rounded border-red-300 text-red-600 focus:ring-red-500"
                         />
-                        <span className="text-sm text-red-900 font-reisinger-michal">
+                        <span className="text-sm text-red-900 font-reisinger-yonatan">
                           מחק רשומות נוכחות
                         </span>
                       </label>
@@ -470,10 +470,10 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
               <Trash2 className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 font-reisinger-michal">
+              <h2 className="text-xl font-semibold text-gray-900 font-reisinger-yonatan">
                 מחיקת {entityName}
               </h2>
-              <p className="text-sm text-gray-600 font-reisinger-michal">
+              <p className="text-sm text-gray-600 font-reisinger-yonatan">
                 {entityType} • מזהה: {entityId}
               </p>
             </div>
@@ -510,9 +510,9 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
           >
             <div className="flex items-center gap-2 text-red-700">
               <XCircle className="w-5 h-5" />
-              <span className="font-semibold font-reisinger-michal">שגיאה</span>
+              <span className="font-semibold font-reisinger-yonatan">שגיאה</span>
             </div>
-            <p className="text-sm text-red-600 mt-1 font-reisinger-michal">
+            <p className="text-sm text-red-600 mt-1 font-reisinger-yonatan">
               {error}
             </p>
           </div>
@@ -528,7 +528,7 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
           <div className="flex justify-between p-6 border-t border-gray-100">
             <button
               onClick={handleCancel}
-              className="flex items-center gap-1 px-4 py-2 text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-reisinger-michal"
+              className="flex items-center gap-1 px-4 py-2 text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-reisinger-yonatan"
             >
               <ArrowRight className="w-4 h-4" />
               ביטול
@@ -538,7 +538,7 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
               {currentStep > 0 && (
                 <button
                   onClick={() => setCurrentStep(prev => prev - 1)}
-                  className="flex items-center gap-1 px-4 py-2 text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-reisinger-michal"
+                  className="flex items-center gap-1 px-4 py-2 text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-reisinger-yonatan"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   חזרה
@@ -549,7 +549,7 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
                 <button
                   onClick={() => setCurrentStep(1)}
                   disabled={!canProceed()}
-                  className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-michal"
+                  className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-yonatan"
                 >
                   המשך
                   <ArrowRight className="w-4 h-4 scale-x-[-1]" />
@@ -560,7 +560,7 @@ const CascadeDeletionWorkflow: React.FC<CascadeDeletionWorkflowProps> = ({
                 <button
                   onClick={handleConfirm}
                   disabled={!canProceed()}
-                  className="flex items-center gap-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-michal"
+                  className="flex items-center gap-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-yonatan"
                 >
                   <Trash2 className="w-4 h-4" />
                   מחק כעת

@@ -87,8 +87,8 @@ const StatCard: React.FC<StatCardProps> = ({
     return (
       <div className={`bg-white rounded-lg border border-red-200 p-6 ${className}`} dir="rtl">
         <div className="text-center">
-          <div className="text-red-500 text-sm font-reisinger-michal mb-2">שגיאה בטעינת נתונים</div>
-          <div className="text-xs text-gray-500 font-reisinger-michal">{error}</div>
+          <div className="text-red-500 text-sm font-reisinger-yonatan mb-2">שגיאה בטעינת נתונים</div>
+          <div className="text-xs text-gray-500 font-reisinger-yonatan">{error}</div>
         </div>
       </div>
     )
@@ -98,7 +98,7 @@ const StatCard: React.FC<StatCardProps> = ({
     <>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-gray-600 font-reisinger-michal">
+        <h3 className="text-sm font-medium text-gray-600 font-reisinger-yonatan">
           {title}
         </h3>
         <div className="flex items-center space-x-2 space-x-reverse">
@@ -117,7 +117,7 @@ const StatCard: React.FC<StatCardProps> = ({
                   <button
                     key={index}
                     onClick={action.onClick}
-                    className="block w-full px-4 py-2 text-right text-sm text-gray-700 hover:bg-gray-50 font-reisinger-michal first:rounded-t-lg last:rounded-b-lg"
+                    className="block w-full px-4 py-2 text-right text-sm text-gray-700 hover:bg-gray-50 font-reisinger-yonatan first:rounded-t-lg last:rounded-b-lg"
                   >
                     {action.label}
                   </button>
@@ -130,12 +130,12 @@ const StatCard: React.FC<StatCardProps> = ({
 
       {/* Main Value */}
       <div className="mb-3">
-        <div className="text-2xl font-bold text-gray-900 font-reisinger-michal">
+        <div className="text-2xl font-bold text-gray-900 font-reisinger-yonatan">
           {formatValue(value)}
         </div>
         
         {subtitle && (
-          <div className="text-sm text-gray-600 font-reisinger-michal mt-1">
+          <div className="text-sm text-gray-600 font-reisinger-yonatan mt-1">
             {subtitle}
           </div>
         )}
@@ -145,11 +145,11 @@ const StatCard: React.FC<StatCardProps> = ({
       {trend && (
         <div className="flex items-center mb-3">
           {getTrendIcon()}
-          <span className={`text-sm font-medium mr-1 font-reisinger-michal ${getTrendColor()}`}>
+          <span className={`text-sm font-medium mr-1 font-reisinger-yonatan ${getTrendColor()}`}>
             {trend.value > 0 ? '+' : ''}{trend.value}%
           </span>
           {trend.period && (
-            <span className="text-xs text-gray-500 mr-1 font-reisinger-michal">
+            <span className="text-xs text-gray-500 mr-1 font-reisinger-yonatan">
               {trend.period}
             </span>
           )}
@@ -222,7 +222,7 @@ export const ProgressStatCard: React.FC<StatCardProps & {
       {...props}
       chart={
         <div className="space-y-2">
-          <div className="flex justify-between text-xs text-gray-600 font-reisinger-michal">
+          <div className="flex justify-between text-xs text-gray-600 font-reisinger-yonatan">
             <span>{progressLabel || 'התקדמות'}</span>
             <span>{Math.round(percentage)}%</span>
           </div>

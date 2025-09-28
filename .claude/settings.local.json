@@ -68,7 +68,9 @@
       "Bash(npm run test:syntax:*)",
       "Bash(git log:*)",
       "Read(/mnt/c/Projects/conservatory-app/**)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(VITE_API_URL=https://conservatory-app-backend.onrender.com/api npm run build)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": [],

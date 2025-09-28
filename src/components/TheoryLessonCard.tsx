@@ -1,10 +1,11 @@
 import { Calendar, Clock, MapPin, BookOpen, Edit, Trash2, UserCheck, Eye } from 'lucide-react'
-import { 
-  formatLessonDate, 
-  formatLessonTime, 
+import {
+  formatLessonDate,
+  formatLessonTime,
   getLessonStatus,
-  type TheoryLesson 
+  type TheoryLesson
 } from '../utils/theoryLessonUtils'
+import TeacherNameDisplay from './TeacherNameDisplay'
 
 interface TheoryLessonCardProps {
   lesson: TheoryLesson
@@ -51,6 +52,12 @@ export default function TheoryLessonCard({ lesson, onView, onEdit, onDelete, onV
               </span>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">{lesson.title}</h3>
+            {/* Teacher name displayed prominently under the title */}
+            <TeacherNameDisplay
+              lesson={lesson}
+              className="text-sm font-medium text-gray-700 mb-1"
+              showIcon={true}
+            />
             {lesson.description && (
               <p className="text-sm text-gray-600 line-clamp-2">{lesson.description}</p>
             )}
@@ -100,14 +107,6 @@ export default function TheoryLessonCard({ lesson, onView, onEdit, onDelete, onV
 
       {/* Card Content */}
       <div className="p-4 space-y-3">
-        {/* Teacher */}
-        {lesson.teacherName && (
-          <div className="flex items-center text-sm text-gray-600">
-            <span className="font-medium text-gray-900 ml-1">מורה:</span>
-            {lesson.teacherName}
-          </div>
-        )}
-
         {/* Date and Time */}
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center text-gray-600">

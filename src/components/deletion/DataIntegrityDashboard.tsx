@@ -111,10 +111,10 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
         <div className="flex items-center gap-3">
           <Shield className="w-8 h-8 text-blue-600" />
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 font-reisinger-michal">
+            <h2 className="text-2xl font-bold text-gray-900 font-reisinger-yonatan">
               מוניטור שלמות נתונים
             </h2>
-            <p className="text-gray-600 font-reisinger-michal">
+            <p className="text-gray-600 font-reisinger-yonatan">
               ניטור ובקרה על איכות המידע במערכת
             </p>
           </div>
@@ -128,7 +128,7 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
               className="flex items-center gap-1 px-4 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-              <span className="font-reisinger-michal">רענון</span>
+              <span className="font-reisinger-yonatan">רענון</span>
             </button>
           )}
 
@@ -138,7 +138,7 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
               className="flex items-center gap-1 px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Activity className="w-4 h-4" />
-              <span className="font-reisinger-michal">בדיקת שלמות</span>
+              <span className="font-reisinger-yonatan">בדיקת שלמות</span>
             </button>
           )}
         </div>
@@ -149,14 +149,14 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
         <Card className={`${healthStyle.bg} ${healthStyle.ring} ring-2`}>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 font-reisinger-michal mb-1">
+              <h3 className="text-sm font-semibold text-gray-700 font-reisinger-yonatan mb-1">
                 ציון בריאות כללי
               </h3>
               <div className="flex items-baseline gap-2">
                 <span className={`text-3xl font-bold ${healthStyle.color}`}>
                   {status.healthScore}
                 </span>
-                <span className="text-sm text-gray-600 font-reisinger-michal">
+                <span className="text-sm text-gray-600 font-reisinger-yonatan">
                   {getHealthStatus(status.healthScore)}
                 </span>
               </div>
@@ -174,7 +174,7 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 font-reisinger-michal mb-1">
+              <h3 className="text-sm font-semibold text-gray-700 font-reisinger-yonatan mb-1">
                 הפניות יתומות
               </h3>
               <div className="flex items-center gap-2">
@@ -191,7 +191,7 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 font-reisinger-michal mb-1">
+              <h3 className="text-sm font-semibold text-gray-700 font-reisinger-yonatan mb-1">
                 פעולות פעילות
               </h3>
               <div className="flex items-center gap-2">
@@ -208,10 +208,10 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 font-reisinger-michal mb-1">
+              <h3 className="text-sm font-semibold text-gray-700 font-reisinger-yonatan mb-1">
                 ניקוי אחרון
               </h3>
-              <div className="text-sm text-gray-600 font-reisinger-michal">
+              <div className="text-sm text-gray-600 font-reisinger-yonatan">
                 {status.lastCleanup ? (
                   formatDate(status.lastCleanup)
                 ) : (
@@ -232,10 +232,10 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
               <div className="flex items-center gap-3">
                 <AlertTriangle className="w-6 h-6 text-yellow-500" />
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 font-reisinger-michal">
+                  <h3 className="text-lg font-semibold text-gray-900 font-reisinger-yonatan">
                     בעיות שלמות נתונים
                   </h3>
-                  <p className="text-sm text-gray-600 font-reisinger-michal">
+                  <p className="text-sm text-gray-600 font-reisinger-yonatan">
                     נמצאו {status.issues.length} בעיות, {autoFixableIssues.length} ניתנות לתיקון אוטומטי
                   </p>
                 </div>
@@ -248,7 +248,7 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
                     className="flex items-center gap-1 px-3 py-2 text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
                   >
                     <Zap className="w-4 h-4" />
-                    <span className="font-reisinger-michal">תקן אוטומטית</span>
+                    <span className="font-reisinger-yonatan">תקן אוטומטית</span>
                   </button>
                 )}
 
@@ -257,7 +257,7 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
                   className="flex items-center gap-1 px-3 py-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
                 >
                   <BarChart3 className="w-4 h-4" />
-                  <span className="font-reisinger-michal">צפה בפרטים</span>
+                  <span className="font-reisinger-yonatan">צפה בפרטים</span>
                 </button>
               </div>
             </div>
@@ -268,19 +268,19 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
                 <div className="text-2xl font-bold text-red-600 mb-1">
                   {status.issues.filter(i => i.severity === 'high').length}
                 </div>
-                <div className="text-sm text-gray-600 font-reisinger-michal">קריטיות</div>
+                <div className="text-sm text-gray-600 font-reisinger-yonatan">קריטיות</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-yellow-600 mb-1">
                   {status.issues.filter(i => i.severity === 'medium').length}
                 </div>
-                <div className="text-sm text-gray-600 font-reisinger-michal">בינוניות</div>
+                <div className="text-sm text-gray-600 font-reisinger-yonatan">בינוניות</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600 mb-1">
                   {status.issues.filter(i => i.severity === 'low').length}
                 </div>
-                <div className="text-sm text-gray-600 font-reisinger-michal">נמוכות</div>
+                <div className="text-sm text-gray-600 font-reisinger-yonatan">נמוכות</div>
               </div>
             </div>
 
@@ -299,11 +299,11 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
                       {getSeverityIcon(issue.severity)}
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium font-reisinger-michal">
+                          <span className="font-medium font-reisinger-yonatan">
                             {issue.table}
                           </span>
                           {issue.field && (
-                            <span className="text-sm text-gray-600 font-reisinger-michal">
+                            <span className="text-sm text-gray-600 font-reisinger-yonatan">
                               .{issue.field}
                             </span>
                           )}
@@ -311,7 +311,7 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
                             {issue.count}
                           </span>
                         </div>
-                        <p className="text-sm opacity-90 font-reisinger-michal">
+                        <p className="text-sm opacity-90 font-reisinger-yonatan">
                           {issue.description}
                         </p>
                       </div>
@@ -319,7 +319,7 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
 
                     <div className="flex items-center gap-2">
                       {issue.canAutoFix && (
-                        <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full font-reisinger-michal">
+                        <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full font-reisinger-yonatan">
                           ניתן לתיקון
                         </span>
                       )}
@@ -339,10 +339,10 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
             <div className="flex items-center gap-3">
               <Activity className="w-6 h-6 text-blue-500" />
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 font-reisinger-michal">
+                <h3 className="text-lg font-semibold text-gray-900 font-reisinger-yonatan">
                   פעולות אחרונות
                 </h3>
-                <p className="text-sm text-gray-600 font-reisinger-michal">
+                <p className="text-sm text-gray-600 font-reisinger-yonatan">
                   {recentOperations.length} פעולות האחרונות במערכת
                 </p>
               </div>
@@ -362,7 +362,7 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
                     
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900 font-reisinger-michal">
+                        <span className="font-medium text-gray-900 font-reisinger-yonatan">
                           {operation.type === 'cleanup_orphans' ? 'ניקוי הפניות יתומות' :
                            operation.type === 'bulk_delete' ? 'מחיקה מרובה' :
                            operation.type === 'integrity_check' ? 'בדיקת שלמות' : operation.type}
@@ -371,25 +371,25 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
                           px-2 py-0.5 text-xs font-medium rounded-full
                           ${getOperationStatusColor(operation.status)}
                         `}>
-                          <span className="font-reisinger-michal">
+                          <span className="font-reisinger-yonatan">
                             {operation.status === 'completed' ? 'הושלם' :
                              operation.status === 'failed' ? 'נכשל' :
                              operation.status === 'running' ? 'פעיל' : 'ממתין'}
                           </span>
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 font-reisinger-michal">
+                      <p className="text-sm text-gray-600 font-reisinger-yonatan">
                         {operation.processedItems} מתוך {operation.totalItems} פריטים
                       </p>
                     </div>
                   </div>
 
                   <div className="text-left">
-                    <div className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                    <div className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                       {operation.progress}%
                     </div>
                     {operation.endTime && (
-                      <div className="text-xs text-gray-500 font-reisinger-michal">
+                      <div className="text-xs text-gray-500 font-reisinger-yonatan">
                         {formatDate(operation.endTime)}
                       </div>
                     )}
@@ -407,10 +407,10 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
           <div className="flex items-center gap-3">
             <Zap className="w-6 h-6 text-blue-600" />
             <div>
-              <h3 className="text-lg font-semibold text-blue-900 font-reisinger-michal">
+              <h3 className="text-lg font-semibold text-blue-900 font-reisinger-yonatan">
                 פעולות מהירות
               </h3>
-              <p className="text-sm text-blue-700 font-reisinger-michal">
+              <p className="text-sm text-blue-700 font-reisinger-yonatan">
                 כלים למניעה ותחזוקה של שלמות הנתונים
               </p>
             </div>
@@ -419,21 +419,21 @@ const DataIntegrityDashboard: React.FC<DataIntegrityDashboardProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <button className="flex items-center gap-2 p-3 bg-white rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors">
               <Database className="w-5 h-5 text-blue-600" />
-              <span className="font-medium text-blue-900 font-reisinger-michal">
+              <span className="font-medium text-blue-900 font-reisinger-yonatan">
                 ניקוי הפניות יתומות
               </span>
             </button>
 
             <button className="flex items-center gap-2 p-3 bg-white rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors">
               <Shield className="w-5 h-5 text-blue-600" />
-              <span className="font-medium text-blue-900 font-reisinger-michal">
+              <span className="font-medium text-blue-900 font-reisinger-yonatan">
                 בדיקת אילוצים
               </span>
             </button>
 
             <button className="flex items-center gap-2 p-3 bg-white rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors">
               <FileText className="w-5 h-5 text-blue-600" />
-              <span className="font-medium text-blue-900 font-reisinger-michal">
+              <span className="font-medium text-blue-900 font-reisinger-yonatan">
                 דוח שלמות מלא
               </span>
             </button>

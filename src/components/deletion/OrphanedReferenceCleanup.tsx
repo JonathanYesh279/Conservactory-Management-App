@@ -169,10 +169,10 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
             <div className="flex items-center gap-3">
               <Database className="w-6 h-6 text-gray-500" />
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 font-reisinger-michal">
+                <h3 className="text-lg font-semibold text-gray-900 font-reisinger-yonatan">
                   ניקוי הפניות יתומות
                 </h3>
-                <p className="text-sm text-gray-600 font-reisinger-michal">
+                <p className="text-sm text-gray-600 font-reisinger-yonatan">
                   {totalOrphanedCount.toLocaleString()} הפניות יתומות ב-{filteredReferences.length} טבלאות
                 </p>
               </div>
@@ -186,7 +186,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                   className="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  <span className="font-reisinger-michal">רענון</span>
+                  <span className="font-reisinger-yonatan">רענון</span>
                 </button>
               )}
 
@@ -195,7 +195,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                 className="flex items-center gap-1 px-3 py-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <Filter className="w-4 h-4" />
-                <span className="font-reisinger-michal">סינון</span>
+                <span className="font-reisinger-yonatan">סינון</span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
               </button>
             </div>
@@ -211,19 +211,19 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                   placeholder="חיפוש בטבלאות ושדות..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-reisinger-michal"
+                  className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-reisinger-yonatan"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                     טבלה
                   </label>
                   <select
                     value={filters.table}
                     onChange={(e) => setFilters(prev => ({ ...prev, table: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-michal"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-yonatan"
                   >
                     <option value="">כל הטבלאות</option>
                     {uniqueTables.map(table => (
@@ -233,13 +233,13 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                     שיטת ניקוי
                   </label>
                   <select
                     value={filters.cleanupMethod}
                     onChange={(e) => setFilters(prev => ({ ...prev, cleanupMethod: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-michal"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-yonatan"
                   >
                     <option value="">כל השיטות</option>
                     {uniqueMethods.map(method => (
@@ -249,7 +249,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                     ניתן לניקוי
                   </label>
                   <select
@@ -258,7 +258,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                       ...prev, 
                       canCleanup: e.target.value === '' ? null : e.target.value === 'true' 
                     }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-michal"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-yonatan"
                   >
                     <option value="">הכל</option>
                     <option value="true">כן</option>
@@ -267,7 +267,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                     מספר מינימלי
                   </label>
                   <input
@@ -275,7 +275,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                     min="0"
                     value={filters.minCount}
                     onChange={(e) => setFilters(prev => ({ ...prev, minCount: parseInt(e.target.value) || 0 }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-michal"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-yonatan"
                   />
                 </div>
               </div>
@@ -294,13 +294,13 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                     <CheckSquare className="w-4 h-4" /> : 
                     <Square className="w-4 h-4" />
                   }
-                  <span className="font-reisinger-michal">
+                  <span className="font-reisinger-yonatan">
                     {selectedCount === selectableReferences.length ? 'בטל בחירת הכל' : 'בחר הכל'}
                   </span>
                 </button>
 
                 {selectedCount > 0 && (
-                  <span className="text-sm text-gray-600 font-reisinger-michal">
+                  <span className="text-sm text-gray-600 font-reisinger-yonatan">
                     נבחרו {selectedCount} פריטים ({selectedOrphanedCount.toLocaleString()} הפניות)
                   </span>
                 )}
@@ -312,7 +312,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                   className="flex items-center gap-1 px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span className="font-reisinger-michal">נקה נבחרים</span>
+                  <span className="font-reisinger-yonatan">נקה נבחרים</span>
                 </button>
               )}
             </div>
@@ -333,10 +333,10 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                   }
                 </div>
                 <div>
-                  <h4 className="font-semibold text-blue-900 font-reisinger-michal">
+                  <h4 className="font-semibold text-blue-900 font-reisinger-yonatan">
                     ניקוי בתהליך
                   </h4>
-                  <p className="text-sm text-blue-700 font-reisinger-michal">
+                  <p className="text-sm text-blue-700 font-reisinger-yonatan">
                     {currentOperation.processedItems} מתוך {currentOperation.totalItems} פריטים
                   </p>
                 </div>
@@ -363,19 +363,19 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                   <span className="block text-2xl font-bold text-green-600">
                     {currentOperation.results.successful}
                   </span>
-                  <span className="text-gray-600 font-reisinger-michal">הצליחו</span>
+                  <span className="text-gray-600 font-reisinger-yonatan">הצליחו</span>
                 </div>
                 <div className="text-center">
                   <span className="block text-2xl font-bold text-red-600">
                     {currentOperation.results.failed}
                   </span>
-                  <span className="text-gray-600 font-reisinger-michal">נכשלו</span>
+                  <span className="text-gray-600 font-reisinger-yonatan">נכשלו</span>
                 </div>
                 <div className="text-center">
                   <span className="block text-2xl font-bold text-yellow-600">
                     {currentOperation.results.skipped}
                   </span>
-                  <span className="text-gray-600 font-reisinger-michal">דולגו</span>
+                  <span className="text-gray-600 font-reisinger-yonatan">דולגו</span>
                 </div>
               </div>
             )}
@@ -411,14 +411,14 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
 
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900 font-reisinger-michal">
+                      <span className="font-semibold text-gray-900 font-reisinger-yonatan">
                         {ref.table}.{ref.field}
                       </span>
-                      <span className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full font-reisinger-michal">
+                      <span className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full font-reisinger-yonatan">
                         {ref.count.toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 font-reisinger-michal">
+                    <p className="text-sm text-gray-600 font-reisinger-yonatan">
                       {ref.canCleanup ? 'ניתן לניקוי אוטומטי' : 'דרוש טיפול ידני'}
                     </p>
                   </div>
@@ -429,7 +429,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                     px-3 py-1 rounded-full text-xs font-medium
                     ${getCleanupMethodColor(ref.cleanupMethod)}
                   `}>
-                    <span className="font-reisinger-michal">
+                    <span className="font-reisinger-yonatan">
                       {getCleanupMethodLabel(ref.cleanupMethod)}
                     </span>
                   </div>
@@ -447,10 +447,10 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
       {filteredReferences.length === 0 && !isLoading && (
         <Card className="text-center py-12">
           <Database className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-600 font-reisinger-michal mb-2">
+          <h3 className="text-lg font-semibold text-gray-600 font-reisinger-yonatan mb-2">
             לא נמצאו הפניות יתומות
           </h3>
-          <p className="text-gray-500 font-reisinger-michal">
+          <p className="text-gray-500 font-reisinger-yonatan">
             המסד נקי מהפניות יתומות בהתאם לקריטריונים שנבחרו
           </p>
         </Card>
@@ -467,9 +467,9 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-center gap-2 text-yellow-700 mb-2">
               <AlertTriangle className="w-5 h-5" />
-              <span className="font-semibold font-reisinger-michal">אזהרה</span>
+              <span className="font-semibold font-reisinger-yonatan">אזהרה</span>
             </div>
-            <p className="text-sm text-yellow-700 font-reisinger-michal">
+            <p className="text-sm text-yellow-700 font-reisinger-yonatan">
               פעולה זו תנקה {selectedOrphanedCount.toLocaleString()} הפניות יתומות מ-{selectedCount} טבלאות.
               הפעולה בלתי הפיכה ללא גיבוי.
             </p>
@@ -477,7 +477,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
 
           {/* Cleanup Options */}
           <div className="space-y-4">
-            <h4 className="font-semibold text-gray-900 font-reisinger-michal">אפשרויות ניקוי</h4>
+            <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">אפשרויות ניקוי</h4>
             
             <div className="space-y-3">
               <label className="flex items-center gap-2">
@@ -487,7 +487,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                   onChange={(e) => setCleanupOptions(prev => ({ ...prev, dryRun: e.target.checked }))}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-sm font-reisinger-michal">הרצה יבשה (בדיקה בלבד)</span>
+                <span className="text-sm font-reisinger-yonatan">הרצה יבשה (בדיקה בלבד)</span>
               </label>
 
               <label className="flex items-center gap-2">
@@ -497,13 +497,13 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                   onChange={(e) => setCleanupOptions(prev => ({ ...prev, createBackup: e.target.checked }))}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-sm font-reisinger-michal">יצירת גיבוי לפני הניקוי</span>
+                <span className="text-sm font-reisinger-yonatan">יצירת גיבוי לפני הניקוי</span>
               </label>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+                <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                   גודל אצווה
                 </label>
                 <input
@@ -515,12 +515,12 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                     ...prev, 
                     batchSize: parseInt(e.target.value) || 100 
                   }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-michal"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-yonatan"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+                <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                   מקסימום מקבילים
                 </label>
                 <input
@@ -532,7 +532,7 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
                     ...prev, 
                     maxConcurrent: parseInt(e.target.value) || 3 
                   }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-michal"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 font-reisinger-yonatan"
                 />
               </div>
             </div>
@@ -541,13 +541,13 @@ const OrphanedReferenceCleanup: React.FC<OrphanedReferenceCleanupProps> = ({
           <div className="flex gap-3 pt-4 border-t border-gray-100">
             <button
               onClick={() => setShowCleanupModal(false)}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-reisinger-michal"
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-reisinger-yonatan"
             >
               ביטול
             </button>
             <button
               onClick={handleCleanup}
-              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-reisinger-michal"
+              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-reisinger-yonatan"
             >
               {cleanupOptions.dryRun ? 'הרץ בדיקה' : 'נקה כעת'}
             </button>

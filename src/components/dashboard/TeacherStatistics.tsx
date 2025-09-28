@@ -223,7 +223,7 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
           error={error}
           chart={
             <div className="space-y-2">
-              <div className="text-xs text-gray-600 font-reisinger-michal mb-3">מורים לפי התמחות</div>
+              <div className="text-xs text-gray-600 font-reisinger-yonatan mb-3">מורים לפי התמחות</div>
               {topSpecs.map((spec, index) => {
                 const maxCount = topSpecs[0]?.count || 1
                 const percentage = (spec.count / maxCount) * 100
@@ -231,7 +231,7 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
                 return (
                   <div key={spec.name} className="flex items-center justify-between">
                     <div className="flex items-center flex-1">
-                      <span className="text-sm font-reisinger-michal w-16 truncate">{spec.name}</span>
+                      <span className="text-sm font-reisinger-yonatan w-16 truncate">{spec.name}</span>
                       <div className="flex-1 mx-3">
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
@@ -246,7 +246,7 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
                         </div>
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                    <span className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                       {spec.count}
                     </span>
                   </div>
@@ -267,15 +267,15 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
           chart={
             workloadDistribution && (
               <div className="space-y-3">
-                <div className="text-xs text-gray-600 font-reisinger-michal mb-3">חלוקת עומס עבודה</div>
+                <div className="text-xs text-gray-600 font-reisinger-yonatan mb-3">חלוקת עומס עבודה</div>
                 
                 {/* Under-loaded */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-red-400 rounded-full ml-2"></div>
-                    <span className="text-sm font-reisinger-michal">עומס נמוך</span>
+                    <span className="text-sm font-reisinger-yonatan">עומס נמוך</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                  <span className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                     {workloadDistribution.underloaded}
                   </span>
                 </div>
@@ -284,9 +284,9 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-green-500 rounded-full ml-2"></div>
-                    <span className="text-sm font-reisinger-michal">עומס אופטימלי</span>
+                    <span className="text-sm font-reisinger-yonatan">עומס אופטימלי</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                  <span className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                     {workloadDistribution.optimal}
                   </span>
                 </div>
@@ -295,9 +295,9 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-orange-500 rounded-full ml-2"></div>
-                    <span className="text-sm font-reisinger-michal">עומס גבוה</span>
+                    <span className="text-sm font-reisinger-yonatan">עומס גבוה</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                  <span className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                     {workloadDistribution.overloaded}
                   </span>
                 </div>
@@ -306,7 +306,7 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
                 {workloadDistribution.overloaded > 0 && (
                   <div className="mt-3 p-2 bg-orange-50 rounded-lg flex items-center">
                     <AlertTriangle className="w-4 h-4 text-orange-500 ml-2" />
-                    <span className="text-xs text-orange-700 font-reisinger-michal">
+                    <span className="text-xs text-orange-700 font-reisinger-yonatan">
                       {workloadDistribution.overloaded} מורים בעומס יתר
                     </span>
                   </div>
@@ -326,7 +326,7 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
           error={error}
           chart={
             <div className="space-y-2">
-              <div className="text-xs text-gray-600 font-reisinger-michal mb-3">חלוקה לפי סוג העסקה</div>
+              <div className="text-xs text-gray-600 font-reisinger-yonatan mb-3">חלוקה לפי סוג העסקה</div>
               {Object.entries(employmentTypes)
                 .sort(([,a], [,b]) => b - a)
                 .map(([type, count], index) => {
@@ -336,7 +336,7 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
                   return (
                     <div key={type} className="flex items-center justify-between">
                       <div className="flex items-center flex-1">
-                        <span className="text-sm font-reisinger-michal w-20 truncate">{type}</span>
+                        <span className="text-sm font-reisinger-yonatan w-20 truncate">{type}</span>
                         <div className="flex-1 mx-3">
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
@@ -351,7 +351,7 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
                           </div>
                         </div>
                       </div>
-                      <span className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                      <span className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                         {count}
                       </span>
                     </div>
@@ -402,7 +402,7 @@ const TeacherStatistics: React.FC<TeacherStatisticsProps> = ({
 
       {/* Last Updated */}
       {lastUpdated && (
-        <div className="text-xs text-gray-500 text-center font-reisinger-michal">
+        <div className="text-xs text-gray-500 text-center font-reisinger-yonatan">
           עודכן לאחרונה: {lastUpdated.toLocaleString('he-IL')}
         </div>
       )}

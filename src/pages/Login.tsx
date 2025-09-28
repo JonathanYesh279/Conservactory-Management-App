@@ -65,7 +65,7 @@ export default function Login() {
           <div>
             <h2 
               className="mt-6 text-center text-3xl font-extrabold text-yellow-400 drop-shadow-lg"
-              style={{ fontFamily: "'Reisinger Michal', 'Arial Hebrew', 'Noto Sans Hebrew', Arial, sans-serif" }}
+              style={{ fontFamily: "'Reisinger Yonatan', 'Arial Hebrew', 'Noto Sans Hebrew', Arial, sans-serif" }}
             >
               ✅ HEBREW WORKING! כניסה לחשבון שלך
             </h2>
@@ -73,13 +73,13 @@ export default function Login() {
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg backdrop-blur-sm">
-                <p className="text-red-100 text-sm text-center font-reisinger-michal">{error}</p>
+                <p className="text-red-100 text-sm text-center font-reisinger-yonatan">{error}</p>
               </div>
             )}
             
             <div className="rounded-md shadow-sm space-y-4">
               <div>
-                <label htmlFor="email" className="sr-only font-reisinger-michal">
+                <label htmlFor="email" className="sr-only font-reisinger-yonatan">
                   כתובת דוא"ל
                 </label>
                 <input
@@ -88,7 +88,7 @@ export default function Login() {
                   type="email"
                   required
                   disabled={isLoading}
-                  className="relative block w-full px-3 py-3 border border-white/30 placeholder-gray-400 text-gray-900 rounded-lg bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:z-10 sm:text-sm placeholder:text-right font-reisinger-michal disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="relative block w-full px-3 py-3 border border-white/30 placeholder-gray-400 text-gray-900 rounded-lg bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:z-10 sm:text-sm placeholder:text-right font-reisinger-yonatan disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="כתובת דוא״ל"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -97,7 +97,7 @@ export default function Login() {
                 />
               </div>
               <div>
-                <label htmlFor="password" className="sr-only font-reisinger-michal">
+                <label htmlFor="password" className="sr-only font-reisinger-yonatan">
                   סיסמה
                 </label>
                 <input
@@ -106,7 +106,7 @@ export default function Login() {
                   type="password"
                   required
                   disabled={isLoading}
-                  className="relative block w-full px-3 py-3 border border-white/30 placeholder-gray-400 text-gray-900 rounded-lg bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:z-10 sm:text-sm placeholder:text-right font-reisinger-michal disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="relative block w-full px-3 py-3 border border-white/30 placeholder-gray-400 text-gray-900 rounded-lg bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:z-10 sm:text-sm placeholder:text-right font-reisinger-yonatan disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="סיסמה"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -120,7 +120,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600/90 hover:bg-blue-700/90 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg font-reisinger-michal disabled:opacity-50 disabled:cursor-not-allowed"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600/90 hover:bg-blue-700/90 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg font-reisinger-yonatan disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <div className="flex items-center">
@@ -136,7 +136,7 @@ export default function Login() {
             <div className="text-center">
               <Link
                 to="/dashboard"
-                className="font-medium text-white/90 hover:text-white drop-shadow transition-colors duration-200 font-reisinger-michal"
+                className="font-medium text-white/90 hover:text-white drop-shadow transition-colors duration-200 font-reisinger-yonatan"
               >
                 דלג למרכז הבקרה (הדגמה)
               </Link>

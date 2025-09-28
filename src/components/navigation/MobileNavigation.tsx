@@ -136,7 +136,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ className = '' }) =
           {/* Logo/Title */}
           <div className="flex items-center">
             <Music className="w-8 h-8 text-primary-600 ml-2" />
-            <h1 className="text-lg font-bold text-gray-900 font-reisinger-michal">
+            <h1 className="text-lg font-bold text-gray-900 font-reisinger-yonatan">
               קונסרבטוריון
             </h1>
           </div>
@@ -210,7 +210,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ className = '' }) =
                     className="flex items-center p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
                     <Icon className="w-5 h-5 text-green-600 ml-3" />
-                    <span className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                    <span className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                       {action.name}
                     </span>
                   </Link>
@@ -248,7 +248,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ className = '' }) =
                 <span className="text-primary-600 font-semibold text-sm">מ</span>
               </div>
               <div className="mr-3">
-                <p className="text-sm font-medium text-gray-900 font-reisinger-michal">
+                <p className="text-sm font-medium text-gray-900 font-reisinger-yonatan">
                   מנהל המערכת
                 </p>
                 <p className="text-xs text-gray-500">admin@conservatory.co.il</p>
@@ -271,7 +271,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ className = '' }) =
                   <Link
                     key={item.name}
                     to={item.href}
-                    className={`flex items-center justify-between px-3 py-3 mx-2 rounded-lg text-sm font-medium transition-colors font-reisinger-michal ${
+                    className={`flex items-center justify-between px-3 py-3 mx-2 rounded-lg text-sm font-medium transition-colors font-reisinger-yonatan ${
                       active
                         ? 'bg-primary-50 text-primary-700 border border-primary-200'
                         : 'text-gray-700 hover:bg-gray-50'
@@ -299,7 +299,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ className = '' }) =
                 // Handle logout
                 console.log('Logout clicked')
               }}
-              className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors font-reisinger-michal"
+              className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors font-reisinger-yonatan"
             >
               יציאה מהמערכת
             </button>

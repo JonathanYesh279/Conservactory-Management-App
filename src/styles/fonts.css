@@ -1,32 +1,12 @@
 /* Reisinger Hebrew Font Family - Custom Fonts */
 
-/* Reisinger Michal - Light, Regular & Bold */
+/* Reisinger Yonatan - Regular */
 @font-face {
-  font-family: 'Reisinger Michal';
-  src: url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Light.woff2') format('woff2'),
-       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Light.woff') format('woff'),
-       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Light.ttf') format('truetype');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Reisinger Michal';
-  src: url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Regular.woff2') format('woff2'),
-       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Regular.woff') format('woff'),
-       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Regular.ttf') format('truetype');
+  font-family: 'Reisinger Yonatan';
+  src: url('/fonts/Reisinger-Yonatan-web/Reisinger-Yonatan-Regular.woff2') format('woff2'),
+       url('/fonts/Reisinger-Yonatan-web/Reisinger-Yonatan-Regular.woff') format('woff'),
+       url('/fonts/Reisinger-Yonatan-web/Reisinger-Yonatan-Regular.ttf') format('truetype');
   font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Reisinger Michal';
-  src: url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Bold.woff2') format('woff2'),
-       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Bold.woff') format('woff'),
-       url('/fonts/Reisinger-Michal-web/Reisinger-Michal-Bold.ttf') format('truetype');
-  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
@@ -73,8 +53,8 @@
 }
 
 /* Custom Hebrew font utility classes */
-.font-reisinger-michal {
-  font-family: 'Reisinger Michal', 'Arial Hebrew', 'Noto Sans Hebrew', Arial, sans-serif;
+.font-reisinger-yonatan {
+  font-family: 'Reisinger Yonatan', 'Arial Hebrew', 'Noto Sans Hebrew', Arial, sans-serif;
 }
 
 .font-reisinger-neta {

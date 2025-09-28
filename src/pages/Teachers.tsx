@@ -30,44 +30,18 @@ interface Teacher {
 
 // Helper function to check if user is admin
 const isUserAdmin = (user: any): boolean => {
-  console.log('🔍 ADMIN CHECK - Start:', {
-    userExists: !!user,
-    userType: typeof user,
-    userKeys: user ? Object.keys(user) : 'no user'
-  })
-  
   if (!user) {
-    console.log('❌ ADMIN CHECK - No user object')
     return false
   }
-  
+
   // Check for admin role in different formats
   const hasAdminInRoles = user?.roles?.includes('מנהל')
   const hasAdminEnglish = user?.roles?.includes('admin')
   const hasSingleAdminRole = user?.role === 'admin'
   const hasHebrewAdminRole = user?.role === 'מנהל'
-  
+
   const hasAdminRole = hasAdminInRoles || hasAdminEnglish || hasSingleAdminRole || hasHebrewAdminRole
-  
-  console.log('🔍 ADMIN CHECK - Detailed:', {
-    user: user,
-    roles: user?.roles,
-    role: user?.role,
-    checks: {
-      hasAdminInRoles,
-      hasAdminEnglish, 
-      hasSingleAdminRole,
-      hasHebrewAdminRole
-    },
-    finalResult: hasAdminRole
-  })
-  
-  if (!hasAdminRole) {
-    console.warn('⚠️  ADMIN CHECK - Access denied! User is not admin')
-  } else {
-    console.log('✅ ADMIN CHECK - User is admin!')
-  }
-  
+
   return hasAdminRole
 }
 
@@ -75,17 +49,7 @@ export default function Teachers() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
-  
-  // Debug auth state
-  useEffect(() => {
-    console.log('🏛️ TEACHERS PAGE - Auth state changed:', {
-      userExists: !!user,
-      userId: user?._id,
-      userRoles: user?.roles,
-      userRole: user?.role,
-      timestamp: new Date().toISOString()
-    })
-  }, [user])
+
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -99,7 +63,7 @@ export default function Teachers() {
   const [scheduleLoading, setScheduleLoading] = useState(false)
   const [instrumentSearchTerm, setInstrumentSearchTerm] = useState('')
   const [showInstrumentDropdown, setShowInstrumentDropdown] = useState(false)
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid')
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false)
 
   // Fetch teachers from real API when school year changes
@@ -227,20 +191,12 @@ export default function Teachers() {
   }
 
   const handleViewTeacher = (teacherId: string) => {
-    console.log('=== NAVIGATION DEBUG ===')
-    console.log('Teacher ID:', teacherId)
-    console.log('Target path:', `/teachers/${teacherId}`)
-    console.log('Current location:', window.location.pathname)
-    
-    // Direct navigation without async
     const targetPath = `/teachers/${teacherId}`
-    
+
     // Force navigation with window.location as fallback
     try {
       navigate(targetPath)
-      console.log('Navigate function called successfully')
     } catch (error) {
-      console.error('Navigate failed, using window.location:', error)
       window.location.href = targetPath
     }
   }
@@ -251,15 +207,12 @@ export default function Teachers() {
   }
 
   const handleAddTeacher = () => {
-    console.log('🎯 HANDLE ADD TEACHER - Button clicked!')
     const isAdmin = isUserAdmin(user)
-    
+
     if (isAdmin) {
-      console.log('✅ HANDLE ADD TEACHER - Opening modal...')
       setShowAddTeacherModal(true)
     } else {
-      console.log('❌ HANDLE ADD TEACHER - Access denied!')
-      alert('רק מנהלים יכולים להוסיף מורים\n\nDEBUG INFO:\nUser: ' + JSON.stringify(user, null, 2))
+      alert('רק מנהלים יכולים להוסיף מורים')
     }
   }
 
@@ -537,40 +490,16 @@ export default function Teachers() {
               <option value="מגמה">מגמה</option>
             </select>
             {/* Show Add Teacher button for admins */}
-            {(() => {
-              console.log('🎯 BUTTON RENDER - Checking admin status for button display...')
-              const isAdmin = isUserAdmin(user)
-              
-              // TEMPORARY: Force show button for debugging (remove after fixing)
-              const FORCE_SHOW_BUTTON = true // Set to false after debugging
-              const showButton = isAdmin || FORCE_SHOW_BUTTON
-              
-              console.log('🎯 BUTTON RENDER - Result:', {
-                isAdmin,
-                forceShow: FORCE_SHOW_BUTTON,
-                finalDecision: showButton ? 'SHOWING BUTTON' : 'HIDING BUTTON'
-              })
-              
-              return showButton ? (
-                <button 
-                  onClick={handleAddTeacher}
-                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                    isAdmin 
-                      ? 'bg-primary-500 text-white hover:bg-primary-600' 
-                      : 'bg-orange-500 text-white hover:bg-orange-600'
-                  }`}
-                  title={isAdmin ? 'Add Teacher' : 'DEBUG MODE - Not really admin'}
-                >
-                  <Plus className="w-4 h-4 ml-2" />
-                  {isAdmin ? 'הוסף מורה' : 'הוסף מורה (DEBUG)'}
-                </button>
-              ) : (
-                <div style={{display: 'none'}}>
-                  {/* Debug: Button hidden - user is not admin */}
-                  {console.log('🚫 BUTTON HIDDEN - User does not have admin privileges')}
-                </div>
-              )
-            })()}
+            {isUserAdmin(user) && (
+              <button
+                onClick={handleAddTeacher}
+                className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+                title="Add Teacher"
+              >
+                <Plus className="w-4 h-4 ml-2" />
+                הוסף מורה
+              </button>
+            )}
           </div>
         </div>
       </Card>
@@ -664,13 +593,10 @@ export default function Teachers() {
 
       {/* Teachers Display */}
       {viewMode === 'table' ? (
-        <Table 
-          columns={columns} 
+        <Table
+          columns={columns}
           data={filteredTeachers}
           onRowClick={(row) => {
-            console.log('=== ROW CLICKED ===')
-            console.log('Row data:', row)
-            console.log('Teacher ID from row:', row.id)
             handleViewTeacher(row.id)
           }}
           rowClassName="hover:bg-gray-50 cursor-pointer transition-colors"
@@ -712,21 +638,6 @@ export default function Teachers() {
           })}
         </div>
       )}
-      
-      {/* DEBUG INFO PANEL - Remove after fixing */}
-      <Card className="mb-4 bg-yellow-50 border-yellow-200">
-        <div className="p-4">
-          <h3 className="text-lg font-semibold text-yellow-800 mb-2">🐛 Debug Info (Remove after fixing)</h3>
-          <div className="text-sm text-yellow-700 space-y-1">
-            <div><strong>User Object:</strong> {user ? '✅ Exists' : '❌ Missing'}</div>
-            <div><strong>User ID:</strong> {user?._id || 'N/A'}</div>
-            <div><strong>Roles Array:</strong> {JSON.stringify(user?.roles) || 'N/A'}</div>
-            <div><strong>Single Role:</strong> {user?.role || 'N/A'}</div>
-            <div><strong>Is Admin:</strong> {isUserAdmin(user) ? '✅ YES' : '❌ NO'}</div>
-            <div><strong>Button Forced:</strong> ✅ YES (TEMPORARY)</div>
-          </div>
-        </div>
-      </Card>
 
       {filteredTeachers.length === 0 && !loading && (
         <div className="text-center py-12 text-gray-500">

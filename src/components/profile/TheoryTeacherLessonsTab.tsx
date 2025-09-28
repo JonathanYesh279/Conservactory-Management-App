@@ -274,7 +274,7 @@ export default function TheoryTeacherLessonsTab() {
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div className="text-red-800 font-reisinger-michal">{error}</div>
+        <div className="text-red-800 font-reisinger-yonatan">{error}</div>
       </div>
     )
   }
@@ -284,7 +284,7 @@ export default function TheoryTeacherLessonsTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold text-gray-900 font-reisinger-michal">
+          <h3 className="text-xl font-bold text-gray-900 font-reisinger-yonatan">
             שיעורי התיאוריה שלי
           </h3>
           <p className="text-gray-600 mt-1">
@@ -296,7 +296,7 @@ export default function TheoryTeacherLessonsTab() {
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          <span className="font-reisinger-michal">הוסף שיעור</span>
+          <span className="font-reisinger-yonatan">הוסף שיעור</span>
         </button>
       </div>
 
@@ -319,10 +319,10 @@ export default function TheoryTeacherLessonsTab() {
           {filteredLessons.length === 0 ? (
             <div className="text-center py-12">
               <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2 font-reisinger-michal">
+              <h3 className="text-lg font-medium text-gray-900 mb-2 font-reisinger-yonatan">
                 {searchTerm ? 'לא נמצאו שיעורים' : 'אין שיעורים רשומים'}
               </h3>
-              <p className="text-gray-600 font-reisinger-michal">
+              <p className="text-gray-600 font-reisinger-yonatan">
                 {searchTerm ? 'נסה מילות חיפוש אחרות' : 'התחל בהוספת השיעור הראשון שלך'}
               </p>
             </div>
@@ -340,14 +340,14 @@ export default function TheoryTeacherLessonsTab() {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 font-reisinger-michal">
+                    <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
                       {lesson.name}
                     </h4>
-                    <p className="text-sm text-gray-600 font-reisinger-michal">
+                    <p className="text-sm text-gray-600 font-reisinger-yonatan">
                       {getLevelLabel(lesson.level)} • {lesson.duration} דקות
                     </p>
                     {lesson.description && (
-                      <p className="text-sm text-gray-500 mt-1 font-reisinger-michal">
+                      <p className="text-sm text-gray-500 mt-1 font-reisinger-yonatan">
                         {lesson.description}
                       </p>
                     )}
@@ -416,10 +416,10 @@ export default function TheoryTeacherLessonsTab() {
         {selectedLesson && (
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-gray-900 font-reisinger-michal">
+              <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
                 תלמידי השיעור
               </h4>
-              <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium font-reisinger-michal">
+              <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium font-reisinger-yonatan">
                 נהל תלמידים
               </button>
             </div>
@@ -427,23 +427,23 @@ export default function TheoryTeacherLessonsTab() {
             {lessonStudents.length === 0 ? (
               <div className="text-center py-8">
                 <Users className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm font-reisinger-michal">אין תלמידים רשומים לשיעור</p>
+                <p className="text-gray-500 text-sm font-reisinger-yonatan">אין תלמידים רשומים לשיעור</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {lessonStudents.map((student) => (
                   <div key={student.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded border">
                     <div className="flex-1">
-                      <div className="font-medium text-sm font-reisinger-michal">
+                      <div className="font-medium text-sm font-reisinger-yonatan">
                         {student.firstName} {student.lastName}
                       </div>
-                      <div className="text-xs text-gray-500 font-reisinger-michal">
+                      <div className="text-xs text-gray-500 font-reisinger-yonatan">
                         {student.instrument && `${student.instrument} • `}
                         {student.grade && `כיתה ${student.grade} • `}
                         רישום: {new Date(student.enrollmentDate).toLocaleDateString('he-IL')}
                       </div>
                       {student.attendance && (
-                        <div className="text-xs text-gray-500 mt-1 font-reisinger-michal">
+                        <div className="text-xs text-gray-500 mt-1 font-reisinger-yonatan">
                           נוכחות: {student.attendance.present}/{student.attendance.total} שיעורים
                           <span className={`ml-2 ${
                             (student.attendance.present / student.attendance.total) >= 0.8 
@@ -519,13 +519,13 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" dir="rtl">
-        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-michal">
+        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-yonatan">
           {lesson ? 'עריכת שיעור תיאוריה' : 'הוספת שיעור תיאוריה חדש'}
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               שם השיעור *
             </label>
             <input
@@ -538,7 +538,7 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               תיאור השיעור
             </label>
             <textarea
@@ -551,7 +551,7 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 רמה *
               </label>
               <select
@@ -567,7 +567,7 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 משך השיעור (דקות) *
               </label>
               <input
@@ -585,7 +585,7 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 קיבולת תלמידים *
               </label>
               <input
@@ -600,7 +600,7 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 סטטוס
               </label>
               <select
@@ -615,7 +615,7 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               יום השיעור *
             </label>
             <select
@@ -636,7 +636,7 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 שעת התחלה *
               </label>
               <input
@@ -649,7 +649,7 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 שעת סיום *
               </label>
               <input
@@ -663,7 +663,7 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               מקום השיעור
             </label>
             <input
@@ -677,14 +677,14 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
           <div className="flex gap-3 mt-6">
             <button
               type="submit"
-              className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-michal"
+              className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-yonatan"
             >
               {lesson ? 'עדכן' : 'הוסף'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors font-reisinger-michal"
+              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors font-reisinger-yonatan"
             >
               ביטול
             </button>

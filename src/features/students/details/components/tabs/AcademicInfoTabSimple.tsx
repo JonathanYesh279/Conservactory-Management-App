@@ -250,18 +250,6 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
                   {/* Test Results for this instrument */}
                   {instrument.tests && (
                     <div className="mt-2 space-y-1">
-                      {instrument.tests.stageTest && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-black font-semibold" style={{color: '#000000'}}>מבחן שלב:</span>
-                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getExamStatusColor(instrument.tests.stageTest.status || 'לא נבחן')}`}>
-                            {getExamStatusIcon(instrument.tests.stageTest.status || 'לא נבחן')}
-                            {instrument.tests.stageTest.status || 'לא נבחן'}
-                          </div>
-                          {instrument.tests.stageTest.notes && (
-                            <span className="text-xs text-gray-500">({instrument.tests.stageTest.notes})</span>
-                          )}
-                        </div>
-                      )}
                       {instrument.tests.technicalTest && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-black font-semibold" style={{color: '#000000'}}>מבחן טכני:</span>
@@ -271,6 +259,18 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
                           </div>
                           {instrument.tests.technicalTest.notes && (
                             <span className="text-xs text-gray-500">({instrument.tests.technicalTest.notes})</span>
+                          )}
+                        </div>
+                      )}
+                      {instrument.tests.stageTest && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-black font-semibold" style={{color: '#000000'}}>מבחן שלב:</span>
+                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getExamStatusColor(instrument.tests.stageTest.status || 'לא נבחן')}`}>
+                            {getExamStatusIcon(instrument.tests.stageTest.status || 'לא נבחן')}
+                            {instrument.tests.stageTest.status || 'לא נבחן'}
+                          </div>
+                          {instrument.tests.stageTest.notes && (
+                            <span className="text-xs text-gray-500">({instrument.tests.stageTest.notes})</span>
                           )}
                         </div>
                       )}

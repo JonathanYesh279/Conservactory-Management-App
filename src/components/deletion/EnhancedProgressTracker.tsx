@@ -241,7 +241,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
 
     return (
       <div className="mt-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-2 font-reisinger-michal">
+        <h4 className="text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
           גרף התקדמות
         </h4>
         <div className="bg-gray-50 rounded-lg p-3">
@@ -286,7 +286,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
           <div className="flex items-center gap-3">
             {getStatusIcon()}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 font-reisinger-michal">
+              <h3 className="text-lg font-semibold text-gray-900 font-reisinger-yonatan">
                 {operation.status === 'running' ? 'מוחק את' : 'מחיקת'} {operation.entityName}
               </h3>
               <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -294,13 +294,13 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
                   px-2 py-1 rounded-full text-xs font-medium border
                   ${getStatusColor()}
                 `}>
-                  <span className="font-reisinger-michal">{getStatusText()}</span>
+                  <span className="font-reisinger-yonatan">{getStatusText()}</span>
                 </span>
                 
                 {operation.startTime && (
                   <div className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    <span className="font-reisinger-michal">
+                    <span className="font-reisinger-yonatan">
                       זמן שעבר: {formatDuration(performanceMetrics.totalElapsedTime)}
                     </span>
                   </div>
@@ -309,7 +309,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
                 {operation.status === 'running' && (
                   <div className="flex items-center gap-1">
                     <Timer className="w-3 h-3" />
-                    <span className="font-reisinger-michal">
+                    <span className="font-reisinger-yonatan">
                       נותר: {formatTimeRemaining()}
                     </span>
                   </div>
@@ -328,7 +328,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
                     className="flex items-center gap-1 px-3 py-1 text-sm text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors"
                   >
                     <Pause className="w-4 h-4" />
-                    <span className="font-reisinger-michal">השהה</span>
+                    <span className="font-reisinger-yonatan">השהה</span>
                   </button>
                 )}
                 {onCancel && (
@@ -337,7 +337,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
                     className="flex items-center gap-1 px-3 py-1 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
                   >
                     <Square className="w-4 h-4" />
-                    <span className="font-reisinger-michal">ביטול</span>
+                    <span className="font-reisinger-yonatan">ביטול</span>
                   </button>
                 )}
               </>
@@ -349,7 +349,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
                 className="flex items-center gap-1 px-3 py-1 text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
               >
                 <Play className="w-4 h-4" />
-                <span className="font-reisinger-michal">המשך</span>
+                <span className="font-reisinger-yonatan">המשך</span>
               </button>
             )}
 
@@ -359,7 +359,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
                 className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
-                <span className="font-reisinger-michal">נסה שוב</span>
+                <span className="font-reisinger-yonatan">נסה שוב</span>
               </button>
             )}
 
@@ -368,7 +368,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
               className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <Activity className="w-4 h-4" />
-              <span className="font-reisinger-michal">מטריקות</span>
+              <span className="font-reisinger-yonatan">מטריקות</span>
               {showMetrics ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           </div>
@@ -388,10 +388,10 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
           
           {operation.currentStep && (
             <div className="flex items-center justify-between text-sm text-gray-600">
-              <span className="font-reisinger-michal">
+              <span className="font-reisinger-yonatan">
                 שלב נוכחי: {operation.currentStep}
               </span>
-              <span className="font-reisinger-michal">
+              <span className="font-reisinger-yonatan">
                 {Math.floor(operation.progress / (100 / operation.totalSteps)) + 1} מתוך {operation.totalSteps}
               </span>
             </div>
@@ -404,7 +404,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-blue-600" />
-                <h4 className="font-semibold text-blue-900 font-reisinger-michal">
+                <h4 className="font-semibold text-blue-900 font-reisinger-yonatan">
                   מטריקות ביצועים
                 </h4>
               </div>
@@ -414,28 +414,28 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
                   <div className="text-lg font-bold text-blue-900">
                     {performanceMetrics.itemsPerSecond.toFixed(1)}
                   </div>
-                  <div className="text-xs text-blue-700 font-reisinger-michal">פריטים/שנייה</div>
+                  <div className="text-xs text-blue-700 font-reisinger-yonatan">פריטים/שנייה</div>
                 </div>
                 
                 <div className="text-center">
                   <div className="text-lg font-bold text-blue-900">
                     {formatDuration(performanceMetrics.averageStepDuration)}
                   </div>
-                  <div className="text-xs text-blue-700 font-reisinger-michal">ממוצע שלב</div>
+                  <div className="text-xs text-blue-700 font-reisinger-yonatan">ממוצע שלב</div>
                 </div>
                 
                 <div className="text-center">
                   <div className="text-lg font-bold text-blue-900">
                     {formatTimeRemaining()}
                   </div>
-                  <div className="text-xs text-blue-700 font-reisinger-michal">זמן נותר</div>
+                  <div className="text-xs text-blue-700 font-reisinger-yonatan">זמן נותר</div>
                 </div>
                 
                 <div className="text-center">
                   <div className="text-lg font-bold text-blue-900">
                     {formatDuration(performanceMetrics.totalElapsedTime)}
                   </div>
-                  <div className="text-xs text-blue-700 font-reisinger-michal">זמן כולל</div>
+                  <div className="text-xs text-blue-700 font-reisinger-yonatan">זמן כולל</div>
                 </div>
               </div>
 
@@ -449,7 +449,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Zap className="w-5 h-5 text-gray-500" />
-              <h4 className="font-semibold text-gray-900 font-reisinger-michal">
+              <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
                 שלבי התהליך
               </h4>
             </div>
@@ -468,10 +468,10 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-red-700">
                 <AlertTriangle className="w-5 h-5" />
-                <span className="font-semibold font-reisinger-michal">שגיאה בתהליך</span>
+                <span className="font-semibold font-reisinger-yonatan">שגיאה בתהליך</span>
               </div>
               
-              <p className="text-sm text-red-600 font-reisinger-michal">
+              <p className="text-sm text-red-600 font-reisinger-yonatan">
                 {operation.error}
               </p>
 
@@ -482,7 +482,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
                     className="flex items-center gap-1 px-3 py-1 text-sm text-red-700 bg-red-100 border border-red-300 rounded-lg hover:bg-red-200 transition-colors"
                   >
                     <RefreshCw className="w-4 h-4" />
-                    <span className="font-reisinger-michal">נסה שוב</span>
+                    <span className="font-reisinger-yonatan">נסה שוב</span>
                   </button>
                   
                   {onCancel && (
@@ -491,7 +491,7 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
                       className="flex items-center gap-1 px-3 py-1 text-sm text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
                     >
                       <Square className="w-4 h-4" />
-                      <span className="font-reisinger-michal">בטל תהליך</span>
+                      <span className="font-reisinger-yonatan">בטל תהליך</span>
                     </button>
                   )}
                 </div>
@@ -506,24 +506,24 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-green-700">
                 <CheckCircle className="w-5 h-5" />
-                <span className="font-semibold font-reisinger-michal">
+                <span className="font-semibold font-reisinger-yonatan">
                   התהליך הושלם בהצלחה!
                 </span>
               </div>
               
               <div className="grid grid-cols-2 gap-4 text-sm text-green-700">
                 <div>
-                  <span className="font-medium font-reisinger-michal">זמן כולל:</span> {formatDuration(performanceMetrics.totalElapsedTime)}
+                  <span className="font-medium font-reisinger-yonatan">זמן כולל:</span> {formatDuration(performanceMetrics.totalElapsedTime)}
                 </div>
                 <div>
-                  <span className="font-medium font-reisinger-michal">פריטים מעובדים:</span> {operation.impact.relatedRecords.length + 1}
+                  <span className="font-medium font-reisinger-yonatan">פריטים מעובדים:</span> {operation.impact.relatedRecords.length + 1}
                 </div>
               </div>
 
               {operation.rollbackAvailable && (
                 <div className="flex items-center gap-2 text-green-600 text-sm">
                   <Info className="w-4 h-4" />
-                  <span className="font-reisinger-michal">
+                  <span className="font-reisinger-yonatan">
                     ניתן לשחזר את הנתונים תוך 30 יום
                   </span>
                 </div>
@@ -538,10 +538,10 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
             <div className="flex items-center gap-2 text-orange-700">
               <AlertCircle className="w-5 h-5" />
               <div>
-                <span className="font-semibold font-reisinger-michal block">
+                <span className="font-semibold font-reisinger-yonatan block">
                   התהליך בוטל על ידי המשתמש
                 </span>
-                <p className="text-sm text-orange-600 mt-1 font-reisinger-michal">
+                <p className="text-sm text-orange-600 mt-1 font-reisinger-yonatan">
                   המידע לא נמחק ונשמר במצב המקורי. כל השינויים שבוצעו עד עתה בוטלו.
                 </p>
               </div>
@@ -551,12 +551,12 @@ const EnhancedProgressTracker: React.FC<EnhancedProgressTrackerProps> = ({
 
         {/* Time Information */}
         <div className="flex justify-between text-xs text-gray-500 pt-4 border-t border-gray-100">
-          <div className="font-reisinger-michal">
+          <div className="font-reisinger-yonatan">
             {operation.startTime && (
               <>התחיל: {operation.startTime.toLocaleString('he-IL')}</>
             )}
           </div>
-          <div className="font-reisinger-michal">
+          <div className="font-reisinger-yonatan">
             {operation.endTime ? (
               <>הסתיים: {operation.endTime.toLocaleString('he-IL')}</>
             ) : realTimeUpdates && (

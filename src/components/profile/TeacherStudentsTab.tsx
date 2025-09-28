@@ -163,7 +163,7 @@ export default function TeacherStudentsTab() {
       // Show success message
       const successMsg = document.createElement('div')
       successMsg.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg z-50'
-      successMsg.innerHTML = `<div class="flex items-center gap-2 font-reisinger-michal"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>${studentName} נמחק בהצלחה</div>`
+      successMsg.innerHTML = `<div class="flex items-center gap-2 font-reisinger-yonatan"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>${studentName} נמחק בהצלחה</div>`
       document.body.appendChild(successMsg)
       setTimeout(() => successMsg.remove(), 3000)
     } catch (error) {
@@ -172,7 +172,7 @@ export default function TeacherStudentsTab() {
       // Show error message
       const errorMsg = document.createElement('div')
       errorMsg.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg z-50'
-      errorMsg.innerHTML = `<div class="flex items-center gap-2 font-reisinger-michal"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>שגיאה במחיקת ${studentName}</div>`
+      errorMsg.innerHTML = `<div class="flex items-center gap-2 font-reisinger-yonatan"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>שגיאה במחיקת ${studentName}</div>`
       document.body.appendChild(errorMsg)
       setTimeout(() => errorMsg.remove(), 5000)
     }
@@ -294,21 +294,21 @@ export default function TeacherStudentsTab() {
             </svg>
           </div>
           <div>
-            <h3 className="text-red-800 font-semibold font-reisinger-michal">שגיאה בטעינת הנתונים</h3>
-            <p className="text-red-700 text-sm font-reisinger-michal mt-1">{error}</p>
+            <h3 className="text-red-800 font-semibold font-reisinger-yonatan">שגיאה בטעינת הנתונים</h3>
+            <p className="text-red-700 text-sm font-reisinger-yonatan mt-1">{error}</p>
           </div>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => loadTeacherStudents()}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-reisinger-michal"
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-reisinger-yonatan"
           >
             נסה שוב
           </button>
           {retryCount > 2 && (
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-reisinger-michal"
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-reisinger-yonatan"
             >
               רענן דף
             </button>
@@ -323,7 +323,7 @@ export default function TeacherStudentsTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold text-gray-900 font-reisinger-michal">
+          <h3 className="text-xl font-bold text-gray-900 font-reisinger-yonatan">
 התלמידים שלי
           </h3>
           <p className="text-gray-600 mt-1">
@@ -335,7 +335,7 @@ export default function TeacherStudentsTab() {
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
           <UserPlus className="w-4 h-4" />
-          <span className="font-reisinger-michal">הוסף תלמיד</span>
+          <span className="font-reisinger-yonatan">הוסף תלמיד</span>
         </button>
       </div>
 
@@ -356,16 +356,16 @@ export default function TeacherStudentsTab() {
       {filteredStudents.length === 0 ? (
         <div className="text-center py-12">
           <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2 font-reisinger-michal">
+          <h3 className="text-lg font-medium text-gray-900 mb-2 font-reisinger-yonatan">
             {searchTerm ? 'לא נמצאו תלמידים' : 'אין תלמידים רשומים'}
           </h3>
-          <p className="text-gray-600 font-reisinger-michal">
+          <p className="text-gray-600 font-reisinger-yonatan">
             {searchTerm ? 'נסה מילות חיפוש אחרות' : 'התחל בהוספת התלמיד הראשון שלך'}
           </p>
           {!searchTerm && (
             <button
               onClick={() => setShowAddModal(true)}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-michal"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-yonatan"
             >
               <UserPlus className="w-4 h-4" />
               הוסף תלמיד ראשון
@@ -379,14 +379,14 @@ export default function TeacherStudentsTab() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-blue-600" />
-                <span className="font-medium text-blue-900 font-reisinger-michal">סה״כ תלמידים</span>
+                <span className="font-medium text-blue-900 font-reisinger-yonatan">סה״כ תלמידים</span>
               </div>
               <div className="text-2xl font-bold text-blue-900 mt-1">{students.length}</div>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <Eye className="w-5 h-5 text-green-600" />
-                <span className="font-medium text-green-900 font-reisinger-michal">פעילים</span>
+                <span className="font-medium text-green-900 font-reisinger-yonatan">פעילים</span>
               </div>
               <div className="text-2xl font-bold text-green-900 mt-1">
                 {students.filter(s => s.status === 'active').length}
@@ -395,7 +395,7 @@ export default function TeacherStudentsTab() {
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-purple-600" />
-                <span className="font-medium text-purple-900 font-reisinger-michal">עם שיעורים</span>
+                <span className="font-medium text-purple-900 font-reisinger-yonatan">עם שיעורים</span>
               </div>
               <div className="text-2xl font-bold text-purple-900 mt-1">
                 {students.filter(s => s.scheduleInfo || s.teacherAssignments?.length > 0).length}
@@ -507,14 +507,14 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4" dir="rtl">
-        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-michal">
+        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-yonatan">
           {student ? 'עריכת תלמיד' : 'הוספת תלמיד חדש'}
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 שם פרטי *
               </label>
               <input
@@ -531,11 +531,11 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
                 placeholder="הכנס שם פרטי"
               />
               {errors.firstName && (
-                <p className="mt-1 text-xs text-red-600 font-reisinger-michal">{errors.firstName}</p>
+                <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.firstName}</p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 שם משפחה *
               </label>
               <input
@@ -552,14 +552,14 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
                 placeholder="הכנס שם משפחה"
               />
               {errors.lastName && (
-                <p className="mt-1 text-xs text-red-600 font-reisinger-michal">{errors.lastName}</p>
+                <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.lastName}</p>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 גיל
               </label>
               <input
@@ -577,11 +577,11 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
                 placeholder="גיל"
               />
               {errors.age && (
-                <p className="mt-1 text-xs text-red-600 font-reisinger-michal">{errors.age}</p>
+                <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.age}</p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 כיתה
               </label>
               <input
@@ -595,7 +595,7 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               כלי נגינה עיקרי
             </label>
             <select
@@ -623,7 +623,7 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               דוא"ל
             </label>
             <input
@@ -640,12 +640,12 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
               placeholder="student@example.com"
             />
             {errors.email && (
-              <p className="mt-1 text-xs text-red-600 font-reisinger-michal">{errors.email}</p>
+              <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.email}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               טלפון
             </label>
             <input
@@ -662,12 +662,12 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
               placeholder="05X-XXXXXXX"
             />
             {errors.phone && (
-              <p className="mt-1 text-xs text-red-600 font-reisinger-michal">{errors.phone}</p>
+              <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.phone}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               סטטוס התלמיד
             </label>
             <select
@@ -684,7 +684,7 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-michal flex items-center justify-center gap-2"
+              className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -711,7 +711,7 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-michal flex items-center justify-center gap-2"
+              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan flex items-center justify-center gap-2"
             >
               <AlertTriangle className="w-4 h-4" />
               ביטול
@@ -722,7 +722,7 @@ function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
         {/* Success/Error Messages */}
         {Object.keys(errors).length > 0 && (
           <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-2 text-red-800 font-reisinger-michal text-sm">
+            <div className="flex items-center gap-2 text-red-800 font-reisinger-yonatan text-sm">
               <AlertTriangle className="w-4 h-4" />
               <span>יש שגיאות בטופס, אנא תקן אותן ונסה שוב</span>
             </div>

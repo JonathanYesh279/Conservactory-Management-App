@@ -9,6 +9,7 @@ export { default as StudentCard } from './StudentCard'
 export { default as TeacherCard } from './TeacherCard'
 export { default as LessonSlot } from './LessonSlot'
 export { default as InstrumentProgress } from './InstrumentProgress'
+export { default as TeacherNameDisplay } from './TeacherNameDisplay'
 
 // Form Components
 export { default as StudentForm } from './StudentForm'

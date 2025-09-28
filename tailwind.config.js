@@ -93,9 +93,9 @@ export default {
         }
       },
       fontFamily: {
-        // Hebrew-optimized font stack with Reisinger Michal
+        // Hebrew-optimized font stack with Reisinger Yonatan
         sans: [
-          'Reisinger Michal',
+          'Reisinger Yonatan',
           'Inter',
           'Arial Hebrew',
           'system-ui',
@@ -114,8 +114,8 @@ export default {
           'serif'
         ],
         // Reisinger Hebrew custom fonts
-        'reisinger-michal': [
-          'Reisinger Michal',
+        'reisinger-yonatan': [
+          'Reisinger Yonatan',
           'Arial Hebrew',
           'Noto Sans Hebrew',
           'Arial',

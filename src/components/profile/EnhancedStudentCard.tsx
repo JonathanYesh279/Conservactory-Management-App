@@ -90,7 +90,7 @@ export default function EnhancedStudentCard({
           <div className="flex-1">
             {/* Student Name with Status */}
             <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-semibold text-gray-900 font-reisinger-michal text-lg">
+              <h4 className="font-semibold text-gray-900 font-reisinger-yonatan text-lg">
                 {student.personalInfo.fullName}
               </h4>
               <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}>
@@ -102,9 +102,9 @@ export default function EnhancedStudentCard({
             {/* Primary Instrument with Icon */}
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Music className="w-4 h-4 text-indigo-500" />
-              <span className="font-reisinger-michal font-medium">{instrumentName}</span>
+              <span className="font-reisinger-yonatan font-medium">{instrumentName}</span>
               {currentStage > 0 && (
-                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-reisinger-michal">
+                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-reisinger-yonatan">
                   שלב {currentStage}/{maxStage}
                 </span>
               )}
@@ -148,13 +148,13 @@ export default function EnhancedStudentCard({
             {student.personalInfo.age && (
               <div className="flex items-center gap-2 text-gray-600">
                 <User className="w-3 h-3" />
-                <span className="font-reisinger-michal">גיל: {student.personalInfo.age}</span>
+                <span className="font-reisinger-yonatan">גיל: {student.personalInfo.age}</span>
               </div>
             )}
             {student.personalInfo.class && (
               <div className="flex items-center gap-2 text-gray-600">
                 <MapPin className="w-3 h-3" />
-                <span className="font-reisinger-michal">כיתה: {student.personalInfo.class}</span>
+                <span className="font-reisinger-yonatan">כיתה: {student.personalInfo.class}</span>
               </div>
             )}
           </div>
@@ -173,7 +173,7 @@ export default function EnhancedStudentCard({
         {/* Progress Indicator */}
         {currentStage > 0 && (
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs text-gray-600 font-reisinger-michal">
+            <div className="flex items-center justify-between text-xs text-gray-600 font-reisinger-yonatan">
               <span>התקדמות בכלי</span>
               <span>{currentStage}/{maxStage}</span>
             </div>
@@ -188,7 +188,7 @@ export default function EnhancedStudentCard({
                 <Star key={i} className="w-3 h-3 text-yellow-400 fill-current" />
               ))}
               {currentStage > 5 && (
-                <span className="text-xs text-yellow-600 font-reisinger-michal">+{currentStage - 5}</span>
+                <span className="text-xs text-yellow-600 font-reisinger-yonatan">+{currentStage - 5}</span>
               )}
             </div>
           </div>
@@ -197,12 +197,12 @@ export default function EnhancedStudentCard({
         {/* Lesson Schedule */}
         {lessonTime && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-            <div className="flex items-center gap-2 text-sm text-blue-800 font-reisinger-michal">
+            <div className="flex items-center gap-2 text-sm text-blue-800 font-reisinger-yonatan">
               <Calendar className="w-4 h-4" />
               <span className="font-medium">שיעור קבוע:</span>
             </div>
             <div className="flex items-center justify-between mt-1">
-              <span className="text-sm font-reisinger-michal text-blue-700">
+              <span className="text-sm font-reisinger-yonatan text-blue-700">
                 {lessonTime}
               </span>
               <div className="flex items-center gap-1 text-xs text-blue-600">
@@ -221,7 +221,7 @@ export default function EnhancedStudentCard({
           {/* Primary Action Button */}
           <button
             onClick={() => onViewDetails(student.id)}
-            className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 px-3 py-1 rounded-lg text-sm font-medium font-reisinger-michal transition-all duration-200 flex items-center gap-1"
+            className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 px-3 py-1 rounded-lg text-sm font-medium font-reisinger-yonatan transition-all duration-200 flex items-center gap-1"
           >
             <Eye className="w-4 h-4" />
             פרטים מלאים
@@ -231,7 +231,7 @@ export default function EnhancedStudentCard({
           {onScheduleLesson && (
             <button
               onClick={() => onScheduleLesson(student.id)}
-              className="text-green-600 hover:text-green-800 hover:bg-green-100 px-3 py-1 rounded-lg text-sm font-medium font-reisinger-michal transition-all duration-200 flex items-center gap-1"
+              className="text-green-600 hover:text-green-800 hover:bg-green-100 px-3 py-1 rounded-lg text-sm font-medium font-reisinger-yonatan transition-all duration-200 flex items-center gap-1"
             >
               <Calendar className="w-4 h-4" />
               קבע שיעור

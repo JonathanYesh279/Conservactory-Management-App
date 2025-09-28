@@ -155,7 +155,7 @@ export default function Header() {
                       className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between transition-colors duration-150"
                       style={{ direction: 'rtl' }}
                     >
-                      <span className="text-sm font-medium text-gray-700 font-reisinger-michal">
+                      <span className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
                         {item.label}
                       </span>
                       <Icon className="w-4 h-4 text-gray-500" />
@@ -173,7 +173,7 @@ export default function Header() {
             className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors"
             onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
           >
-            <span className="text-sm font-semibold text-white font-reisinger-michal">
+            <span className="text-sm font-semibold text-white font-reisinger-yonatan">
               {getInitials()}
             </span>
           </div>
@@ -182,7 +182,7 @@ export default function Header() {
           {isProfileDropdownOpen && (
             <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[1000]">
               <div className="px-4 py-3 border-b border-gray-100">
-                <div className="text-sm font-medium text-gray-700 font-reisinger-michal">
+                <div className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
                   {getUserFullName()}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
@@ -195,7 +195,7 @@ export default function Header() {
                 className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between transition-colors duration-150"
                 style={{ direction: 'rtl' }}
               >
-                <span className="text-sm font-medium text-gray-700 font-reisinger-michal">
+                <span className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
                   עמוד אישי
                 </span>
                 <User className="w-4 h-4 text-gray-500" />
@@ -206,7 +206,7 @@ export default function Header() {
                 className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between transition-colors duration-150 text-red-600 hover:bg-red-50"
                 style={{ direction: 'rtl' }}
               >
-                <span className="text-sm font-medium font-reisinger-michal">
+                <span className="text-sm font-medium font-reisinger-yonatan">
                   יציאה
                 </span>
                 <LogOut className="w-4 h-4" />

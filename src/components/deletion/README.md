@@ -57,7 +57,7 @@ AdminDeletionDashboard (Main Dashboard)
 - **Info States**: Blue for informational content
 
 ### Typography
-- **Hebrew Font**: Reisinger Michal for Hebrew text
+- **Hebrew Font**: Reisinger Yonatan for Hebrew text
 - **Font Weights**: Medium for headings, regular for body text
 - **Font Sizes**: Responsive scaling from mobile to desktop
 
@@ -145,7 +145,7 @@ AdminDeletionDashboard (Main Dashboard)
 ```tsx
 // RTL container
 <div dir="rtl" className="space-y-4">
-  <div className="text-right font-reisinger-michal">
+  <div className="text-right font-reisinger-yonatan">
     Hebrew content here
   </div>
 </div>
@@ -157,7 +157,7 @@ AdminDeletionDashboard (Main Dashboard)
 - **Flex Direction**: `space-x-reverse` for RTL spacing
 
 ### Font Integration
-- **Primary Font**: Reisinger Michal for Hebrew content
+- **Primary Font**: Reisinger Yonatan for Hebrew content
 - **Fallbacks**: Arial Hebrew, Noto Sans Hebrew
 - **Weight Mapping**: Proper font weights for Hebrew characters
 

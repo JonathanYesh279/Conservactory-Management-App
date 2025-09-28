@@ -5,13 +5,14 @@
  */
 
 import { useState, useEffect } from 'react'
-import { 
-  BookOpen, Calendar, TrendingUp, Award, Clock, User, Plus, 
-  Trash2, AlertCircle, MapPin, CheckCircle, X, Music, 
+import {
+  BookOpen, Calendar, TrendingUp, Award, Clock, User, Plus,
+  Trash2, AlertCircle, MapPin, CheckCircle, X, Music,
   GraduationCap, Users, Info
 } from 'lucide-react'
 import apiService from '../../../../../services/apiService'
 import { syncStudentTheoryLessons } from '../../../../../utils/syncTheoryLessonsData'
+import TeacherNameDisplay from '../../../../../components/TeacherNameDisplay'
 
 interface TheoryTabProps {
   student: any
@@ -350,20 +351,11 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId, isLoading }) 
               </div>
 
               {/* Teacher info */}
-              {(lesson.teacherId || lesson.teacherName) && (
-                <div className="flex items-center gap-2 text-gray-600 mb-3">
-                  <User className="w-4 h-4" />
-                  <span className="text-sm">
-                    מורה: {
-                      lesson.teacherName || 
-                      (typeof lesson.teacherId === 'string' 
-                        ? lesson.teacherId 
-                        : lesson.teacherId?.personalInfo?.name) || 
-                      'לא ידוע'
-                    }
-                  </span>
-                </div>
-              )}
+              <TeacherNameDisplay
+                lesson={lesson}
+                className="mb-3"
+                showIcon={true}
+              />
 
               {/* Schedule */}
               {(lesson.date || lesson.startTime) && (
@@ -510,20 +502,11 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId, isLoading }) 
                   </div>
 
                   {/* Teacher info */}
-                  {(lesson.teacherId || lesson.teacherName) && (
-                    <div className="flex items-center gap-2 text-gray-600 mb-3">
-                      <User className="w-4 h-4" />
-                      <span className="text-sm">
-                        מורה: {
-                          lesson.teacherName || 
-                          (typeof lesson.teacherId === 'string' 
-                            ? lesson.teacherId 
-                            : lesson.teacherId?.personalInfo?.name) || 
-                          'לא ידוע'
-                        }
-                      </span>
-                    </div>
-                  )}
+                  <TeacherNameDisplay
+                    lesson={lesson}
+                    className="mb-3"
+                    showIcon={true}
+                  />
 
                   {/* Schedule */}
                   {(lesson.date || lesson.startTime) && (

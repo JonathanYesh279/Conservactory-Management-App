@@ -207,7 +207,7 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
       <div className="lg:hidden">
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-900 font-reisinger-michal">
+            <h1 className="text-xl font-bold text-gray-900 font-reisinger-yonatan">
               ניהול מחיקות
             </h1>
             <button
@@ -239,7 +239,7 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
                     `}
                   >
                     <Icon className="w-4 h-4" />
-                    <span className="font-reisinger-michal">{tab.label}</span>
+                    <span className="font-reisinger-yonatan">{tab.label}</span>
                   </button>
                 )
               })}
@@ -256,10 +256,10 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
               <Shield className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 font-reisinger-michal">
+              <h1 className="text-3xl font-bold text-gray-900 font-reisinger-yonatan">
                 מרכז בקרת מחיקות
               </h1>
-              <p className="text-gray-600 font-reisinger-michal">
+              <p className="text-gray-600 font-reisinger-yonatan">
                 ניהול מחיקות מתקדם ובקרת שלמות נתונים
               </p>
             </div>
@@ -268,11 +268,11 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
           <div className="flex gap-2">
             <button className="flex items-center gap-1 px-4 py-2 text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
               <Download className="w-4 h-4" />
-              <span className="font-reisinger-michal">יצוא דוחות</span>
+              <span className="font-reisinger-yonatan">יצוא דוחות</span>
             </button>
             <button className="flex items-center gap-1 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
               <RefreshCw className="w-4 h-4" />
-              <span className="font-reisinger-michal">רענון נתונים</span>
+              <span className="font-reisinger-yonatan">רענון נתונים</span>
             </button>
           </div>
         </div>
@@ -294,7 +294,7 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
                 `}
               >
                 <Icon className="w-5 h-5" />
-                <span className="font-reisinger-michal">{tab.label}</span>
+                <span className="font-reisinger-yonatan">{tab.label}</span>
               </button>
             )
           })}
@@ -305,11 +305,11 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
       <div className="lg:hidden grid grid-cols-2 gap-3">
         <Card className="text-center">
           <div className="text-2xl font-bold text-blue-600 mb-1">{quickStats.integrityScore}</div>
-          <div className="text-xs text-gray-600 font-reisinger-michal">ציון שלמות</div>
+          <div className="text-xs text-gray-600 font-reisinger-yonatan">ציון שלמות</div>
         </Card>
         <Card className="text-center">
           <div className="text-2xl font-bold text-yellow-600 mb-1">{quickStats.orphanedReferences}</div>
-          <div className="text-xs text-gray-600 font-reisinger-michal">הפניות יתומות</div>
+          <div className="text-xs text-gray-600 font-reisinger-yonatan">הפניות יתומות</div>
         </Card>
       </div>
 
@@ -322,7 +322,7 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
             </div>
             <span className="text-2xl font-bold text-blue-600">{quickStats.totalDeletions}</span>
           </div>
-          <div className="text-sm text-gray-600 font-reisinger-michal">סה"כ מחיקות</div>
+          <div className="text-sm text-gray-600 font-reisinger-yonatan">סה"כ מחיקות</div>
         </Card>
 
         <Card className="text-center">
@@ -332,7 +332,7 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
             </div>
             <span className="text-2xl font-bold text-orange-600">{quickStats.pendingOperations}</span>
           </div>
-          <div className="text-sm text-gray-600 font-reisinger-michal">פעולות בהמתנה</div>
+          <div className="text-sm text-gray-600 font-reisinger-yonatan">פעולות בהמתנה</div>
         </Card>
 
         <Card className="text-center">
@@ -342,7 +342,7 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
             </div>
             <span className="text-2xl font-bold text-yellow-600">{quickStats.orphanedReferences}</span>
           </div>
-          <div className="text-sm text-gray-600 font-reisinger-michal">הפניות יתומות</div>
+          <div className="text-sm text-gray-600 font-reisinger-yonatan">הפניות יתומות</div>
         </Card>
 
         <Card className="text-center">
@@ -356,7 +356,7 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
             />
             <span className="text-2xl font-bold text-green-600">{quickStats.integrityScore}</span>
           </div>
-          <div className="text-sm text-gray-600 font-reisinger-michal">ציון שלמות</div>
+          <div className="text-sm text-gray-600 font-reisinger-yonatan">ציון שלמות</div>
         </Card>
 
         <Card className="text-center">
@@ -366,7 +366,7 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
             </div>
             <span className="text-2xl font-bold text-red-600">{quickStats.recentFailures}</span>
           </div>
-          <div className="text-sm text-gray-600 font-reisinger-michal">כשלים אחרונים</div>
+          <div className="text-sm text-gray-600 font-reisinger-yonatan">כשלים אחרונים</div>
         </Card>
       </div>
 
@@ -379,10 +379,10 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
               <div className="flex items-center gap-3">
                 <Search className="w-6 h-6 text-gray-500" />
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 font-reisinger-michal">
+                  <h3 className="text-lg font-semibold text-gray-900 font-reisinger-yonatan">
                     חיפוש ישויות למחיקה
                   </h3>
-                  <p className="text-sm text-gray-600 font-reisinger-michal">
+                  <p className="text-sm text-gray-600 font-reisinger-yonatan">
                     חפש תלמידים, מורים או רשומות אחרות למחיקה
                   </p>
                 </div>
@@ -397,13 +397,13 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-reisinger-michal"
+                    className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-reisinger-yonatan"
                   />
                 </div>
                 <button
                   onClick={handleSearch}
                   disabled={isSearching || !searchQuery.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-michal"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-reisinger-yonatan"
                 >
                   {isSearching ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -422,18 +422,18 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
                         {getEntityIcon(result.type)}
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900 font-reisinger-michal">
+                            <span className="font-medium text-gray-900 font-reisinger-yonatan">
                               {result.name}
                             </span>
-                            <span className="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-200 rounded-full font-reisinger-michal">
+                            <span className="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-200 rounded-full font-reisinger-yonatan">
                               {getEntityTypeLabel(result.type)}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600 font-reisinger-michal">{result.details}</p>
+                          <p className="text-sm text-gray-600 font-reisinger-yonatan">{result.details}</p>
                           {result.warnings && result.warnings.length > 0 && (
                             <div className="flex items-center gap-1 mt-1">
                               <AlertTriangle className="w-3 h-3 text-yellow-500" />
-                              <span className="text-xs text-yellow-600 font-reisinger-michal">
+                              <span className="text-xs text-yellow-600 font-reisinger-yonatan">
                                 {result.warnings[0]}
                               </span>
                             </div>
@@ -465,11 +465,11 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <Activity className="w-6 h-6 text-blue-500" />
-                <h3 className="text-lg font-semibold text-gray-900 font-reisinger-michal">
+                <h3 className="text-lg font-semibold text-gray-900 font-reisinger-yonatan">
                   פעולות אחרונות
                 </h3>
               </div>
-              <button className="text-sm text-blue-600 hover:text-blue-700 font-reisinger-michal">
+              <button className="text-sm text-blue-600 hover:text-blue-700 font-reisinger-yonatan">
                 צפה בהכל
               </button>
             </div>
@@ -488,7 +488,7 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
             {recentOperations.length === 0 && (
               <div className="text-center py-8">
                 <Activity className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 font-reisinger-michal">אין פעולות אחרונות</p>
+                <p className="text-gray-500 font-reisinger-yonatan">אין פעולות אחרונות</p>
               </div>
             )}
           </Card>
@@ -507,31 +507,31 @@ const AdminDeletionDashboard: React.FC<AdminDeletionDashboardProps> = ({
           <Card>
             <div className="text-center py-12">
               <Settings className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-600 font-reisinger-michal mb-2">
+              <h3 className="text-xl font-semibold text-gray-600 font-reisinger-yonatan mb-2">
                 פעולות מתקדמות
               </h3>
-              <p className="text-gray-500 font-reisinger-michal mb-6">
+              <p className="text-gray-500 font-reisinger-yonatan mb-6">
                 כלים מתקדמים לניהול מחיקות ותחזוקת המערכת
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
                 <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors">
                   <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <span className="block text-sm font-medium text-gray-600 font-reisinger-michal">
+                  <span className="block text-sm font-medium text-gray-600 font-reisinger-yonatan">
                     מחיקה מרובה
                   </span>
                 </button>
                 
                 <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors">
                   <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <span className="block text-sm font-medium text-gray-600 font-reisinger-michal">
+                  <span className="block text-sm font-medium text-gray-600 font-reisinger-yonatan">
                     בדיקת שלמות
                   </span>
                 </button>
                 
                 <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors">
                   <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <span className="block text-sm font-medium text-gray-600 font-reisinger-michal">
+                  <span className="block text-sm font-medium text-gray-600 font-reisinger-yonatan">
                     תחזוקת מערכת
                   </span>
                 </button>

@@ -116,7 +116,7 @@ export default function GeneralInfoTab() {
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-reisinger-michal">טוען פרטי פרופיל...</p>
+          <p className="mt-4 text-gray-600 font-reisinger-yonatan">טוען פרטי פרופיל...</p>
         </div>
       </div>
     )
@@ -136,13 +136,13 @@ export default function GeneralInfoTab() {
           ) : (
             <AlertCircle className="w-5 h-5" />
           )}
-          <span className="font-reisinger-michal">{saveStatus.message}</span>
+          <span className="font-reisinger-yonatan">{saveStatus.message}</span>
         </div>
       )}
 
       {/* Header with Edit Button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-gray-900 font-reisinger-michal">
+        <h3 className="text-xl font-bold text-gray-900 font-reisinger-yonatan">
           פרטים אישיים
         </h3>
         {!isEditing ? (
@@ -152,7 +152,7 @@ export default function GeneralInfoTab() {
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Edit2 className="w-4 h-4" />
-            <span className="font-reisinger-michal">עריכה</span>
+            <span className="font-reisinger-yonatan">עריכה</span>
           </button>
         ) : (
           <div className="flex gap-2">
@@ -166,7 +166,7 @@ export default function GeneralInfoTab() {
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              <span className="font-reisinger-michal">שמירה</span>
+              <span className="font-reisinger-yonatan">שמירה</span>
             </button>
             <button
               onClick={handleCancel}
@@ -174,7 +174,7 @@ export default function GeneralInfoTab() {
               className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X className="w-4 h-4" />
-              <span className="font-reisinger-michal">ביטול</span>
+              <span className="font-reisinger-yonatan">ביטול</span>
             </button>
           </div>
         )}
@@ -184,7 +184,7 @@ export default function GeneralInfoTab() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Full Name */}
         <div className="space-y-2 md:col-span-2">
-          <label className="text-sm font-medium text-gray-700 font-reisinger-michal">
+          <label className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
             שם מלא
           </label>
           {isEditing ? (
@@ -198,14 +198,14 @@ export default function GeneralInfoTab() {
             />
           ) : (
             <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-              <span className="font-reisinger-michal">{editedUser.fullName || 'לא צוין'}</span>
+              <span className="font-reisinger-yonatan">{editedUser.fullName || 'לא צוין'}</span>
             </div>
           )}
         </div>
 
         {/* Email */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 font-reisinger-michal">
+          <label className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
             דוא"ל
           </label>
           {isEditing ? (
@@ -220,14 +220,14 @@ export default function GeneralInfoTab() {
           ) : (
             <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
               <Mail className="w-4 h-4 text-gray-500" />
-              <span className="font-reisinger-michal" dir="ltr">{editedUser.email || 'לא צוין'}</span>
+              <span className="font-reisinger-yonatan" dir="ltr">{editedUser.email || 'לא צוין'}</span>
             </div>
           )}
         </div>
 
         {/* Phone */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 font-reisinger-michal">
+          <label className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
             טלפון
           </label>
           {isEditing ? (
@@ -242,14 +242,14 @@ export default function GeneralInfoTab() {
           ) : (
             <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
               <Phone className="w-4 h-4 text-gray-500" />
-              <span className="font-reisinger-michal" dir="ltr">{editedUser.phone || 'לא צוין'}</span>
+              <span className="font-reisinger-yonatan" dir="ltr">{editedUser.phone || 'לא צוין'}</span>
             </div>
           )}
         </div>
 
         {/* Address */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 font-reisinger-michal">
+          <label className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
             כתובת
           </label>
           {isEditing ? (
@@ -264,14 +264,14 @@ export default function GeneralInfoTab() {
           ) : (
             <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
               <MapPin className="w-4 h-4 text-gray-500" />
-              <span className="font-reisinger-michal">{editedUser.address || 'לא צוין'}</span>
+              <span className="font-reisinger-yonatan">{editedUser.address || 'לא צוין'}</span>
             </div>
           )}
         </div>
 
         {/* Birth Date */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 font-reisinger-michal">
+          <label className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
             תאריך לידה
           </label>
           {isEditing ? (
@@ -284,7 +284,7 @@ export default function GeneralInfoTab() {
           ) : (
             <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
               <Calendar className="w-4 h-4 text-gray-500" />
-              <span className="font-reisinger-michal">{formatDate(editedUser.birthDate) || 'לא צוין'}</span>
+              <span className="font-reisinger-yonatan">{formatDate(editedUser.birthDate) || 'לא צוין'}</span>
             </div>
           )}
         </div>
@@ -292,13 +292,13 @@ export default function GeneralInfoTab() {
 
       {/* Role Information (Read-only) */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="text-lg font-semibold text-blue-900 mb-2 font-reisinger-michal">
+        <h4 className="text-lg font-semibold text-blue-900 mb-2 font-reisinger-yonatan">
           מידע תפקיד
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
-            <span className="text-sm font-medium text-blue-700 font-reisinger-michal">תפקיד:</span>
-            <div className="text-blue-900 font-reisinger-michal">
+            <span className="text-sm font-medium text-blue-700 font-reisinger-yonatan">תפקיד:</span>
+            <div className="text-blue-900 font-reisinger-yonatan">
               {(() => {
                 const roles = displayData?.roles || []
                 if (roles.length > 0) {
@@ -321,23 +321,23 @@ export default function GeneralInfoTab() {
             </div>
           </div>
           <div className="space-y-1">
-            <span className="text-sm font-medium text-blue-700 font-reisinger-michal">מזהה משתמש:</span>
-            <div className="text-blue-900 font-reisinger-michal font-mono text-sm">
+            <span className="text-sm font-medium text-blue-700 font-reisinger-yonatan">מזהה משתמש:</span>
+            <div className="text-blue-900 font-reisinger-yonatan font-mono text-sm">
               {displayData?.teacherId || displayData?._id || displayData?.id || 'לא צוין'}
             </div>
           </div>
           {displayData?.isActive !== undefined && (
             <div className="space-y-1">
-              <span className="text-sm font-medium text-blue-700 font-reisinger-michal">סטטוס:</span>
-              <div className="text-blue-900 font-reisinger-michal">
+              <span className="text-sm font-medium text-blue-700 font-reisinger-yonatan">סטטוס:</span>
+              <div className="text-blue-900 font-reisinger-yonatan">
                 {displayData.isActive ? 'פעיל' : 'לא פעיל'}
               </div>
             </div>
           )}
           {displayData?.professionalInfo?.instrument && (
             <div className="space-y-1">
-              <span className="text-sm font-medium text-blue-700 font-reisinger-michal">כלי נגינה:</span>
-              <div className="text-blue-900 font-reisinger-michal">
+              <span className="text-sm font-medium text-blue-700 font-reisinger-yonatan">כלי נגינה:</span>
+              <div className="text-blue-900 font-reisinger-yonatan">
                 {displayData.professionalInfo.instrument}
               </div>
             </div>

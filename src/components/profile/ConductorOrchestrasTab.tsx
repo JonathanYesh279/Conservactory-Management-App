@@ -248,7 +248,7 @@ export default function ConductorOrchestrasTab() {
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div className="text-red-800 font-reisinger-michal">{error}</div>
+        <div className="text-red-800 font-reisinger-yonatan">{error}</div>
       </div>
     )
   }
@@ -258,7 +258,7 @@ export default function ConductorOrchestrasTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold text-gray-900 font-reisinger-michal">
+          <h3 className="text-xl font-bold text-gray-900 font-reisinger-yonatan">
             תזמורות שאני מנצח
           </h3>
           <p className="text-gray-600 mt-1">
@@ -270,7 +270,7 @@ export default function ConductorOrchestrasTab() {
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          <span className="font-reisinger-michal">הוסף תזמורת</span>
+          <span className="font-reisinger-yonatan">הוסף תזמורת</span>
         </button>
       </div>
 
@@ -293,10 +293,10 @@ export default function ConductorOrchestrasTab() {
           {filteredOrchestras.length === 0 ? (
             <div className="text-center py-12">
               <Music className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2 font-reisinger-michal">
+              <h3 className="text-lg font-medium text-gray-900 mb-2 font-reisinger-yonatan">
                 {searchTerm ? 'לא נמצאו תזמורות' : 'אין תזמורות רשומות'}
               </h3>
-              <p className="text-gray-600 font-reisinger-michal">
+              <p className="text-gray-600 font-reisinger-yonatan">
                 {searchTerm ? 'נסה מילות חיפוש אחרות' : 'התחל בהוספת התזמורת הראשונה שלך'}
               </p>
             </div>
@@ -314,14 +314,14 @@ export default function ConductorOrchestrasTab() {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 font-reisinger-michal">
+                    <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
                       {orchestra.name}
                     </h4>
-                    <p className="text-sm text-gray-600 font-reisinger-michal">
+                    <p className="text-sm text-gray-600 font-reisinger-yonatan">
                       {getOrchestraTypeLabel(orchestra.type)} • {getLevelLabel(orchestra.level)}
                     </p>
                     {orchestra.description && (
-                      <p className="text-sm text-gray-500 mt-1 font-reisinger-michal">
+                      <p className="text-sm text-gray-500 mt-1 font-reisinger-yonatan">
                         {orchestra.description}
                       </p>
                     )}
@@ -379,10 +379,10 @@ export default function ConductorOrchestrasTab() {
         {selectedOrchestra && (
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-gray-900 font-reisinger-michal">
+              <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
                 חברי התזמורת
               </h4>
-              <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium font-reisinger-michal">
+              <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium font-reisinger-yonatan">
                 נהל חברים
               </button>
             </div>
@@ -390,17 +390,17 @@ export default function ConductorOrchestrasTab() {
             {orchestraMembers.length === 0 ? (
               <div className="text-center py-8">
                 <Users className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm font-reisinger-michal">אין חברים רשומים בתזמורת</p>
+                <p className="text-gray-500 text-sm font-reisinger-yonatan">אין חברים רשומים בתזמורת</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {orchestraMembers.map((member) => (
                   <div key={member.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-200 border border-transparent hover:border-gray-200">
                     <div>
-                      <div className="font-medium text-sm font-reisinger-michal">
+                      <div className="font-medium text-sm font-reisinger-yonatan">
                         {member.firstName} {member.lastName}
                       </div>
-                      <div className="text-xs text-gray-500 font-reisinger-michal">
+                      <div className="text-xs text-gray-500 font-reisinger-yonatan">
                         {member.instrument} • {member.section}
                       </div>
                     </div>
@@ -461,13 +461,13 @@ function OrchestraModal({ orchestra, onClose, onSubmit }: OrchestraModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" dir="rtl">
-        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-michal">
+        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-yonatan">
           {orchestra ? 'עריכת תזמורת' : 'הוספת תזמורת חדשה'}
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               שם התזמורת *
             </label>
             <input
@@ -480,7 +480,7 @@ function OrchestraModal({ orchestra, onClose, onSubmit }: OrchestraModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               תיאור
             </label>
             <textarea
@@ -493,7 +493,7 @@ function OrchestraModal({ orchestra, onClose, onSubmit }: OrchestraModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 סוג תזמורת *
               </label>
               <select
@@ -510,7 +510,7 @@ function OrchestraModal({ orchestra, onClose, onSubmit }: OrchestraModalProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 רמה *
               </label>
               <select
@@ -528,7 +528,7 @@ function OrchestraModal({ orchestra, onClose, onSubmit }: OrchestraModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 יום חזרות
               </label>
               <input
@@ -541,7 +541,7 @@ function OrchestraModal({ orchestra, onClose, onSubmit }: OrchestraModalProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
                 שעת חזרות
               </label>
               <input
@@ -554,7 +554,7 @@ function OrchestraModal({ orchestra, onClose, onSubmit }: OrchestraModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               מקום חזרות
             </label>
             <input
@@ -566,7 +566,7 @@ function OrchestraModal({ orchestra, onClose, onSubmit }: OrchestraModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-michal">
+            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               סטטוס
             </label>
             <select
@@ -582,14 +582,14 @@ function OrchestraModal({ orchestra, onClose, onSubmit }: OrchestraModalProps) {
           <div className="flex gap-3 mt-6">
             <button
               type="submit"
-              className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-michal"
+              className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-yonatan"
             >
               {orchestra ? 'עדכן' : 'הוסף'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors font-reisinger-michal"
+              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors font-reisinger-yonatan"
             >
               ביטול
             </button>

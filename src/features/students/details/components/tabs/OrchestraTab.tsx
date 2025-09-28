@@ -9,6 +9,34 @@ import { useState, useEffect } from 'react'
 import { Music, Users, Plus, Trash2, AlertCircle, Clock, MapPin, CheckCircle, X } from 'lucide-react'
 import apiService from '../../../../../services/apiService'
 
+interface RehearsalSchedule {
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  location?: string
+  dayName: string
+}
+
+interface Orchestra {
+  _id: string
+  name: string
+  type: string
+  conductorId?: string
+  conductor?: any
+  memberIds: string[]
+  rehearsalIds?: string[]
+  rehearsalSchedule?: RehearsalSchedule
+  location?: string
+  isActive?: boolean
+  capacity?: number
+  currentMembers?: number
+  level?: string
+  gradeRequirements?: string[]
+  description?: string
+  isCompatible?: boolean
+  rehearsalSummary?: any
+}
+
 interface OrchestraTabProps {
   student: any
   studentId: string
@@ -17,8 +45,8 @@ interface OrchestraTabProps {
 
 const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoading }) => {
   const [activeView, setActiveView] = useState<'current' | 'manage'>('current')
-  const [enrolledOrchestras, setEnrolledOrchestras] = useState<any[]>([])
-  const [availableOrchestras, setAvailableOrchestras] = useState<any[]>([])
+  const [enrolledOrchestras, setEnrolledOrchestras] = useState<Orchestra[]>([])
+  const [availableOrchestras, setAvailableOrchestras] = useState<Orchestra[]>([])
   const [isLoadingOrchestras, setIsLoadingOrchestras] = useState(false)
   const [enrollmentInProgress, setEnrollmentInProgress] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState<string | null>(null)
@@ -55,31 +83,66 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
           return
         }
 
-        // Fetch details for all enrolled orchestras
+        // Fetch details for all enrolled orchestras (without individual rehearsal fetching)
         const orchestraPromises = Array.from(allEnrolledIds).map(async (orchestraId: string) => {
           try {
             const orchestra = await apiService.orchestras.getOrchestra(orchestraId)
-            return { ...orchestra, enrollmentStatus: 'enrolled' }
+
+            // Fetch conductor data if conductorId exists
+            let conductorData = null
+            if (orchestra.conductorId || orchestra.teacherId) {
+              try {
+                const teacherId = orchestra.conductorId || orchestra.teacherId
+                const teacher = await apiService.teachers.getTeacher(teacherId)
+                conductorData = teacher
+              } catch (conductorError) {
+                console.warn(`Failed to fetch conductor ${orchestra.conductorId || orchestra.teacherId}:`, conductorError)
+              }
+            }
+
+            // Add basic rehearsal summary instead of fetching all individual rehearsals
+            const rehearsalSummary = {
+              hasRehearsals: orchestra.rehearsalIds && orchestra.rehearsalIds.length > 0,
+              rehearsalCount: orchestra.rehearsalIds?.length || 0,
+              location: orchestra.location || 'אולם המוזיקה הראשי'
+            }
+
+            return {
+              ...orchestra,
+              conductor: conductorData || orchestra.conductor,
+              enrollmentStatus: 'enrolled',
+              rehearsalSummary
+            }
           } catch (error) {
             console.warn(`Failed to fetch orchestra ${orchestraId}:`, error)
             // Try to get from the already fetched list
             const fromList = orchestrasWhereStudentIsMember.find((o: any) => o._id === orchestraId)
             if (fromList) {
-              return { ...fromList, enrollmentStatus: 'enrolled' }
+              return {
+                ...fromList,
+                enrollmentStatus: 'enrolled',
+                rehearsalSummary: { hasRehearsals: false, rehearsalCount: 0, location: 'לא מוגד' }
+              }
             }
             return {
               _id: orchestraId,
               name: 'תזמורת לא זמינה',
               error: true,
-              enrollmentStatus: 'enrolled'
+              enrollmentStatus: 'enrolled',
+              rehearsalSummary: { hasRehearsals: false, rehearsalCount: 0, location: 'לא מוגד' }
             }
           }
         })
 
         const orchestras = await Promise.all(orchestraPromises)
         setEnrolledOrchestras(orchestras)
-        
+
         console.log(`Found ${orchestras.length} enrolled orchestras for student ${studentId}`)
+        if (orchestras.length > 0) {
+          console.log('📊 Enrolled orchestra sample:', orchestras[0])
+          console.log('📊 Enrolled orchestra keys:', Object.keys(orchestras[0]))
+          console.log('📊 Enrolled rehearsal schedule:', orchestras[0].rehearsalSchedule)
+        }
       } catch (error) {
         console.error('Error fetching enrolled orchestras:', error)
       } finally {
@@ -99,37 +162,65 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
         setIsLoadingOrchestras(true)
         const allOrchestras = await apiService.orchestras.getOrchestras()
         
-        // Show all orchestras, but mark which ones the student is already enrolled in
-        const processedOrchestras = allOrchestras.map((orchestra: any) => {
+        // Process orchestras with smart summary approach and fetch conductor data
+        const processedOrchestras = await Promise.all(allOrchestras.map(async (orchestra: any) => {
           // Check if student is already enrolled (either in enrollments or in orchestra's memberIds)
-          const isEnrolled = student?.enrollments?.orchestraIds?.includes(orchestra._id) || 
+          const isEnrolled = student?.enrollments?.orchestraIds?.includes(orchestra._id) ||
                             orchestra.memberIds?.includes(studentId)
-          
+
           // Check instrument compatibility (if orchestra specifies required instruments)
           let instrumentCompatible = true
           if (orchestra.requiredInstruments && orchestra.requiredInstruments.length > 0) {
             instrumentCompatible = orchestra.requiredInstruments.includes(studentInstrument)
           }
-          
+
           // Check grade level requirements (if specified)
           let gradeCompatible = true
           if (orchestra.gradeRequirements && orchestra.gradeRequirements.length > 0) {
             gradeCompatible = orchestra.gradeRequirements.includes(studentGrade)
           }
-          
+
+          // Fetch conductor data if conductorId exists
+          let conductorData = null
+          if (orchestra.conductorId || orchestra.teacherId) {
+            try {
+              const teacherId = orchestra.conductorId || orchestra.teacherId
+              const teacher = await apiService.teachers.getTeacher(teacherId)
+              conductorData = teacher
+            } catch (conductorError) {
+              console.warn(`Failed to fetch conductor ${orchestra.conductorId || orchestra.teacherId}:`, conductorError)
+            }
+          }
+
+          // Add rehearsal summary without fetching individual rehearsals
+          const rehearsalSummary = {
+            hasRehearsals: orchestra.rehearsalIds && orchestra.rehearsalIds.length > 0,
+            rehearsalCount: orchestra.rehearsalIds?.length || 0,
+            location: orchestra.location || 'אולם המוזיקה הראשי'
+          }
+
           return {
             ...orchestra,
+            conductor: conductorData || orchestra.conductor,
             isEnrolled,
             instrumentCompatible,
             gradeCompatible,
-            isCompatible: instrumentCompatible && gradeCompatible
+            isCompatible: instrumentCompatible && gradeCompatible,
+            rehearsalSummary
           }
-        })
+        }))
 
         // Filter to show only non-enrolled orchestras in the available view
         const available = processedOrchestras.filter((orchestra: any) => !orchestra.isEnrolled)
         
         console.log('All orchestras:', allOrchestras.length, 'Available:', available.length)
+        console.log('📊 Orchestra data sample:', allOrchestras[0])
+        console.log('📊 Orchestra keys:', allOrchestras[0] ? Object.keys(allOrchestras[0]) : 'No orchestras')
+        if (allOrchestras[0]) {
+          console.log('📊 Rehearsal schedule field:', allOrchestras[0].rehearsalSchedule)
+          console.log('📊 Schedule field:', allOrchestras[0].schedule)
+          console.log('📊 Rehearsals field:', allOrchestras[0].rehearsals)
+        }
         setAvailableOrchestras(available)
       } catch (error) {
         console.error('Error fetching available orchestras:', error)
@@ -143,22 +234,22 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
   }, [activeView, student?.enrollments?.orchestraIds, studentInstrument, studentGrade, studentId])
 
   // Check for schedule conflicts
-  const checkScheduleConflict = (orchestraSchedule: any) => {
-    if (!orchestraSchedule || !student?.teacherAssignments) return false
-    
+  const checkScheduleConflict = (orchestra: Orchestra) => {
+    const rehearsalSchedule = orchestra?.rehearsalSchedule
+    if (!rehearsalSchedule || !student?.teacherAssignments) return false
+
     const studentLessonDay = 2 // Tuesday (0=Sunday, 1=Monday, 2=Tuesday...)
     const studentLessonStart = '14:30'
     const studentLessonEnd = '15:15'
-    
-    return orchestraSchedule.some((rehearsal: any) => {
-      if (rehearsal.dayOfWeek !== studentLessonDay) return false
-      
-      const rehearsalStart = rehearsal.startTime
-      const rehearsalEnd = rehearsal.endTime
-      
-      // Check for time overlap
-      return (rehearsalStart < studentLessonEnd && rehearsalEnd > studentLessonStart)
-    })
+
+    // Check if the rehearsal is on the same day as student's lesson
+    if (rehearsalSchedule.dayOfWeek !== studentLessonDay) return false
+
+    const rehearsalStart = rehearsalSchedule.startTime
+    const rehearsalEnd = rehearsalSchedule.endTime
+
+    // Check for time overlap
+    return (rehearsalStart < studentLessonEnd && rehearsalEnd > studentLessonStart)
   }
 
   // Enroll in orchestra
@@ -301,13 +392,75 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <h4 className="text-xl font-semibold text-gray-900">{orchestra.name}</h4>
-                  {orchestra.conductor && (
-                    <p className="text-gray-600 mt-1">מנצח: {
-                      typeof orchestra.conductor === 'string' 
-                        ? orchestra.conductor 
-                        : orchestra.conductor.personalInfo?.name || 'לא ידוע'
-                    }</p>
-                  )}
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">מנצח:</span>
+                      <span className="text-sm text-gray-900">
+                        {(() => {
+                          console.log('🎭 Debugging conductor for orchestra:', orchestra.name)
+                          console.log('🎭 Orchestra object keys:', Object.keys(orchestra))
+                          console.log('🎭 Orchestra.conductor:', orchestra.conductor)
+                          console.log('🎭 Orchestra.conductorId:', orchestra.conductorId)
+                          console.log('🎭 Orchestra.teacherId:', orchestra.teacherId)
+
+                          // Try different ways to get conductor name
+                          if (orchestra.conductor) {
+                            console.log('🎭 Conductor object:', orchestra.conductor)
+                            console.log('🎭 Conductor type:', typeof orchestra.conductor)
+                            console.log('🎭 Conductor keys:', typeof orchestra.conductor === 'object' ? Object.keys(orchestra.conductor) : 'N/A')
+                            console.log('🎭 Conductor.personalInfo:', orchestra.conductor.personalInfo)
+                            console.log('🎭 Conductor.personalInfo keys:', orchestra.conductor.personalInfo ? Object.keys(orchestra.conductor.personalInfo) : 'No personalInfo')
+
+                            if (typeof orchestra.conductor === 'string') {
+                              console.log('🎭 Using string conductor name:', orchestra.conductor)
+                              return orchestra.conductor
+                            }
+
+                            // Check for fullName in different places
+                            if (orchestra.conductor.fullName) {
+                              console.log('🎭 Using fullName:', orchestra.conductor.fullName)
+                              return orchestra.conductor.fullName
+                            }
+                            if (orchestra.conductor.personalInfo?.fullName) {
+                              console.log('🎭 Using personalInfo.fullName:', orchestra.conductor.personalInfo.fullName)
+                              return orchestra.conductor.personalInfo.fullName
+                            }
+
+                            // Check for firstName + lastName
+                            if (orchestra.conductor.personalInfo?.firstName && orchestra.conductor.personalInfo?.lastName) {
+                              const name = `${orchestra.conductor.personalInfo.firstName} ${orchestra.conductor.personalInfo.lastName}`
+                              console.log('🎭 Using personalInfo firstName + lastName:', name)
+                              return name
+                            }
+
+                            // Check for name field
+                            if (orchestra.conductor.personalInfo?.name) {
+                              console.log('🎭 Using personalInfo.name:', orchestra.conductor.personalInfo.name)
+                              return orchestra.conductor.personalInfo.name
+                            }
+                            if (orchestra.conductor.name) {
+                              console.log('🎭 Using name:', orchestra.conductor.name)
+                              return orchestra.conductor.name
+                            }
+
+                            // Check Hebrew name fields
+                            if (orchestra.conductor.personalInfo?.hebrewName) {
+                              console.log('🎭 Using personalInfo.hebrewName:', orchestra.conductor.personalInfo.hebrewName)
+                              return orchestra.conductor.personalInfo.hebrewName
+                            }
+
+                            // Check for displayName
+                            if (orchestra.conductor.displayName) {
+                              console.log('🎭 Using displayName:', orchestra.conductor.displayName)
+                              return orchestra.conductor.displayName
+                            }
+                          }
+                          console.log('🎭 No conductor data found, returning default')
+                          return 'לא מוגד'
+                        })()}
+                      </span>
+                    </div>
+                  </div>
                   {orchestra.error && (
                     <p className="text-red-600 text-sm mt-1">שגיאה בטעינת פרטי התזמורת</p>
                   )}
@@ -334,31 +487,34 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
                 <p className="text-gray-600 mb-4">{orchestra.description}</p>
               )}
 
-              {/* Rehearsal Schedule */}
-              {orchestra.rehearsalSchedule && orchestra.rehearsalSchedule.length > 0 && (
-                <div className="mb-4">
-                  <h5 className="font-medium text-gray-700 mb-2 flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    זמני חזרות
-                  </h5>
-                  <div className="space-y-1">
-                    {orchestra.rehearsalSchedule.map((rehearsal: any, index: number) => (
-                      <div key={index} className="text-sm text-gray-600 bg-gray-50 p-2 rounded flex items-center gap-2">
-                        <span>{rehearsal.day || `יום ${index + 1}`}</span>
-                        <span>•</span>
-                        <span>{rehearsal.startTime} - {rehearsal.endTime}</span>
-                        {rehearsal.location && (
-                          <>
-                            <span>•</span>
-                            <MapPin className="w-3 h-3" />
-                            <span>{rehearsal.location}</span>
-                          </>
-                        )}
-                      </div>
-                    ))}
+              {/* Rehearsal Summary */}
+              <div className="mb-4 bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h5 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  חזרות שבועיות
+                </h5>
+                <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium text-blue-900">
+                        {orchestra.rehearsalSchedule?.dayName || 'לא מוגדר'}
+                      </span>
+                      <span className="text-blue-600">•</span>
+                      <span className="font-medium text-blue-800">
+                        {orchestra.rehearsalSchedule
+                          ? `${orchestra.rehearsalSchedule.startTime} - ${orchestra.rehearsalSchedule.endTime}`
+                          : 'שעות לא מוגדרות'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-blue-700">
+                      <MapPin className="w-4 h-4" />
+                      <span className="text-sm font-medium">
+                        {orchestra.rehearsalSchedule?.location || orchestra.location || 'אולם גן'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Capacity Info */}
               {orchestra.capacity && (
@@ -409,7 +565,7 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {availableOrchestras.map((orchestra) => {
-              const hasConflict = checkScheduleConflict(orchestra.rehearsalSchedule)
+              const hasConflict = checkScheduleConflict(orchestra)
               const isFull = orchestra.capacity && orchestra.currentMembers >= orchestra.capacity
               const canEnroll = !hasConflict && !isFull && orchestra.isCompatible
               
@@ -423,13 +579,73 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <h4 className="text-xl font-semibold text-gray-900">{orchestra.name}</h4>
-                      {orchestra.conductor && (
-                        <p className="text-gray-600 mt-1">מנצח: {
-                          typeof orchestra.conductor === 'string' 
-                            ? orchestra.conductor 
-                            : orchestra.conductor.personalInfo?.name || 'לא ידוע'
-                        }</p>
-                      )}
+                      <div className="mt-2 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-700">מנצח:</span>
+                          <span className="text-sm text-gray-900">
+                            {(() => {
+                              console.log('🎪 Debugging conductor for available orchestra:', orchestra.name)
+                              console.log('🎪 Available orchestra.conductor:', orchestra.conductor)
+                              console.log('🎪 Available orchestra.conductorId:', orchestra.conductorId)
+
+                              // Try different ways to get conductor name
+                              if (orchestra.conductor) {
+                                console.log('🎪 Available conductor object:', orchestra.conductor)
+                                console.log('🎪 Available conductor type:', typeof orchestra.conductor)
+                                console.log('🎪 Available conductor keys:', Object.keys(orchestra.conductor))
+                                console.log('🎪 Available conductor.personalInfo:', orchestra.conductor.personalInfo)
+                                console.log('🎪 Available conductor.personalInfo keys:', orchestra.conductor.personalInfo ? Object.keys(orchestra.conductor.personalInfo) : 'No personalInfo')
+
+                                if (typeof orchestra.conductor === 'string') {
+                                  console.log('🎪 Using string conductor name:', orchestra.conductor)
+                                  return orchestra.conductor
+                                }
+
+                                // Check for fullName in different places
+                                if (orchestra.conductor.fullName) {
+                                  console.log('🎪 Using fullName:', orchestra.conductor.fullName)
+                                  return orchestra.conductor.fullName
+                                }
+                                if (orchestra.conductor.personalInfo?.fullName) {
+                                  console.log('🎪 Using personalInfo.fullName:', orchestra.conductor.personalInfo.fullName)
+                                  return orchestra.conductor.personalInfo.fullName
+                                }
+
+                                // Check for firstName + lastName
+                                if (orchestra.conductor.personalInfo?.firstName && orchestra.conductor.personalInfo?.lastName) {
+                                  const name = `${orchestra.conductor.personalInfo.firstName} ${orchestra.conductor.personalInfo.lastName}`
+                                  console.log('🎪 Using personalInfo firstName + lastName:', name)
+                                  return name
+                                }
+
+                                // Check for name field
+                                if (orchestra.conductor.personalInfo?.name) {
+                                  console.log('🎪 Using personalInfo.name:', orchestra.conductor.personalInfo.name)
+                                  return orchestra.conductor.personalInfo.name
+                                }
+                                if (orchestra.conductor.name) {
+                                  console.log('🎪 Using name:', orchestra.conductor.name)
+                                  return orchestra.conductor.name
+                                }
+
+                                // Check Hebrew name fields
+                                if (orchestra.conductor.personalInfo?.hebrewName) {
+                                  console.log('🎪 Using personalInfo.hebrewName:', orchestra.conductor.personalInfo.hebrewName)
+                                  return orchestra.conductor.personalInfo.hebrewName
+                                }
+
+                                // Check for displayName
+                                if (orchestra.conductor.displayName) {
+                                  console.log('🎪 Using displayName:', orchestra.conductor.displayName)
+                                  return orchestra.conductor.displayName
+                                }
+                              }
+                              console.log('🎪 No conductor data found for available orchestra, returning default')
+                              return 'לא מוגד'
+                            })()}
+                          </span>
+                        </div>
+                      </div>
                       
                       {/* Level and Type */}
                       <div className="mt-2 flex items-center gap-2">
@@ -506,36 +722,51 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
                     </div>
                   )}
 
-                  {/* Rehearsal Schedule */}
-                  {orchestra.rehearsalSchedule && orchestra.rehearsalSchedule.length > 0 && (
-                    <div className="mb-4">
-                      <h5 className="font-medium text-gray-700 mb-2 flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        זמני חזרות
-                      </h5>
-                      <div className="space-y-1">
-                        {orchestra.rehearsalSchedule.map((rehearsal: any, index: number) => (
-                          <div 
-                            key={index} 
-                            className={`text-sm p-2 rounded flex items-center gap-2 ${
-                              hasConflict ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-600'
-                            }`}
-                          >
-                            <span>{rehearsal.day || `יום ${index + 1}`}</span>
-                            <span>•</span>
-                            <span>{rehearsal.startTime} - {rehearsal.endTime}</span>
-                            {rehearsal.location && (
-                              <>
-                                <span>•</span>
-                                <MapPin className="w-3 h-3" />
-                                <span>{rehearsal.location}</span>
-                              </>
-                            )}
-                          </div>
-                        ))}
+                  {/* Rehearsal Summary */}
+                  <div className={`mb-4 rounded-lg p-4 border ${
+                    hasConflict ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'
+                  }`}>
+                    <h5 className={`font-semibold mb-3 flex items-center gap-2 ${
+                      hasConflict ? 'text-red-900' : 'text-blue-900'
+                    }`}>
+                      <Clock className={`w-5 h-5 ${hasConflict ? 'text-red-600' : 'text-blue-600'}`} />
+                      חזרות שבועיות
+                      {hasConflict && (
+                        <span className="text-xs bg-red-200 text-red-800 px-2 py-1 rounded-full">
+                          התנגשות!
+                        </span>
+                      )}
+                    </h5>
+                    <div className={`p-3 rounded-lg border shadow-sm ${
+                      hasConflict ? 'bg-red-100 border-red-200' : 'bg-white border-blue-100'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className={`font-medium ${
+                            hasConflict ? 'text-red-900' : 'text-blue-900'
+                          }`}>
+                            {orchestra.rehearsalSchedule?.dayName || 'לא מוגדר'}
+                          </span>
+                          <span className={hasConflict ? 'text-red-600' : 'text-blue-600'}>•</span>
+                          <span className={`font-medium ${
+                            hasConflict ? 'text-red-800' : 'text-blue-800'
+                          }`}>
+                            {orchestra.rehearsalSchedule
+                              ? `${orchestra.rehearsalSchedule.startTime} - ${orchestra.rehearsalSchedule.endTime}`
+                              : 'שעות לא מוגדרות'}
+                          </span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${
+                          hasConflict ? 'text-red-700' : 'text-blue-700'
+                        }`}>
+                          <MapPin className="w-4 h-4" />
+                          <span className="text-sm font-medium">
+                            {orchestra.rehearsalSchedule?.location || orchestra.location || 'אולם גן'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  )}
+                  </div>
 
                   {/* Required Instruments */}
                   {orchestra.requiredInstruments && orchestra.requiredInstruments.length > 0 && (

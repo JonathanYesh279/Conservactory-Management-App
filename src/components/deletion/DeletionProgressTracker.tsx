@@ -138,7 +138,7 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
           <div className="flex items-center gap-3">
             {getStatusIcon()}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 font-reisinger-michal">
+              <h3 className="text-lg font-semibold text-gray-900 font-reisinger-yonatan">
                 מחיקת {operation.entityName}
               </h3>
               <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -146,10 +146,10 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
                   px-2 py-1 rounded-full text-xs font-medium border
                   ${getStatusColor()}
                 `}>
-                  <span className="font-reisinger-michal">{getStatusText()}</span>
+                  <span className="font-reisinger-yonatan">{getStatusText()}</span>
                 </span>
                 {operation.startTime && (
-                  <span className="font-reisinger-michal">
+                  <span className="font-reisinger-yonatan">
                     {formatDuration(operation.startTime, operation.endTime)}
                   </span>
                 )}
@@ -166,7 +166,7 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
                   className="flex items-center gap-1 px-3 py-1 text-sm text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors"
                 >
                   <Pause className="w-4 h-4" />
-                  <span className="font-reisinger-michal">השהה</span>
+                  <span className="font-reisinger-yonatan">השהה</span>
                 </button>
               )}
               {onCancel && (
@@ -175,7 +175,7 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
                   className="flex items-center gap-1 px-3 py-1 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
                 >
                   <Square className="w-4 h-4" />
-                  <span className="font-reisinger-michal">ביטול</span>
+                  <span className="font-reisinger-yonatan">ביטול</span>
                 </button>
               )}
             </div>
@@ -187,7 +187,7 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
               className="flex items-center gap-1 px-3 py-1 text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
             >
               <Play className="w-4 h-4" />
-              <span className="font-reisinger-michal">התחל</span>
+              <span className="font-reisinger-yonatan">התחל</span>
             </button>
           )}
         </div>
@@ -204,7 +204,7 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
           />
           
           {operation.currentStep && (
-            <p className="text-sm text-gray-600 font-reisinger-michal">
+            <p className="text-sm text-gray-600 font-reisinger-yonatan">
               שלב נוכחי: {operation.currentStep}
             </p>
           )}
@@ -222,9 +222,9 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-center gap-2 text-red-700 mb-2">
               <AlertTriangle className="w-5 h-5" />
-              <span className="font-semibold font-reisinger-michal">שגיאה</span>
+              <span className="font-semibold font-reisinger-yonatan">שגיאה</span>
             </div>
-            <p className="text-sm text-red-600 font-reisinger-michal">
+            <p className="text-sm text-red-600 font-reisinger-yonatan">
               {operation.error}
             </p>
           </div>
@@ -235,12 +235,12 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-center gap-2 text-green-700">
               <CheckCircle className="w-5 h-5" />
-              <span className="font-semibold font-reisinger-michal">
+              <span className="font-semibold font-reisinger-yonatan">
                 המחיקה הושלמה בהצלחה
               </span>
             </div>
             {operation.rollbackAvailable && (
-              <p className="text-sm text-green-600 mt-2 font-reisinger-michal">
+              <p className="text-sm text-green-600 mt-2 font-reisinger-yonatan">
                 ניתן לשחזר את הנתונים תוך 30 יום
               </p>
             )}
@@ -252,11 +252,11 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
             <div className="flex items-center gap-2 text-orange-700">
               <XCircle className="w-5 h-5" />
-              <span className="font-semibold font-reisinger-michal">
+              <span className="font-semibold font-reisinger-yonatan">
                 התהליך בוטל
               </span>
             </div>
-            <p className="text-sm text-orange-600 mt-2 font-reisinger-michal">
+            <p className="text-sm text-orange-600 mt-2 font-reisinger-yonatan">
               המידע לא נמחק ונשמר במצב המקורי
             </p>
           </div>
@@ -264,12 +264,12 @@ const DeletionProgressTracker: React.FC<DeletionProgressTrackerProps> = ({
 
         {/* Time Information */}
         <div className="flex justify-between text-xs text-gray-500 pt-4 border-t border-gray-100">
-          <div className="font-reisinger-michal">
+          <div className="font-reisinger-yonatan">
             {operation.startTime && (
               <>התחיל: {operation.startTime.toLocaleString('he-IL')}</>
             )}
           </div>
-          <div className="font-reisinger-michal">
+          <div className="font-reisinger-yonatan">
             {operation.endTime && (
               <>הסתיים: {operation.endTime.toLocaleString('he-IL')}</>
             )}

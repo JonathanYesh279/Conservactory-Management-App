@@ -1621,6 +1621,31 @@ export const orchestraService = {
         }
       }
 
+      // Fetch one rehearsal per orchestra to get schedule information
+      const rehearsalsMap = {};
+      if (orchestras.length > 0) {
+        try {
+          // Get rehearsals - fetch enough to get at least one per orchestra
+          const allRehearsals = await apiClient.get('/rehearsal', {
+            ...params,
+            limit: 200 // Get enough rehearsals to find one per orchestra
+          }).catch(() => []);
+
+          // Group first rehearsal by orchestra (groupId)
+          orchestras.forEach(orchestra => {
+            // Find the first rehearsal for this orchestra
+            const orchestraRehearsal = Array.isArray(allRehearsals)
+              ? allRehearsals.find(r => r.groupId === orchestra._id)
+              : null;
+            if (orchestraRehearsal) {
+              rehearsalsMap[orchestra._id] = orchestraRehearsal;
+            }
+          });
+        } catch (error) {
+          console.warn('Failed to fetch rehearsals for orchestras:', error);
+        }
+      }
+
       // Process orchestras to add computed fields and populate conductor data
       const processedOrchestras = Array.isArray(orchestras) ? orchestras.map(orchestra => ({
         ...orchestra,
@@ -1628,6 +1653,17 @@ export const orchestraService = {
         conductor: orchestra.conductorId && conductorsMap[orchestra.conductorId]
           ? conductorsMap[orchestra.conductorId]
           : null,
+
+        // Add rehearsal schedule information if available
+        rehearsalSchedule: rehearsalsMap[orchestra._id] ? {
+          dayOfWeek: rehearsalsMap[orchestra._id].dayOfWeek,
+          startTime: rehearsalsMap[orchestra._id].startTime,
+          endTime: rehearsalsMap[orchestra._id].endTime,
+          location: rehearsalsMap[orchestra._id].location,
+          dayName: this.rehearsalUtils?.getDayName
+            ? this.rehearsalUtils.getDayName(rehearsalsMap[orchestra._id].dayOfWeek)
+            : ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][rehearsalsMap[orchestra._id].dayOfWeek] || ''
+        } : null,
 
         // Add computed fields for easier frontend use
         memberCount: orchestra.memberIds?.length || 0,
@@ -1646,7 +1682,7 @@ export const orchestraService = {
         }
       })) : [];
 
-      console.log(`🎼 Retrieved ${processedOrchestras.length} orchestras with conductor data populated`);
+      console.log(`🎼 Retrieved ${processedOrchestras.length} orchestras with conductor data and rehearsal schedules populated`);
       return processedOrchestras;
     } catch (error) {
       console.error('Error fetching orchestras:', error);

@@ -259,12 +259,12 @@ export default function Profile() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center">
-            <span className="text-xl font-bold text-white font-reisinger-michal">
+            <span className="text-xl font-bold text-white font-reisinger-yonatan">
               {getInitials()}
             </span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 font-reisinger-michal">
+            <h1 className="text-2xl font-bold text-gray-900 font-reisinger-yonatan">
               {getUserFullName()}
             </h1>
             <p className="text-gray-600 mt-1">
@@ -323,7 +323,7 @@ export default function Profile() {
                   }`}
                 >
                   <Icon className="w-5 h-5" />
-                  <span className="font-reisinger-michal">{tab.label}</span>
+                  <span className="font-reisinger-yonatan">{tab.label}</span>
                 </button>
               )
             })}
@@ -378,10 +378,10 @@ function StatCard({ title, value, icon: Icon, color, loading }: StatCardProps) {
     <div className={`bg-white rounded-lg border ${variant.border} p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-200`}>
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <p className="text-xs sm:text-sm font-medium text-gray-600 font-reisinger-michal truncate">
+          <p className="text-xs sm:text-sm font-medium text-gray-600 font-reisinger-yonatan truncate">
             {title}
           </p>
-          <div className="text-lg sm:text-2xl font-bold text-gray-900 mt-1 font-reisinger-michal">
+          <div className="text-lg sm:text-2xl font-bold text-gray-900 mt-1 font-reisinger-yonatan">
             {loading ? (
               <div className="animate-pulse bg-gray-200 h-6 sm:h-8 w-12 sm:w-16 rounded"></div>
             ) : (

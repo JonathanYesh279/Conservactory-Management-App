@@ -6,11 +6,12 @@
  */
 
 import React, { useState, useMemo, memo } from 'react'
-import { 
-  BookOpen, Calendar, TrendingUp, Award, Clock, User, Plus, 
-  Trash2, AlertCircle, MapPin, CheckCircle, X, Music, 
+import {
+  BookOpen, Calendar, TrendingUp, Award, Clock, User, Plus,
+  Trash2, AlertCircle, MapPin, CheckCircle, X, Music,
   GraduationCap, Users, Info, RefreshCw
 } from 'lucide-react'
+import TeacherNameDisplay from '../../../../../components/TeacherNameDisplay'
 import { 
   useStudent,
   useStudentTheoryLessons,
@@ -85,13 +86,7 @@ const LessonCard = memo(({
     return `${hours}:${minutes}`
   }
 
-  const teacherName = useMemo(() => {
-    return lesson.teacherName || 
-           (typeof lesson.teacherId === 'string' 
-             ? lesson.teacherId 
-             : lesson.teacherId?.personalInfo?.name) || 
-           'לא ידוע'
-  }, [lesson.teacherName, lesson.teacherId])
+  // Teacher name will be handled by TeacherNameDisplay component
 
   const studentsProgress = useMemo(() => {
     if (!lesson.maxStudents) return null
@@ -177,10 +172,11 @@ const LessonCard = memo(({
       </div>
 
       {/* Teacher info */}
-      <div className="flex items-center gap-2 text-gray-600 mb-3">
-        <User className="w-4 h-4" />
-        <span className="text-sm">מורה: {teacherName}</span>
-      </div>
+      <TeacherNameDisplay
+        lesson={lesson}
+        className="mb-3"
+        showIcon={true}
+      />
 
       {/* Schedule */}
       {(lesson.date || lesson.startTime) && (

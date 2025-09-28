@@ -24,6 +24,7 @@ import { Card } from '../components/ui/card'
 import Table from '../components/ui/Table'
 import StatsCard from '../components/ui/StatsCard'
 import TheoryLessonForm from '../components/TheoryLessonForm'
+import ConfirmationModal from '../components/ui/ConfirmationModal'
 import { theoryService, studentService, teacherService } from '../services/apiService'
 
 interface TheoryLesson {
@@ -105,6 +106,41 @@ export default function TheoryLessonDetails() {
     absent: []
   })
 
+  // Confirmation modal state
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [confirmationConfig, setConfirmationConfig] = useState<{
+    title: string
+    message: string
+    onConfirm: () => void
+    variant?: 'danger' | 'warning' | 'info'
+  } | null>(null)
+
+  // Helper function to show confirmation modal
+  const showConfirmationModal = (config: {
+    title: string
+    message: string
+    onConfirm: () => void
+    variant?: 'danger' | 'warning' | 'info'
+  }) => {
+    setConfirmationConfig(config)
+    setShowConfirmation(true)
+  }
+
+  // Helper function to handle confirmation
+  const handleConfirmation = () => {
+    if (confirmationConfig?.onConfirm) {
+      confirmationConfig.onConfirm()
+    }
+    setShowConfirmation(false)
+    setConfirmationConfig(null)
+  }
+
+  // Helper function to cancel confirmation
+  const handleCancelConfirmation = () => {
+    setShowConfirmation(false)
+    setConfirmationConfig(null)
+  }
+
   useEffect(() => {
     if (theoryId) {
       loadTheoryLessonDetails()
@@ -164,28 +200,42 @@ export default function TheoryLessonDetails() {
     }
   }
 
-  const handleRemoveStudent = async (studentId: string) => {
-    if (!theoryId || !window.confirm('האם אתה בטוח שברצונך להסיר את התלמיד מהשיעור?')) return
+  const handleRemoveStudent = (studentId: string) => {
+    if (!theoryId) return
 
-    try {
-      await theoryService.removeStudentFromTheory(theoryId, studentId)
-      await loadTheoryLessonDetails()
-    } catch (error) {
-      console.error('Error removing student:', error)
-      setError('שגיאה בהסרת תלמיד מהשיעור')
-    }
+    showConfirmationModal({
+      title: 'הסרת תלמיד מהשיעור',
+      message: 'האם אתה בטוח שברצונך להסיר את התלמיד מהשיעור?',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await theoryService.removeStudentFromTheory(theoryId, studentId)
+          await loadTheoryLessonDetails()
+        } catch (error) {
+          console.error('Error removing student:', error)
+          setError('שגיאה בהסרת תלמיד מהשיעור')
+        }
+      }
+    })
   }
 
-  const handleDeleteTheoryLesson = async () => {
-    if (!theoryId || !window.confirm('האם אתה בטוח שברצונך למחוק את שיעור התאוריה?')) return
+  const handleDeleteTheoryLesson = () => {
+    if (!theoryId) return
 
-    try {
-      await theoryService.deleteTheoryLesson(theoryId)
-      navigate('/theories')
-    } catch (error) {
-      console.error('Error deleting theory lesson:', error)
-      setError('שגיאה במחיקת שיעור התאוריה')
-    }
+    showConfirmationModal({
+      title: 'מחיקת שיעור תאוריה',
+      message: 'האם אתה בטוח שברצונך למחוק את שיעור התאוריה? פעולה זו אינה הפיכה.',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await theoryService.deleteTheoryLesson(theoryId)
+          navigate('/theories')
+        } catch (error) {
+          console.error('Error deleting theory lesson:', error)
+          setError('שגיאה במחיקת שיעור התאוריה')
+        }
+      }
+    })
   }
 
   const handleSaveAttendance = async () => {
@@ -810,6 +860,18 @@ export default function TheoryLessonDetails() {
           teachers={teachers}
           onSubmit={handleEditTheoryLesson}
           onCancel={() => setShowEditForm(false)}
+        />
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmationConfig && (
+        <ConfirmationModal
+          isOpen={showConfirmation}
+          title={confirmationConfig.title}
+          message={confirmationConfig.message}
+          onConfirm={handleConfirmation}
+          onCancel={handleCancelConfirmation}
+          variant={confirmationConfig.variant}
         />
       )}
     </div>

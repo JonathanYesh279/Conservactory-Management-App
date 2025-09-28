@@ -283,7 +283,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
           onKeyDown={handleKeyDown}
           onFocus={() => setShowResults(true)}
           placeholder={currentCategory.placeholder}
-          className={`w-full pr-12 pl-10 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-reisinger-michal text-right rtl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+          className={`w-full pr-12 pl-10 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-reisinger-yonatan text-right rtl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
             variant === 'page' ? 'py-3' : ''
           }`}
         />
@@ -349,7 +349,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
                       
                       <div className="flex-1 min-w-0 text-right">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium text-gray-900 truncate font-reisinger-michal">
+                          <h4 className="text-sm font-medium text-gray-900 truncate font-reisinger-yonatan">
                             {result.title}
                           </h4>
                           {result.status && (
