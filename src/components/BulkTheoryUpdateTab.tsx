@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
-import { 
-  Check, 
-  Save, 
-  Trash2, 
-  Users, 
+import {
+  Check,
+  Save,
+  Trash2,
+  Users,
   Filter,
   Download,
   AlertTriangle,
@@ -23,6 +23,7 @@ import Modal from './ui/Modal'
 import ConfirmationModal from './ui/ConfirmationModal'
 import { theoryService, teacherService } from '../services/apiService'
 import { filterLessons, type TheoryLesson } from '../utils/theoryLessonUtils'
+import { VALID_LOCATIONS } from '../constants/locations'
 
 interface BulkTheoryUpdateTabProps {
   lessons: TheoryLesson[]
@@ -114,17 +115,6 @@ export default function BulkTheoryUpdateTab({
     'תאוריה כלי',
   ]
 
-  const locations = [
-    'אולם ערן',
-    'סטודיו קאמרי 1',
-    'סטודיו קאמרי 2',
-    'אולפן הקלטות',
-    'חדר חזרות 1',
-    'חדר חזרות 2',
-    'חדר מחשבים',
-    'חדר תאוריה א',
-    'חדר תאוריה ב',
-  ]
 
   // Load teachers on mount
   useEffect(() => {
@@ -909,7 +899,7 @@ export default function BulkTheoryUpdateTab({
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                     >
                       <option value="">ללא שינוי</option>
-                      {locations.map(location => (
+                      {VALID_LOCATIONS.map(location => (
                         <option key={location} value={location}>{location}</option>
                       ))}
                     </select>

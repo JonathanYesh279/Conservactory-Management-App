@@ -19,14 +19,16 @@ interface ScheduleTabProps {
 
 const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading }) => {
   const [teacherData, setTeacherData] = useState<Record<string, any>>({})
-  
+  const [enrolledOrchestras, setEnrolledOrchestras] = useState<any[]>([])
+  const [isLoadingOrchestras, setIsLoadingOrchestras] = useState(false)
+
   // Fetch teacher information for all teacher assignments
   useEffect(() => {
     const fetchTeachers = async () => {
       if (student?.teacherAssignments && student.teacherAssignments.length > 0) {
         const teacherIds = [...new Set(student.teacherAssignments.map((a: any) => a.teacherId).filter(Boolean))]
         const teachers: Record<string, any> = {}
-        
+
         for (const teacherId of teacherIds) {
           try {
             const teacher = await apiService.teachers.getTeacherById(teacherId)
@@ -36,13 +38,43 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
             console.error(`Failed to fetch teacher ${teacherId}:`, error)
           }
         }
-        
+
         setTeacherData(teachers)
       }
     }
-    
+
     fetchTeachers()
   }, [student?.teacherAssignments])
+
+  // Simplified orchestra fetching - only get what we need for schedule display
+  useEffect(() => {
+    const fetchEnrolledOrchestras = async () => {
+      if (!student) return
+
+      try {
+        setIsLoadingOrchestras(true)
+
+        // Get orchestras - they already have conductor and rehearsal data populated
+        const allOrchestras = await apiService.orchestras.getOrchestras()
+
+        // Find orchestras where this student is listed as a member
+        const studentOrchestras = allOrchestras.filter((orchestra: any) =>
+          orchestra.memberIds?.includes(studentId) ||
+          student?.enrollments?.orchestraIds?.includes(orchestra._id)
+        )
+
+        setEnrolledOrchestras(studentOrchestras)
+
+      } catch (error) {
+        console.error('Error fetching orchestras:', error)
+        setEnrolledOrchestras([])
+      } finally {
+        setIsLoadingOrchestras(false)
+      }
+    }
+
+    fetchEnrolledOrchestras()
+  }, [student?.enrollments?.orchestraIds, studentId, student])
   // Convert student data to calendar lessons format
   const lessons = useMemo(() => {
     const calendarLessons: any[] = []
@@ -135,51 +167,130 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
       })
     }
     
-    // If no lessons found, don't add mock data - show empty state
-    if (calendarLessons.length === 0) {
-      console.log('No lessons found, showing empty state') // Debug log
+    // Add orchestra rehearsals as calendar events
+    if (enrolledOrchestras && enrolledOrchestras.length > 0) {
+      enrolledOrchestras.forEach((orchestra, index) => {
+
+        // Get conductor name
+        const conductorName = (() => {
+          const conductor = orchestra.conductor || orchestra.conductorInfo
+          if (!conductor) return 'מנצח לא מוגד'
+
+          if (typeof conductor === 'string') return conductor
+
+          // Try different ways to get conductor name
+          if (conductor.personalInfo?.fullName) return conductor.personalInfo.fullName
+          if (conductor.personalInfo?.firstName && conductor.personalInfo?.lastName) {
+            return `${conductor.personalInfo.firstName} ${conductor.personalInfo.lastName}`
+          }
+          if (conductor.personalInfo?.name) return conductor.personalInfo.name
+          if (conductor.personalInfo?.hebrewName) return conductor.personalInfo.hebrewName
+          if (conductor.fullName) return conductor.fullName
+          if (conductor.name) return conductor.name
+          if (conductor.displayName) return conductor.displayName
+
+          return 'מנצח לא מוגד'
+        })()
+
+        // Check multiple possible schedule sources
+        let scheduleData = null
+        let dayOfWeek = null
+        let startTime = '17:00'
+        let endTime = '18:30'
+        let location = 'אולם גן'
+
+        // Check different possible schedule field names
+        if (orchestra.rehearsalSchedule && (orchestra.rehearsalSchedule.dayOfWeek !== undefined || orchestra.rehearsalSchedule.dayName)) {
+          scheduleData = orchestra.rehearsalSchedule
+        } else if (orchestra.schedule && (orchestra.schedule.dayOfWeek !== undefined || orchestra.schedule.dayName)) {
+          scheduleData = orchestra.schedule
+        } else if (orchestra.rehearsals && orchestra.rehearsals.length > 0) {
+          // Take first rehearsal as default schedule
+          scheduleData = orchestra.rehearsals[0]
+        }
+
+        if (scheduleData) {
+          // Convert dayName to dayOfWeek if needed
+          dayOfWeek = scheduleData.dayOfWeek
+          if (dayOfWeek === undefined && scheduleData.dayName) {
+            const dayMapping: Record<string, number> = {
+              'ראשון': 0,
+              'שני': 1,
+              'שלישי': 2,
+              'רביעי': 3,
+              'חמישי': 4,
+              'שישי': 5,
+              'שבת': 6
+            }
+            dayOfWeek = dayMapping[scheduleData.dayName] ?? 1 // Default to Monday
+          }
+
+          startTime = scheduleData.startTime || startTime
+          endTime = scheduleData.endTime || endTime
+          location = scheduleData.location || orchestra.location || location
+        } else {
+          // If no schedule data, create a default Wednesday rehearsal
+          dayOfWeek = 3 // Wednesday
+        }
+
+        if (dayOfWeek !== null) {
+          calendarLessons.push({
+            id: `orchestra-${orchestra._id}`,
+            instrumentName: orchestra.name || 'תזמורת',
+            teacherName: conductorName,
+            startTime: startTime,
+            endTime: endTime,
+            dayOfWeek: dayOfWeek,
+            location: location,
+            roomNumber: null,
+            lessonType: 'orchestra'
+          })
+        }
+      })
     }
-    
-    console.log('Final lessons array:', calendarLessons) // Debug log
+
+
     return calendarLessons
-  }, [student?.teacherAssignments, student?.lessons, teacherData])
+  }, [student?.teacherAssignments, student?.lessons, teacherData, enrolledOrchestras])
 
-  // Process orchestra enrollments for display (not as calendar events yet since no schedule)
+  // Use the detailed orchestra data instead of simple orchestraEnrollments
   const orchestraActivities = useMemo(() => {
-    if (!student?.orchestraEnrollments) return []
-    
-    return student.orchestraEnrollments.map((enrollment: any) => ({
-      id: enrollment._id || enrollment.orchestraId,
-      name: enrollment.orchestraName || 'תזמורת',
-      status: enrollment.status || 'רשום'
+    return enrolledOrchestras.map((orchestra: any) => ({
+      id: orchestra._id,
+      name: orchestra.name || 'תזמורת',
+      status: 'רשום',
+      conductor: orchestra.conductor,
+      rehearsalSchedule: orchestra.rehearsalSchedule,
+      location: orchestra.location
     }))
-  }, [student?.orchestraEnrollments])
+  }, [enrolledOrchestras])
 
-  if (isLoading) {
+  if (isLoading || isLoadingOrchestras) {
     return (
       <div className="p-6">
         <div className="space-y-6">
           <div className="h-6 bg-gray-200 rounded animate-pulse w-48"></div>
           <div className="h-96 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-32 bg-gray-200 rounded animate-pulse"></div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 space-y-6 bg-white min-h-screen w-full max-w-full overflow-hidden student-content-area">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">לוח זמנים שבועי</h2>
-        <p className="text-gray-600 mt-1">
-          {lessons.length === 0 ? 'אין שיעורים מתוכננים' : 
+    <div className="p-4 space-y-4 bg-white min-h-screen w-full max-w-full overflow-hidden student-content-area">
+      {/* Header - More compact */}
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-gray-900">לוח זמנים שבועי</h2>
+        <p className="text-gray-600 mt-1 text-sm">
+          {lessons.length === 0 ? 'אין שיעורים מתוכננים' :
            lessons.length === 1 ? 'שיעור אחד בשבוע' : `${lessons.length} שיעורים בשבוע`}
         </p>
       </div>
 
       {/* Weekly Schedule Grid or Empty State */}
       {lessons.length > 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 w-full max-w-full overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full max-w-full overflow-hidden">
           <SimpleWeeklyGrid lessons={lessons} />
         </div>
       ) : (
@@ -197,11 +308,11 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
 
       {/* Summary Info - Only show if there are lessons */}
       {lessons.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Lessons Summary */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-              <Music className="w-5 h-5 text-primary-600" />
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <h4 className="text-base font-medium text-gray-900 mb-3 flex items-center gap-2">
+              <Music className="w-4 h-4 text-primary-600" />
               שיעורים השבוע
             </h4>
             
@@ -243,35 +354,90 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
             </div>
           </div>
 
-          {/* Orchestra Activities */}
+          {/* Orchestra Activities with Full Details */}
           {orchestraActivities.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5 text-purple-600" />
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <h4 className="text-base font-medium text-gray-900 mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4 text-purple-600" />
                 תזמורות ופעילויות
               </h4>
-              
-              <div className="space-y-3">
+
+              <div className="space-y-4">
                 {orchestraActivities.map((activity) => (
-                  <div key={activity.id} className="p-4 bg-purple-50 rounded-lg border border-purple-100">
-                    <div className="flex items-center justify-between">
+                  <div key={activity.id} className="p-5 bg-purple-50 rounded-lg border border-purple-100">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <Users className="w-4 h-4 text-purple-600" />
-                        <span className="font-medium text-gray-900">{activity.name}</span>
+                        <span className="font-medium text-gray-900 text-lg">{activity.name}</span>
                       </div>
-                      
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        activity.status === 'רשום' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+
+                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                         {activity.status}
                       </span>
                     </div>
-                    
-                    <div className="mt-2 text-sm text-gray-600">
-                      לוח זמנים יפורסם בהמשך
+
+                    {/* Conductor Information */}
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-700">מנצח:</span>
+                        <span className="text-sm text-gray-900">
+                          {(() => {
+                            const conductor = activity.conductor
+                            if (!conductor) return 'לא מוגד'
+
+                            if (typeof conductor === 'string') return conductor
+
+                            // Try different ways to get conductor name
+                            if (conductor.personalInfo?.fullName) return conductor.personalInfo.fullName
+                            if (conductor.personalInfo?.firstName && conductor.personalInfo?.lastName) {
+                              return `${conductor.personalInfo.firstName} ${conductor.personalInfo.lastName}`
+                            }
+                            if (conductor.personalInfo?.name) return conductor.personalInfo.name
+                            if (conductor.personalInfo?.hebrewName) return conductor.personalInfo.hebrewName
+                            if (conductor.fullName) return conductor.fullName
+                            if (conductor.name) return conductor.name
+                            if (conductor.displayName) return conductor.displayName
+
+                            return 'לא מוגד'
+                          })()}
+                        </span>
+                      </div>
                     </div>
+
+                    {/* Rehearsal Schedule */}
+                    {activity.rehearsalSchedule ? (
+                      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                        <h5 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-600" />
+                          חזרות שבועיות
+                        </h5>
+                        <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="font-medium text-blue-900">
+                                {activity.rehearsalSchedule.dayName || 'לא מוגדר'}
+                              </span>
+                              <span className="text-blue-600">•</span>
+                              <span className="font-medium text-blue-800">
+                                {activity.rehearsalSchedule.startTime && activity.rehearsalSchedule.endTime
+                                  ? `${activity.rehearsalSchedule.startTime} - ${activity.rehearsalSchedule.endTime}`
+                                  : 'שעות לא מוגדרות'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-blue-700">
+                              <MapPin className="w-4 h-4" />
+                              <span className="text-sm font-medium">
+                                {activity.rehearsalSchedule.location || activity.location || 'אולם גן'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                        לוח זמנים יפורסם בהמשך
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -298,28 +464,83 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
             <Users className="w-5 h-5 text-purple-600" />
             תזמורות ופעילויות
           </h4>
-          
-          <div className="space-y-3">
+
+          <div className="space-y-4">
             {orchestraActivities.map((activity) => (
-              <div key={activity.id} className="p-4 bg-purple-50 rounded-lg border border-purple-100">
-                <div className="flex items-center justify-between">
+              <div key={activity.id} className="p-5 bg-purple-50 rounded-lg border border-purple-100">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <Users className="w-4 h-4 text-purple-600" />
-                    <span className="font-medium text-gray-900">{activity.name}</span>
+                    <span className="font-medium text-gray-900 text-lg">{activity.name}</span>
                   </div>
-                  
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    activity.status === 'רשום' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
+
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                     {activity.status}
                   </span>
                 </div>
-                
-                <div className="mt-2 text-sm text-gray-600">
-                  לוח זמנים יפורסם בהמשך
+
+                {/* Conductor Information */}
+                <div className="mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700">מנצח:</span>
+                    <span className="text-sm text-gray-900">
+                      {(() => {
+                        const conductor = activity.conductor
+                        if (!conductor) return 'לא מוגד'
+
+                        if (typeof conductor === 'string') return conductor
+
+                        // Try different ways to get conductor name
+                        if (conductor.personalInfo?.fullName) return conductor.personalInfo.fullName
+                        if (conductor.personalInfo?.firstName && conductor.personalInfo?.lastName) {
+                          return `${conductor.personalInfo.firstName} ${conductor.personalInfo.lastName}`
+                        }
+                        if (conductor.personalInfo?.name) return conductor.personalInfo.name
+                        if (conductor.personalInfo?.hebrewName) return conductor.personalInfo.hebrewName
+                        if (conductor.fullName) return conductor.fullName
+                        if (conductor.name) return conductor.name
+                        if (conductor.displayName) return conductor.displayName
+
+                        return 'לא מוגד'
+                      })()}
+                    </span>
+                  </div>
                 </div>
+
+                {/* Rehearsal Schedule */}
+                {activity.rehearsalSchedule ? (
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h5 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-blue-600" />
+                      חזרות שבועיות
+                    </h5>
+                    <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium text-blue-900">
+                            {activity.rehearsalSchedule.dayName || 'לא מוגדר'}
+                          </span>
+                          <span className="text-blue-600">•</span>
+                          <span className="font-medium text-blue-800">
+                            {activity.rehearsalSchedule.startTime && activity.rehearsalSchedule.endTime
+                              ? `${activity.rehearsalSchedule.startTime} - ${activity.rehearsalSchedule.endTime}`
+                              : 'שעות לא מוגדרות'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-blue-700">
+                          <MapPin className="w-4 h-4" />
+                          <span className="text-sm font-medium">
+                            {activity.rehearsalSchedule.location || activity.location || 'אולם גן'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                    לוח זמנים יפורסם בהמשך
+                  </div>
+                )}
               </div>
             ))}
           </div>

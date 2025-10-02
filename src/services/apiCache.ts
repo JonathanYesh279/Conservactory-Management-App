@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useQueryClient, useQuery, useMutation, UseQueryOptions } from '@tanstack/react-query'
 import apiService from './apiService'
+import theoryEnrollmentService from './theoryEnrollmentService'
 
 // Cache configuration
 const CACHE_CONFIG = {
@@ -95,10 +96,16 @@ export const cachedApiService = {
   theoryLessons: {
     getAll: () => dedupeRequest('theory-lessons-all', () => apiService.theoryLessons.getTheoryLessons()),
     getById: (id: string) => dedupeRequest(`theory-lesson-${id}`, () => apiService.theoryLessons.getTheoryLessonById(id)),
-    addStudent: (lessonId: string, studentId: string) => 
-      apiService.theoryLessons.addStudentToTheory(lessonId, studentId),
-    removeStudent: (lessonId: string, studentId: string) => 
-      apiService.theoryLessons.removeStudentFromTheory(lessonId, studentId),
+    addStudent: (lessonId: string, studentId: string) =>
+      theoryEnrollmentService.enrollStudent(lessonId, studentId, {
+        method: 'manual',
+        performedBy: 'teacher',
+        reason: 'Manual enrollment'
+      }),
+    removeStudent: (lessonId: string, studentId: string) =>
+      theoryEnrollmentService.unenrollStudent(lessonId, studentId, {
+        reason: 'Manual unenrollment'
+      }),
   },
   
   // Orchestras

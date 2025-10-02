@@ -3,6 +3,7 @@ import { Edit, Save, X, User, MapPin, Music, Clock, Calendar } from 'lucide-reac
 import { OrchestraTabProps } from '../../types'
 import apiService from '../../../../../services/apiService'
 import { useAuth } from '../../../../../services/authContext'
+import { VALID_LOCATIONS } from '../../../../../constants/locations'
 
 const PersonalInfoTab: React.FC<OrchestraTabProps> = ({
   orchestraId,
@@ -224,18 +225,9 @@ const PersonalInfoTab: React.FC<OrchestraTabProps> = ({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">בחר מיקום</option>
-                <option value="אולם ערן">אולם ערן</option>
-                <option value="סטודיו קאמרי 1">סטודיو קאמרי 1</option>
-                <option value="סטודיו קאמרי 2">סטודיו קאמרי 2</option>
-                <option value="אולפן הקלטות">אולפן הקלטות</option>
-                <option value="חדר חזרות 1">חדר חזרות 1</option>
-                <option value="חדר חזרות 2">חדר חזרות 2</option>
-                <option value="חדר מחשבים">חדר מחשבים</option>
-                {Array.from({length: 26}, (_, i) => (
-                  <option key={i} value={`חדר ${i + 1}`}>חדר {i + 1}</option>
+                {VALID_LOCATIONS.map(location => (
+                  <option key={location} value={location}>{location}</option>
                 ))}
-                <option value="חדר תאוריה א">חדר תאוריה א</option>
-                <option value="חדר תאוריה ב">חדר תאוריה ב</option>
               </select>
             ) : (
               <div className="flex items-center">

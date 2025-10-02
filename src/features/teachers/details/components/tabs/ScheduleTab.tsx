@@ -14,6 +14,7 @@ import { Teacher } from '../../types'
 import TeacherWeeklyCalendar from '../../../../../components/schedule/TeacherWeeklyCalendar'
 import { orchestraEnrollmentApi } from '../../../../../services/orchestraEnrollmentApi'
 import apiService from '../../../../../services/apiService'
+import TimeBlockForm from '../../../../../components/teacher/TimeBlockForm'
 
 interface ScheduleTabProps {
   teacher: Teacher
@@ -768,7 +769,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
                 onClick={async () => {
                   const timeBlock = deleteConfirmation.timeBlock
                   setDeleteConfirmation(null)
-                  
+
                   try {
                     setIsUpdating(true)
                     if (timeBlock.isFromSchedule) {
@@ -776,19 +777,19 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
                       const updatedSchedule = teacherData.teaching.schedule.filter(
                         slot => slot._id !== timeBlock._id
                       )
-                      
+
                       const updateData = {
                         teaching: {
                           ...teacherData.teaching,
                           schedule: updatedSchedule
                         }
                       }
-                      
+
                       console.log('🗑️ Deleting teaching day with data:', updateData)
                       await apiService.teachers.updateTeacher(teacherId, updateData)
                     } else {
                       // For modern timeBlocks, use the specific API endpoint
-                      await apiService.teachers.deleteTimeBlock(teacherId, timeBlock._id)
+                      await apiService.teacherSchedule.deleteTimeBlock(teacherId, timeBlock._id)
                     }
                     await refreshTeacherData()
                     console.log('✅ Successfully deleted teaching day:', timeBlock.day)
@@ -808,6 +809,19 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Add Time Block Modal */}
+      {isAddingTimeBlock && (
+        <TimeBlockForm
+          teacherId={teacherId}
+          timeBlock={null}
+          onSave={async () => {
+            await refreshTeacherData()
+            setIsAddingTimeBlock(false)
+          }}
+          onCancel={() => setIsAddingTimeBlock(false)}
+        />
       )}
     </div>
   )

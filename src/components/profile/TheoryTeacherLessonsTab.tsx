@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../services/authContext.jsx'
-import { Plus, Search, Edit, Trash2, BookOpen, Calendar, Clock, Users } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, BookOpen, Calendar, Clock, Users, UserPlus, UserMinus, AlertTriangle, BookOpenCheck, GraduationCap, Settings, Copy } from 'lucide-react'
 import apiService from '../../services/apiService'
+import theoryEnrollmentService from '../../services/theoryEnrollmentService'
 
 interface TheoryLesson {
   id: string
@@ -35,6 +36,29 @@ interface LessonStudent {
   }
 }
 
+interface TheoryGroup {
+  id: string
+  name: string
+  description?: string
+  level: 'beginner' | 'intermediate' | 'advanced'
+  capacity: number
+  enrolledStudents: LessonStudent[]
+  schedule: {
+    dayOfWeek: string
+    startTime: string
+    endTime: string
+  }
+  status: 'active' | 'inactive'
+  venue?: string
+  curriculum?: string[]
+}
+
+interface ConflictCheck {
+  hasConflict: boolean
+  conflictDetails?: string
+  suggestions?: string[]
+}
+
 export default function TheoryTeacherLessonsTab() {
   const { user } = useAuth()
   const [lessons, setLessons] = useState<TheoryLesson[]>([])
@@ -45,6 +69,12 @@ export default function TheoryTeacherLessonsTab() {
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null)
   const [lessonStudents, setLessonStudents] = useState<LessonStudent[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [showGroupManager, setShowGroupManager] = useState(false)
+  const [showStudentEnrollment, setShowStudentEnrollment] = useState(false)
+  const [showConflictChecker, setShowConflictChecker] = useState(false)
+  const [availableStudents, setAvailableStudents] = useState<LessonStudent[]>([])
+  const [conflictCheck, setConflictCheck] = useState<ConflictCheck | null>(null)
+  const [activeTab, setActiveTab] = useState<'lessons' | 'groups' | 'curriculum' | 'grades'>('lessons')
 
   useEffect(() => {
     loadTheoryLessons()
@@ -147,6 +177,14 @@ export default function TheoryTeacherLessonsTab() {
 
   const handleLessonSubmit = async (lessonData: Partial<TheoryLesson>) => {
     try {
+      // Check for scheduling conflicts
+      const conflictResult = await checkSchedulingConflicts(lessonData)
+      if (conflictResult.hasConflict) {
+        setConflictCheck(conflictResult)
+        setShowConflictChecker(true)
+        return
+      }
+
       if (editingLesson) {
         // Update existing lesson
         const backendData = {
@@ -161,9 +199,9 @@ export default function TheoryTeacherLessonsTab() {
           isActive: lessonData.status === 'active',
           location: lessonData.venue
         }
-        
+
         const updatedLesson = await apiService.theory.updateTheoryLesson(editingLesson.id, backendData)
-        
+
         // Map response back to frontend format
         const mappedLesson = {
           id: updatedLesson._id,
@@ -182,8 +220,8 @@ export default function TheoryTeacherLessonsTab() {
           venue: updatedLesson.location,
           materials: updatedLesson.materials || []
         }
-        
-        setLessons(prev => prev.map(l => 
+
+        setLessons(prev => prev.map(l =>
           l.id === editingLesson.id ? mappedLesson : l
         ))
       } else {
@@ -202,9 +240,9 @@ export default function TheoryTeacherLessonsTab() {
           location: lessonData.venue,
           teacherId
         }
-        
+
         const newLesson = await apiService.theory.createTheoryLesson(backendData)
-        
+
         // Map response back to frontend format
         const mappedLesson = {
           id: newLesson._id,
@@ -223,7 +261,7 @@ export default function TheoryTeacherLessonsTab() {
           venue: newLesson.location,
           materials: newLesson.materials || []
         }
-        
+
         setLessons(prev => [...prev, mappedLesson])
       }
       setShowAddModal(false)
@@ -231,6 +269,117 @@ export default function TheoryTeacherLessonsTab() {
     } catch (error) {
       console.error('Error saving lesson:', error)
       alert('שגיאה בשמירת פרטי השיעור')
+    }
+  }
+
+  const checkSchedulingConflicts = async (lessonData: Partial<TheoryLesson>): Promise<ConflictCheck> => {
+    try {
+      // Mock conflict detection - in real app, check against existing schedules
+      const existingLessons = lessons.filter(l =>
+        l.id !== editingLesson?.id &&
+        l.schedule.dayOfWeek === lessonData.schedule?.dayOfWeek
+      )
+
+      const startTime = lessonData.schedule?.startTime
+      const endTime = lessonData.schedule?.endTime
+
+      const conflicts = existingLessons.filter(lesson => {
+        const lessonStart = lesson.schedule.startTime
+        const lessonEnd = lesson.schedule.endTime
+
+        return (startTime && endTime && lessonStart && lessonEnd) &&
+          ((startTime >= lessonStart && startTime < lessonEnd) ||
+           (endTime > lessonStart && endTime <= lessonEnd) ||
+           (startTime <= lessonStart && endTime >= lessonEnd))
+      })
+
+      if (conflicts.length > 0) {
+        return {
+          hasConflict: true,
+          conflictDetails: `התנגשות עם ${conflicts[0].name} ב${getDayLabel(conflicts[0].schedule.dayOfWeek)} ${conflicts[0].schedule.startTime}-${conflicts[0].schedule.endTime}`,
+          suggestions: [
+            'שנה את שעת השיעור',
+            'העבר ליום אחר',
+            'קצר את משך השיעור'
+          ]
+        }
+      }
+
+      return { hasConflict: false }
+    } catch (error) {
+      console.error('Error checking conflicts:', error)
+      return { hasConflict: false }
+    }
+  }
+
+  const loadAvailableStudents = async () => {
+    try {
+      // Load all students not enrolled in current lesson
+      const allStudents = await apiService.students.getStudents()
+      const enrolledIds = lessonStudents.map(s => s.id)
+
+      const available = allStudents
+        .filter(student => !enrolledIds.includes(student._id))
+        .map(student => ({
+          id: student._id,
+          firstName: student.personalInfo?.firstName || '',
+          lastName: student.personalInfo?.lastName || '',
+          grade: student.academicInfo?.gradeLevel,
+          instrument: student.primaryInstrument,
+          enrollmentDate: new Date().toISOString(),
+          attendance: { total: 0, present: 0, absent: 0 }
+        }))
+
+      setAvailableStudents(available)
+    } catch (error) {
+      console.error('Error loading available students:', error)
+    }
+  }
+
+  const handleEnrollStudent = async (studentId: string) => {
+    if (!selectedLesson) return
+
+    try {
+      await theoryEnrollmentService.enrollStudent(selectedLesson, studentId, {
+        method: 'manual',
+        performedBy: 'teacher',
+        reason: 'Teacher enrollment'
+      })
+      await loadLessonStudents(selectedLesson)
+      await loadAvailableStudents()
+    } catch (error) {
+      console.error('Error enrolling student:', error)
+      alert('שגיאה ברישום התלמיד')
+    }
+  }
+
+  const handleUnenrollStudent = async (studentId: string) => {
+    if (!selectedLesson) return
+
+    try {
+      await theoryEnrollmentService.unenrollStudent(selectedLesson, studentId, {
+        reason: 'Teacher unenrollment'
+      })
+      await loadLessonStudents(selectedLesson)
+      await loadAvailableStudents()
+    } catch (error) {
+      console.error('Error unenrolling student:', error)
+      alert('שגיאה בביטול רישום התלמיד')
+    }
+  }
+
+  const duplicateLesson = async (lesson: TheoryLesson) => {
+    try {
+      const duplicatedData = {
+        ...lesson,
+        name: `${lesson.name} - עותק`,
+        id: undefined // Remove ID to create new lesson
+      }
+
+      await handleLessonSubmit(duplicatedData)
+    } catch (error) {
+      console.error('Error duplicating lesson:', error)
+      alert('שגיאה בשכפול השיעור')
     }
   }
 
@@ -285,33 +434,75 @@ export default function TheoryTeacherLessonsTab() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-bold text-gray-900 font-reisinger-yonatan">
-            שיעורי התיאוריה שלי
+            ניהול תיאוריה מתקדם
           </h3>
           <p className="text-gray-600 mt-1">
-            {lessons.length} שיעורים
+            {lessons.length} שיעורים פעילים
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="font-reisinger-yonatan">הוסף שיעור</span>
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowGroupManager(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            <span className="font-reisinger-yonatan">נהל קבוצות</span>
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="font-reisinger-yonatan">הוסף שיעור</span>
+          </button>
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-        <input
-          type="text"
-          placeholder="חיפוש שיעורים..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-4 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          dir="rtl"
-        />
-      </div>
+      {/* Navigation Tabs */}
+      <div className="bg-white border border-gray-200 rounded-lg">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6" dir="rtl">
+            {[
+              { id: 'lessons', label: 'שיעורים', icon: BookOpen },
+              { id: 'groups', label: 'קבוצות', icon: Users },
+              { id: 'curriculum', label: 'תכנית לימודים', icon: GraduationCap },
+              { id: 'grades', label: 'ציונים', icon: BookOpenCheck }
+            ].map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 font-reisinger-yonatan ${
+                    activeTab === tab.id
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        <div className="p-6">
+          {activeTab === 'lessons' && (
+            <>
+              {/* Search */}
+              <div className="relative mb-6">
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="חיפוש שיעורים..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-4 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  dir="rtl"
+                />
+              </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Lessons List */}
@@ -356,10 +547,21 @@ export default function TheoryTeacherLessonsTab() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
+                        duplicateLesson(lesson)
+                      }}
+                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      title="שכפל שיעור"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setEditingLesson(lesson)
                         setShowAddModal(true)
                       }}
                       className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                      title="ערוך שיעור"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
@@ -369,6 +571,7 @@ export default function TheoryTeacherLessonsTab() {
                         handleDeleteLesson(lesson.id)
                       }}
                       className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="מחק שיעור"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -419,9 +622,18 @@ export default function TheoryTeacherLessonsTab() {
               <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
                 תלמידי השיעור
               </h4>
-              <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium font-reisinger-yonatan">
-                נהל תלמידים
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowStudentEnrollment(true)
+                    loadAvailableStudents()
+                  }}
+                  className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-sm font-medium font-reisinger-yonatan"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  הוסף תלמיד
+                </button>
+              </div>
             </div>
             
             {lessonStudents.length === 0 ? (
@@ -446,8 +658,8 @@ export default function TheoryTeacherLessonsTab() {
                         <div className="text-xs text-gray-500 mt-1 font-reisinger-yonatan">
                           נוכחות: {student.attendance.present}/{student.attendance.total} שיעורים
                           <span className={`ml-2 ${
-                            (student.attendance.present / student.attendance.total) >= 0.8 
-                              ? 'text-green-600' 
+                            (student.attendance.present / student.attendance.total) >= 0.8
+                              ? 'text-green-600'
                               : 'text-red-600'
                           }`}>
                             ({Math.round((student.attendance.present / student.attendance.total) * 100)}%)
@@ -455,12 +667,48 @@ export default function TheoryTeacherLessonsTab() {
                         </div>
                       )}
                     </div>
+                    <button
+                      onClick={() => handleUnenrollStudent(student.id)}
+                      className="text-red-600 hover:text-red-800 p-1"
+                      title="הסר תלמיד"
+                    >
+                      <UserMinus className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>
             )}
           </div>
         )}
+      </div>
+              </>
+            )}
+
+            {/* Other tabs content */}
+            {activeTab === 'groups' && (
+              <div className="text-center py-12">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2 font-reisinger-yonatan">ניהול קבוצות תיאוריה</h3>
+                <p className="text-gray-600 font-reisinger-yonatan">תכונה זו תהיה זמינה בקרוב</p>
+              </div>
+            )}
+
+            {activeTab === 'curriculum' && (
+              <div className="text-center py-12">
+                <GraduationCap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2 font-reisinger-yonatan">תכנית לימודים</h3>
+                <p className="text-gray-600 font-reisinger-yonatan">תכונה זו תהיה זמינה בקרוב</p>
+              </div>
+            )}
+
+            {activeTab === 'grades' && (
+              <div className="text-center py-12">
+                <BookOpenCheck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2 font-reisinger-yonatan">ניהול ציונים</h3>
+                <p className="text-gray-600 font-reisinger-yonatan">תכונה זו תהיה זמינה בקרוב</p>
+              </div>
+            )}
+        </div>
       </div>
 
       {/* Add/Edit Lesson Modal */}
@@ -472,6 +720,27 @@ export default function TheoryTeacherLessonsTab() {
             setEditingLesson(null)
           }}
           onSubmit={handleLessonSubmit}
+        />
+      )}
+
+      {/* Student Enrollment Modal */}
+      {showStudentEnrollment && (
+        <StudentEnrollmentModal
+          availableStudents={availableStudents}
+          onClose={() => setShowStudentEnrollment(false)}
+          onEnroll={handleEnrollStudent}
+        />
+      )}
+
+      {/* Conflict Checker Modal */}
+      {showConflictChecker && conflictCheck && (
+        <ConflictCheckerModal
+          conflict={conflictCheck}
+          onClose={() => setShowConflictChecker(false)}
+          onResolve={() => {
+            setShowConflictChecker(false)
+            setShowAddModal(true)
+          }}
         />
       )}
     </div>
@@ -690,6 +959,136 @@ function LessonModal({ lesson, onClose, onSubmit }: LessonModalProps) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// Student Enrollment Modal Component
+interface StudentEnrollmentModalProps {
+  availableStudents: LessonStudent[]
+  onClose: () => void
+  onEnroll: (studentId: string) => void
+}
+
+function StudentEnrollmentModal({ availableStudents, onClose, onEnroll }: StudentEnrollmentModalProps) {
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const filteredStudents = availableStudents.filter(student =>
+    `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.instrument?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto" dir="rtl">
+        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-yonatan">
+          הוסף תלמיד לשיעור
+        </h3>
+
+        <div className="relative mb-4">
+          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="חיפוש תלמידים..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div className="space-y-2 max-h-60 overflow-y-auto">
+          {filteredStudents.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+              <p className="font-reisinger-yonatan">אין תלמידים זמינים</p>
+            </div>
+          ) : (
+            filteredStudents.map((student) => (
+              <div key={student.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <div>
+                  <div className="font-medium text-gray-900 font-reisinger-yonatan">
+                    {student.firstName} {student.lastName}
+                  </div>
+                  <div className="text-sm text-gray-600 font-reisinger-yonatan">
+                    {student.instrument && `${student.instrument} • `}
+                    {student.grade && `כיתה ${student.grade}`}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onEnroll(student.id)}
+                  className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-reisinger-yonatan"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  הוסף
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors font-reisinger-yonatan"
+          >
+            סגור
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Conflict Checker Modal Component
+interface ConflictCheckerModalProps {
+  conflict: ConflictCheck
+  onClose: () => void
+  onResolve: () => void
+}
+
+function ConflictCheckerModal({ conflict, onClose, onResolve }: ConflictCheckerModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4" dir="rtl">
+        <div className="flex items-center gap-3 mb-4">
+          <AlertTriangle className="w-8 h-8 text-yellow-600" />
+          <h3 className="text-lg font-bold text-gray-900 font-reisinger-yonatan">
+            התנגשות בלוח הזמנים
+          </h3>
+        </div>
+
+        <div className="mb-4">
+          <p className="text-gray-700 font-reisinger-yonatan mb-3">
+            {conflict.conflictDetails}
+          </p>
+
+          {conflict.suggestions && (
+            <div>
+              <p className="font-medium text-gray-900 mb-2 font-reisinger-yonatan">הצעות לפתרון:</p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                {conflict.suggestions.map((suggestion, index) => (
+                  <li key={index} className="font-reisinger-yonatan">{suggestion}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onResolve}
+            className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-yonatan"
+          >
+            ערוך שיעור
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors font-reisinger-yonatan"
+          >
+            ביטול
+          </button>
+        </div>
       </div>
     </div>
   )

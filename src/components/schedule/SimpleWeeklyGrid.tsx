@@ -89,87 +89,87 @@ const SimpleWeeklyGrid: React.FC<SimpleWeeklyGridProps> = ({ lessons, className 
 
   return (
     <div className={`simple-weekly-grid ${className}`}>
-      {/* Header */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">לוח זמנים שבועי</h3>
-        <p className="text-sm text-gray-600">
-          {lessons.length === 0 
-            ? 'אין שיעורים השבוע' 
-            : lessons.length === 1 
-            ? 'שיעור אחד השבוע' 
+      {/* Header - Compact */}
+      <div className="mb-4">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">לוח זמנים שבועי</h3>
+        <p className="text-xs text-gray-600">
+          {lessons.length === 0
+            ? 'אין שיעורים השבוע'
+            : lessons.length === 1
+            ? 'שיעור אחד השבוע'
             : `${lessons.length} שיעורים השבוע`
           }
         </p>
       </div>
 
-      {/* Days Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      {/* Days Grid - More compact */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
         {dayNames.map((dayName, dayIndex) => {
           const dayLessons = lessonsByDay[dayIndex] || []
-          
+
           return (
             <div key={dayIndex} className="day-column">
-              {/* Day Header */}
-              <div className="day-header bg-gray-50 rounded-t-lg px-4 py-3 border-b">
-                <h4 className="font-medium text-gray-900 text-center">{dayName}</h4>
-                <p className="text-xs text-gray-500 text-center mt-1">
-                  {dayLessons.length === 0 
-                    ? 'אין שיעורים' 
-                    : dayLessons.length === 1 
-                    ? 'שיעור אחד' 
-                    : `${dayLessons.length} שיעורים`
+              {/* Day Header - Smaller */}
+              <div className="day-header bg-gray-50 rounded-t-lg px-3 py-2 border-b">
+                <h4 className="font-medium text-gray-900 text-center text-sm">{dayName}</h4>
+                <p className="text-xs text-gray-500 text-center">
+                  {dayLessons.length === 0
+                    ? 'ריק'
+                    : dayLessons.length === 1
+                    ? '1'
+                    : `${dayLessons.length}`
                   }
                 </p>
               </div>
 
-              {/* Day Content */}
-              <div className="day-content bg-white rounded-b-lg border border-t-0 border-gray-200 min-h-32">
+              {/* Day Content - More compact */}
+              <div className="day-content bg-white rounded-b-lg border border-t-0 border-gray-200 min-h-24">
                 {dayLessons.length === 0 ? (
-                  // Empty day
-                  <div className="p-6 text-center">
-                    <div className="text-gray-300 mb-2">
-                      <Music className="w-8 h-8 mx-auto" />
+                  // Empty day - Much smaller
+                  <div className="p-3 text-center">
+                    <div className="text-gray-300 mb-1">
+                      <Music className="w-5 h-5 mx-auto" />
                     </div>
-                    <p className="text-gray-400 text-sm">אין שיעורים</p>
+                    <p className="text-gray-400 text-xs">אין</p>
                   </div>
                 ) : (
-                  // Day with lessons
-                  <div className="p-3 space-y-3">
+                  // Day with lessons - Compact
+                  <div className="p-2 space-y-2">
                     {dayLessons.map((lesson) => (
                       <div
                         key={lesson.id}
-                        className={`lesson-card rounded-lg p-4 border-2 shadow-sm hover:shadow-md transition-all duration-200 ${getLessonTypeStyle(lesson.lessonType)}`}
+                        className={`lesson-card rounded-md p-2 border shadow-sm hover:shadow-md transition-all duration-200 ${getLessonTypeStyle(lesson.lessonType)}`}
                       >
-                        {/* Lesson Header */}
-                        <div className="flex items-center justify-between mb-3">
-                          <h5 className="font-bold text-lg">{lesson.instrumentName}</h5>
-                          <span className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full">
+                        {/* Lesson Header - Compact */}
+                        <div className="flex items-center justify-between mb-1">
+                          <h5 className="font-semibold text-sm truncate">{lesson.instrumentName}</h5>
+                          <span className="text-xs bg-white bg-opacity-20 px-1 py-0.5 rounded">
                             {getLessonTypeHebrew(lesson.lessonType)}
                           </span>
                         </div>
 
-                        {/* Time */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <Clock className="w-4 h-4" />
-                          <span className="font-medium">
-                            {lesson.startTime} - {lesson.endTime}
+                        {/* Time - Compact */}
+                        <div className="flex items-center gap-1 mb-1">
+                          <Clock className="w-3 h-3" />
+                          <span className="text-xs font-medium">
+                            {lesson.startTime}-{lesson.endTime}
                           </span>
-                          <span className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded">
+                          <span className="text-xs bg-white bg-opacity-20 px-1 rounded">
                             {getDuration(lesson.startTime, lesson.endTime)}ד'
                           </span>
                         </div>
 
-                        {/* Teacher */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <User className="w-4 h-4" />
-                          <span className="text-sm">מורה: {lesson.teacherName}</span>
+                        {/* Teacher - Compact */}
+                        <div className="flex items-center gap-1 mb-1">
+                          <User className="w-3 h-3" />
+                          <span className="text-xs truncate">{lesson.teacherName}</span>
                         </div>
 
-                        {/* Location */}
+                        {/* Location - Compact */}
                         {(lesson.roomNumber || lesson.location) && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4" />
-                            <span className="text-sm">
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            <span className="text-xs truncate">
                               {lesson.roomNumber ? `חדר ${lesson.roomNumber}` : lesson.location}
                             </span>
                           </div>
@@ -184,25 +184,25 @@ const SimpleWeeklyGrid: React.FC<SimpleWeeklyGridProps> = ({ lessons, className 
         })}
       </div>
 
-      {/* Legend */}
-      <div className="legend bg-gray-50 rounded-lg p-4">
-        <h4 className="font-medium text-gray-900 mb-3">מקרא</h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-blue-600 rounded border"></div>
-            <span className="text-sm text-gray-700">שיעורים אישיים</span>
+      {/* Legend - Compact */}
+      <div className="legend bg-gray-50 rounded-lg p-3">
+        <h4 className="font-medium text-gray-900 mb-2 text-sm">מקרא</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded"></div>
+            <span className="text-xs text-gray-700">אישי</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gradient-to-r from-green-500 to-green-600 rounded border"></div>
-            <span className="text-sm text-gray-700">שיעורים קבוצתיים</span>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-green-600 rounded"></div>
+            <span className="text-xs text-gray-700">קבוצתי</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gradient-to-r from-purple-500 to-purple-600 rounded border"></div>
-            <span className="text-sm text-gray-700">תזמורות</span>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-purple-600 rounded"></div>
+            <span className="text-xs text-gray-700">תזמורת</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gradient-to-r from-orange-500 to-orange-600 rounded border"></div>
-            <span className="text-sm text-gray-700">תיאוריה</span>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-gradient-to-r from-orange-500 to-orange-600 rounded"></div>
+            <span className="text-xs text-gray-700">תיאוריה</span>
           </div>
         </div>
       </div>

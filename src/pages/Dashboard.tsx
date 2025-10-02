@@ -4,8 +4,13 @@ import StatsCard from '../components/ui/StatsCard'
 import { Card } from '../components/ui/card'
 import apiService from '../services/apiService'
 import { useSchoolYear } from '../services/schoolYearContext'
+import { useAuth } from '../services/authContext.jsx'
+import ConductorDashboard from '../components/dashboard/ConductorDashboard'
+import TeacherDashboard from '../components/dashboard/TeacherDashboard'
+import TheoryTeacherDashboard from '../components/dashboard/TheoryTeacherDashboard'
 
 export default function Dashboard() {
+  const { user } = useAuth()
   const { currentSchoolYear } = useSchoolYear()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
@@ -193,6 +198,65 @@ export default function Dashboard() {
     return `${d.getDate()}/${d.getMonth() + 1}`
   }
 
+  // Helper function to determine user role
+  const getUserRole = () => {
+    if (!user) return 'admin'
+
+    // Check for admin role first
+    if (user.role === 'admin' ||
+        user.roles?.includes('admin') ||
+        user.role === 'מנהל' ||
+        user.roles?.includes('מנהל')) {
+      return 'admin'
+    }
+
+    // Check for theory teacher role (specifically has theory-related roles)
+    if (user.role === 'theory-teacher' ||
+        user.roles?.includes('theory-teacher') ||
+        user.roles?.includes('theory_teacher') ||
+        user.role === 'מורה תיאוריה' ||
+        user.roles?.includes('מורה תיאוריה')) {
+      return 'theory-teacher'
+    }
+
+    // Check for conductor role
+    if (user.role === 'conductor' ||
+        user.roles?.includes('conductor') ||
+        user.role === 'מנצח' ||
+        user.roles?.includes('מנצח') ||
+        user.conducting?.orchestraIds?.length > 0) {
+      return 'conductor'
+    }
+
+    // Check for teacher role - check Hebrew roles too!
+    if (user.role === 'teacher' ||
+        user.roles?.includes('teacher') ||
+        user.role === 'מורה' ||
+        user.roles?.includes('מורה') ||
+        user.teaching?.studentIds?.length > 0) {
+      return 'teacher'
+    }
+
+    // Default to admin
+    return 'admin'
+  }
+
+  // Return role-specific dashboard
+  const userRole = getUserRole()
+
+  if (userRole === 'theory-teacher') {
+    return <TheoryTeacherDashboard />
+  }
+
+  if (userRole === 'conductor') {
+    return <ConductorDashboard />
+  }
+
+  if (userRole === 'teacher') {
+    return <TeacherDashboard />
+  }
+
+  // Default admin dashboard
   return (
     <div>
       {/* Statistics Cards */}

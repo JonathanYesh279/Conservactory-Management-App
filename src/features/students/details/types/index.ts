@@ -63,6 +63,20 @@ export interface InstrumentProgress {
     pitch: number;
     performance: number;
   };
+  tests?: {
+    stageTest: {
+      status: string;
+      lastTestDate?: string;
+      nextTestDate?: string;
+      notes?: string;
+    };
+    technicalTest: {
+      status: string;
+      lastTestDate?: string;
+      nextTestDate?: string;
+      notes?: string;
+    };
+  };
 }
 
 export interface AcademicInfo {

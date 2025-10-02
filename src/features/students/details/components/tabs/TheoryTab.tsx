@@ -11,6 +11,7 @@ import {
   GraduationCap, Users, Info
 } from 'lucide-react'
 import apiService from '../../../../../services/apiService'
+import theoryEnrollmentService from '../../../../../services/theoryEnrollmentService'
 import { syncStudentTheoryLessons } from '../../../../../utils/syncTheoryLessonsData'
 import TeacherNameDisplay from '../../../../../components/TeacherNameDisplay'
 
@@ -155,31 +156,30 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId, isLoading }) 
   const handleEnrollment = async (lessonId: string) => {
     try {
       setEnrollmentInProgress(lessonId)
-      
-      // Update student's theory lesson enrollments
-      const updatedLessonIds = [...(student.theoryLessonIds || []), lessonId]
-      
-      await apiService.students.updateStudent(studentId, {
-        theoryLessonIds: updatedLessonIds
+
+      // Use the proper theory enrollment service
+      const result = await theoryEnrollmentService.enrollStudent(lessonId, studentId, {
+        method: 'manual',
+        performedBy: 'teacher',
+        reason: 'Manual enrollment from student details'
       })
-      
-      // Also update the theory lesson's enrolled students using the proper API method
-      try {
-        await apiService.theoryLessons.addStudentToTheory(lessonId, studentId)
-      } catch (err) {
-        console.error(`Failed to add student to theory lesson ${lessonId}:`, err)
+
+      if (result.success) {
+        // Update local state
+        const enrolledLesson = availableTheoryLessons.find(l => l._id === lessonId)
+        if (enrolledLesson) {
+          setEnrolledTheoryLessons(prev => [...prev, enrolledLesson])
+          setAvailableTheoryLessons(prev => prev.filter(l => l._id !== lessonId))
+        }
+
+        console.log(`✅ Successfully enrolled in theory lesson ${lessonId}`)
+      } else {
+        throw new Error('Enrollment failed')
       }
-      
-      // Update local state
-      const enrolledLesson = availableTheoryLessons.find(l => l._id === lessonId)
-      if (enrolledLesson) {
-        setEnrolledTheoryLessons(prev => [...prev, enrolledLesson])
-        setAvailableTheoryLessons(prev => prev.filter(l => l._id !== lessonId))
-      }
-      
-      console.log(`Successfully enrolled in theory lesson ${lessonId}`)
+
     } catch (error) {
-      console.error('Error enrolling in theory lesson:', error)
+      console.error('❌ Error enrolling in theory lesson:', error)
+      alert(`Failed to enroll in theory lesson: ${error.message}`)
     } finally {
       setEnrollmentInProgress(null)
     }
@@ -189,31 +189,28 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId, isLoading }) 
   const handleUnenrollment = async (lessonId: string) => {
     try {
       setEnrollmentInProgress(lessonId)
-      
-      // Update student's theory lesson enrollments
-      const updatedLessonIds = (student.theoryLessonIds || []).filter((id: string) => id !== lessonId)
-      
-      await apiService.students.updateStudent(studentId, {
-        theoryLessonIds: updatedLessonIds
+
+      // Use the proper theory enrollment service
+      const result = await theoryEnrollmentService.unenrollStudent(lessonId, studentId, {
+        reason: 'Manual unenrollment from student details'
       })
-      
-      // Also update the theory lesson's enrolled students using the proper API method
-      try {
-        await apiService.theoryLessons.removeStudentFromTheory(lessonId, studentId)
-      } catch (err) {
-        console.error(`Failed to remove student from theory lesson ${lessonId}:`, err)
+
+      if (result.success) {
+        // Update local state
+        const unenrolledLesson = enrolledTheoryLessons.find(l => l._id === lessonId)
+        if (unenrolledLesson) {
+          setAvailableTheoryLessons(prev => [...prev, unenrolledLesson])
+        }
+        setEnrolledTheoryLessons(prev => prev.filter(l => l._id !== lessonId))
+
+        console.log(`✅ Successfully unenrolled from theory lesson ${lessonId}`)
+      } else {
+        throw new Error('Unenrollment failed')
       }
-      
-      // Update local state
-      const unenrolledLesson = enrolledTheoryLessons.find(l => l._id === lessonId)
-      if (unenrolledLesson) {
-        setAvailableTheoryLessons(prev => [...prev, unenrolledLesson])
-      }
-      setEnrolledTheoryLessons(prev => prev.filter(l => l._id !== lessonId))
-      
-      console.log(`Successfully unenrolled from theory lesson ${lessonId}`)
+
     } catch (error) {
-      console.error('Error unenrolling from theory lesson:', error)
+      console.error('❌ Error unenrolling from theory lesson:', error)
+      alert(`Failed to unenroll from theory lesson: ${error.message}`)
     } finally {
       setEnrollmentInProgress(null)
       setShowConfirmDialog(null)

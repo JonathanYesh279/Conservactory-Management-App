@@ -5,8 +5,8 @@
  * Updated field names and added technical exams section
  */
 
-import { useState, useEffect } from 'react'
-import { BookOpen, Music, Trophy, Clock, FileText, CheckCircle, XCircle, Star, Edit, Save, X } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { BookOpen, Music, Trophy, Clock, FileText, CheckCircle, XCircle, Star, Edit, Save, X, AlertTriangle, User } from 'lucide-react'
 import apiService from '../../../../../services/apiService'
 
 interface AcademicInfoTabProps {
@@ -16,57 +16,177 @@ interface AcademicInfoTabProps {
   onStudentUpdate?: (updatedStudent: any) => void
 }
 
+// Test status options - aligned with backend validation
+const TEST_STATUSES = [
+  'לא נבחן',
+  'עבר/ה',
+  'לא עבר/ה',
+  'עבר/ה בהצטיינות',
+  'עבר/ה בהצטיינות יתרה'
+]
+
+// Passing statuses that trigger stage advancement
+const PASSING_STATUSES = ['עבר/ה', 'עבר/ה בהצטיינות', 'עבר/ה בהצטיינות יתרה']
+
 const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studentId, isLoading, onStudentUpdate }) => {
+  console.log('🎓 AcademicInfoTabSimple - Full student object:', student)
+  console.log('📚 Student enrollments:', student?.enrollments)
+  console.log('👨‍🏫 Student teacherAssignments:', student?.teacherAssignments)
+
   const academicInfo = student?.academicInfo || {}
+  const teacherAssignments = student?.teacherAssignments || []
+  const enrollments = student?.enrollments || {}
+  const teacherIds = student?.teacherIds || []  // teacherIds is at root level, not in enrollments
+
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [editedData, setEditedData] = useState({
-    class: academicInfo.class || '',
-    stage: academicInfo.stage || academicInfo.level || '',
-    startDate: academicInfo.startDate || '',
-  })
+  const [teachersData, setTeachersData] = useState<any[]>([])
+  const [loadingTeachers, setLoadingTeachers] = useState(false)
 
-  // Update editedData when student data changes
-  useEffect(() => {
-    setEditedData({
+  // Initialize editedData with test statuses
+  const initializeEditData = () => {
+    const instrumentTests: Record<string, any> = {}
+    if (academicInfo.instrumentProgress) {
+      academicInfo.instrumentProgress.forEach((instrument: any) => {
+        instrumentTests[instrument.instrumentName] = {
+          stageTestStatus: instrument.tests?.stageTest?.status || 'לא נבחן',
+          technicalTestStatus: instrument.tests?.technicalTest?.status || 'לא נבחן',
+        }
+      })
+    }
+    return {
       class: academicInfo.class || '',
       stage: academicInfo.stage || academicInfo.level || '',
       startDate: academicInfo.startDate || '',
-    })
+      instrumentTests
+    }
+  }
+
+  const [editedData, setEditedData] = useState(initializeEditData())
+
+  // Update editedData when student data changes
+  useEffect(() => {
+    setEditedData(initializeEditData())
   }, [academicInfo])
+
+  // Load teacher names for enrolled teachers without assignments
+  useEffect(() => {
+    const loadTeachersData = async () => {
+      console.log('🔍 Checking enrolled teacher IDs:', teacherIds)
+      console.log('📋 Current teacher assignments:', teacherAssignments)
+
+      if (teacherIds.length === 0) {
+        console.log('⚠️ No enrolled teachers found')
+        return
+      }
+
+      setLoadingTeachers(true)
+      try {
+        console.log('🔄 Loading teacher data for IDs:', teacherIds)
+        const teachersPromises = teacherIds.map((teacherId: string) =>
+          apiService.teachers.getTeacher(teacherId)
+        )
+        const teachers = await Promise.all(teachersPromises)
+        console.log('✅ Loaded teachers:', teachers)
+        setTeachersData(teachers)
+      } catch (error) {
+        console.error('❌ Failed to load teachers:', error)
+      } finally {
+        setLoadingTeachers(false)
+      }
+    }
+
+    loadTeachersData()
+  }, [teacherIds])
+
+  // Find teachers enrolled but without lesson assignments
+  const teachersWithoutLessons = useMemo(() => {
+    const assignedTeacherIds = teacherAssignments?.map((a: any) => a.teacherId) || []
+
+    console.log('🔍 Finding teachers without lessons:')
+    console.log('  - Enrolled teacher IDs:', teacherIds)
+    console.log('  - Assigned teacher IDs:', assignedTeacherIds)
+    console.log('  - Teachers data:', teachersData)
+
+    const result = teachersData.filter((teacher) =>
+      teacherIds.includes(teacher._id) &&
+      !assignedTeacherIds.includes(teacher._id)
+    )
+
+    console.log('📊 Teachers without lessons:', result)
+    return result
+  }, [teachersData, teacherIds, teacherAssignments])
 
   const handleSave = async () => {
     try {
       setIsSaving(true)
-      
-      const updatedStudent = await apiService.students.updateStudent(studentId, {
+
+      // Update instrument progress with new test statuses and check for stage advancement
+      const updatedInstrumentProgress = academicInfo.instrumentProgress?.map((instrument: any) => {
+        const testUpdates = editedData.instrumentTests?.[instrument.instrumentName]
+        if (testUpdates) {
+          const oldStageTestStatus = instrument.tests?.stageTest?.status || 'לא נבחן'
+          const newStageTestStatus = testUpdates.stageTestStatus
+
+          // Check if stage test changed from failing to passing
+          const shouldAdvanceStage =
+            PASSING_STATUSES.includes(newStageTestStatus) &&
+            !PASSING_STATUSES.includes(oldStageTestStatus) &&
+            instrument.currentStage < 8
+
+          return {
+            ...instrument,
+            // Increment stage if conditions are met
+            currentStage: shouldAdvanceStage ? instrument.currentStage + 1 : instrument.currentStage,
+            tests: {
+              ...instrument.tests,
+              stageTest: {
+                ...instrument.tests?.stageTest,
+                status: testUpdates.stageTestStatus
+              },
+              technicalTest: {
+                ...instrument.tests?.technicalTest,
+                status: testUpdates.technicalTestStatus
+              }
+            }
+          }
+        }
+        return instrument
+      })
+
+      await apiService.students.updateStudent(studentId, {
         academicInfo: {
           ...academicInfo,
-          ...editedData
+          class: editedData.class,
+          instrumentProgress: updatedInstrumentProgress
         }
       })
-      
+
+      // Fetch fresh data from server
+      const freshStudent = await apiService.students.getStudentById(studentId)
+
+      // Update parent component state
       if (onStudentUpdate) {
-        onStudentUpdate(updatedStudent)
+        onStudentUpdate(freshStudent)
       }
-      
+
       setIsEditing(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving student academic info:', error)
-      
+
       // Provide more specific error messages
       let errorMessage = 'שגיאה בשמירת הנתונים האקדמיים'
-      
-      if (error.message.includes('Authentication failed')) {
+
+      if (error.message?.includes('Authentication failed')) {
         errorMessage = 'פג תוקף הפנייה. אנא התחבר מחדש.'
-      } else if (error.message.includes('validation')) {
+      } else if (error.message?.includes('validation')) {
         errorMessage = 'שגיאה בנתונים שהוזנו. אנא בדוק את הפרטים האקדמיים.'
-      } else if (error.message.includes('not found')) {
+      } else if (error.message?.includes('not found')) {
         errorMessage = 'התלמיד לא נמצא במערכת.'
-      } else if (error.message.includes('Network')) {
+      } else if (error.message?.includes('Network')) {
         errorMessage = 'שגיאת רשת. אנא בדוק את החיבור לאינטרנט.'
       }
-      
+
       alert(errorMessage)
     } finally {
       setIsSaving(false)
@@ -74,12 +194,21 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
   }
 
   const handleCancel = () => {
-    setEditedData({
-      class: academicInfo.class || '',
-      stage: academicInfo.stage || academicInfo.level || '',
-      startDate: academicInfo.startDate || '',
-    })
+    setEditedData(initializeEditData())
     setIsEditing(false)
+  }
+
+  const handleTestStatusChange = (instrumentName: string, testType: 'stageTest' | 'technicalTest', value: string) => {
+    setEditedData(prev => ({
+      ...prev,
+      instrumentTests: {
+        ...prev.instrumentTests,
+        [instrumentName]: {
+          ...prev.instrumentTests?.[instrumentName],
+          [`${testType}Status`]: value
+        }
+      }
+    }))
   }
 
   if (isLoading) {
@@ -167,7 +296,37 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
           <BookOpen className="w-4 h-4 text-primary-600" />
           מידע אקדמי
         </h3>
-        
+
+        {/* Teachers Enrolled but No Lesson Scheduled - WARNING AT TOP */}
+        {teachersWithoutLessons.length > 0 && (
+          <div className="mb-4 pb-4 border-b border-gray-100">
+            <div className="flex items-center gap-2 text-sm font-medium text-orange-700 mb-3">
+              <AlertTriangle className="w-4 h-4" />
+              <span>מורים ללא שיעור מתוזמן</span>
+            </div>
+            <div className="space-y-2">
+              {teachersWithoutLessons.map((teacher, index) => (
+                <div
+                  key={teacher._id || index}
+                  className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-start gap-2"
+                >
+                  <div className="p-1.5 bg-orange-100 rounded flex-shrink-0">
+                    <User className="w-4 h-4 text-orange-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-orange-900">
+                      {teacher.personalInfo?.fullName || 'מורה'}
+                    </p>
+                    <p className="text-xs text-orange-700 mt-0.5">
+                      התלמיד/ה משוייך/ת למורה זה אך טרם נקבע שיעור. יש ליצור קשר עם המורה לתיאום שיעור.
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Basic Info Section */}
         <div className="mb-4 pb-4 border-b border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -248,34 +407,55 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
                   </div>
                   
                   {/* Test Results for this instrument */}
-                  {instrument.tests && (
-                    <div className="mt-2 space-y-1">
-                      {instrument.tests.technicalTest && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-black font-semibold" style={{color: '#000000'}}>מבחן טכני:</span>
-                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getExamStatusColor(instrument.tests.technicalTest.status || 'לא נבחן')}`}>
-                            {getExamStatusIcon(instrument.tests.technicalTest.status || 'לא נבחן')}
-                            {instrument.tests.technicalTest.status || 'לא נבחן'}
-                          </div>
-                          {instrument.tests.technicalTest.notes && (
-                            <span className="text-xs text-gray-500">({instrument.tests.technicalTest.notes})</span>
-                          )}
+                  <div className="mt-2 space-y-2">
+                    {/* Technical Test */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-black font-semibold" style={{color: '#000000'}}>מבחן טכני:</span>
+                      {isEditing ? (
+                        <select
+                          value={editedData.instrumentTests?.[instrument.instrumentName]?.technicalTestStatus || 'לא נבחן'}
+                          onChange={(e) => handleTestStatusChange(instrument.instrumentName, 'technicalTest', e.target.value)}
+                          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        >
+                          {TEST_STATUSES.map(status => (
+                            <option key={status} value={status}>{status}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm ${getExamStatusColor(instrument.tests?.technicalTest?.status || 'לא נבחן')}`}>
+                          {getExamStatusIcon(instrument.tests?.technicalTest?.status || 'לא נבחן')}
+                          {instrument.tests?.technicalTest?.status || 'לא נבחן'}
                         </div>
                       )}
-                      {instrument.tests.stageTest && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-black font-semibold" style={{color: '#000000'}}>מבחן שלב:</span>
-                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getExamStatusColor(instrument.tests.stageTest.status || 'לא נבחן')}`}>
-                            {getExamStatusIcon(instrument.tests.stageTest.status || 'לא נבחן')}
-                            {instrument.tests.stageTest.status || 'לא נבחן'}
-                          </div>
-                          {instrument.tests.stageTest.notes && (
-                            <span className="text-xs text-gray-500">({instrument.tests.stageTest.notes})</span>
-                          )}
-                        </div>
+                      {instrument.tests?.technicalTest?.notes && !isEditing && (
+                        <span className="text-xs text-gray-500">({instrument.tests.technicalTest.notes})</span>
                       )}
                     </div>
-                  )}
+
+                    {/* Stage Test */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-black font-semibold" style={{color: '#000000'}}>מבחן שלב:</span>
+                      {isEditing ? (
+                        <select
+                          value={editedData.instrumentTests?.[instrument.instrumentName]?.stageTestStatus || 'לא נבחן'}
+                          onChange={(e) => handleTestStatusChange(instrument.instrumentName, 'stageTest', e.target.value)}
+                          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        >
+                          {TEST_STATUSES.map(status => (
+                            <option key={status} value={status}>{status}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm ${getExamStatusColor(instrument.tests?.stageTest?.status || 'לא נבחן')}`}>
+                          {getExamStatusIcon(instrument.tests?.stageTest?.status || 'לא נבחן')}
+                          {instrument.tests?.stageTest?.status || 'לא נבחן'}
+                        </div>
+                      )}
+                      {instrument.tests?.stageTest?.notes && !isEditing && (
+                        <span className="text-xs text-gray-500">({instrument.tests.stageTest.notes})</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

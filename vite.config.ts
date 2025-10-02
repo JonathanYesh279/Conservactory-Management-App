@@ -12,6 +12,27 @@ export default defineConfig({
   define: {
     'process.env': process.env,
   },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react-router-dom',
+      '@tanstack/react-query',
+      'immer',
+      'lucide-react',
+      'clsx',
+      'tailwind-merge',
+      'class-variance-authority',
+      '@radix-ui/react-slot',
+      '@radix-ui/react-label',
+      '@radix-ui/react-select'
+    ],
+    exclude: [],
+    esbuildOptions: {
+      target: 'es2020'
+    }
+  },
   server: {
     port: 5173,
     strictPort: true, // Don't try other ports, fail if 5173 is in use

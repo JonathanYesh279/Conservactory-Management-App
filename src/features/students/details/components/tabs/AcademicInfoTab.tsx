@@ -5,8 +5,8 @@
  * teacher assignments, academic performance, and educational details.
  */
 
-import { useState, useMemo } from 'react'
-import { GraduationCap, Music, User, TrendingUp, School, BookOpen, Award, Target, Star, Clock, Trophy, Calendar, CheckCircle, AlertTriangle } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { GraduationCap, Music, User, TrendingUp, School, BookOpen, Award, Target, Star, Clock, Trophy, Calendar, CheckCircle, AlertTriangle, Edit2, Save, X as XIcon, ClipboardCheck } from 'lucide-react'
 import { StudentDetails } from '../../types'
 import { Doughnut, Line, Bar } from 'react-chartjs-2'
 import {
@@ -20,6 +20,9 @@ import {
   Legend,
   ArcElement,
 } from 'chart.js'
+import { useAuth } from '../../../../../services/authContext.jsx'
+import apiService from '../../../../../services/apiService'
+import StageAdvancementConfirmModal from '../modals/StageAdvancementConfirmModal'
 
 ChartJS.register(
   CategoryScale,
@@ -48,6 +51,20 @@ const HEBREW_STAGES = {
   7: { name: "ז'", description: 'שלב מתקדם גבוה' },
   8: { name: "ח'", description: 'שלב מוכשר' }
 }
+
+// Test status options
+const TEST_STATUSES = [
+  'לא נבחן',
+  'נכשל/ה',
+  'עבר/ה',
+  'עבר/ה בהצטיינות',
+  'עבר/ה בהצטיינות יתרה',
+  'ממתין/ה',
+  'פטור/ה'
+]
+
+// Passing test statuses that trigger stage advancement
+const PASSING_STATUSES = ['עבר/ה', 'עבר/ה בהצטיינות', 'עבר/ה בהצטיינות יתרה']
 
 // Achievement definitions
 const ACHIEVEMENTS = {
@@ -93,7 +110,64 @@ const BAGRUT_REQUIREMENTS = {
 }
 
 const AcademicInfoTab: React.FC<AcademicInfoTabProps> = ({ student, studentId }) => {
-  const { academicInfo, teacherAssignments } = student
+  const { academicInfo, teacherAssignments, enrollments } = student
+  const { user } = useAuth()
+
+  // Check if user is admin
+  const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin'
+
+  // State for teachers data
+  const [teachersData, setTeachersData] = useState<any[]>([])
+  const [loadingTeachers, setLoadingTeachers] = useState(false)
+
+  // State for test results editing
+  const [isEditingTests, setIsEditingTests] = useState(false)
+  const [editedTestData, setEditedTestData] = useState<Record<string, any>>({})
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
+  // Stage advancement modal state
+  const [showStageModal, setShowStageModal] = useState(false)
+  const [stageAdvancementData, setStageAdvancementData] = useState<{
+    instrumentName: string
+    currentStage: number
+    newStage: number
+  } | null>(null)
+
+  // Load teacher names for enrolled teachers without assignments
+  useEffect(() => {
+    const loadTeachersData = async () => {
+      const teacherIds = enrollments?.teacherIds || []
+      if (teacherIds.length === 0) return
+
+      setLoadingTeachers(true)
+      try {
+        const teachersPromises = teacherIds.map((teacherId: string) =>
+          apiService.teachers.getTeacher(teacherId)
+        )
+        const teachers = await Promise.all(teachersPromises)
+        setTeachersData(teachers)
+      } catch (error) {
+        console.error('Failed to load teachers:', error)
+      } finally {
+        setLoadingTeachers(false)
+      }
+    }
+
+    loadTeachersData()
+  }, [enrollments?.teacherIds])
+
+  // Find teachers enrolled but without lesson assignments
+  const teachersWithoutLessons = useMemo(() => {
+    const enrolledTeacherIds = enrollments?.teacherIds || []
+    const assignedTeacherIds = teacherAssignments?.map((a: any) => a.teacherId) || []
+
+    return teachersData.filter((teacher) =>
+      enrolledTeacherIds.includes(teacher._id) &&
+      !assignedTeacherIds.includes(teacher._id)
+    )
+  }, [teachersData, enrollments?.teacherIds, teacherAssignments])
 
   const InfoSection: React.FC<{ 
     title: string; 
@@ -120,6 +194,115 @@ const AcademicInfoTab: React.FC<AcademicInfoTabProps> = ({ student, studentId })
       </span>
     </div>
   )
+
+  // Handler functions for test editing
+  const handleEditTests = () => {
+    console.log('🔧 Entering edit mode for tests')
+    // Initialize edit data with current test values
+    const initialTestData: Record<string, any> = {}
+    academicInfo.instrumentProgress?.forEach((instrument) => {
+      initialTestData[instrument.instrumentName] = {
+        stageTestStatus: instrument.tests?.stageTest?.status || 'לא נבחן',
+        technicalTestStatus: instrument.tests?.technicalTest?.status || 'לא נבחן',
+        currentStage: instrument.currentStage
+      }
+    })
+    console.log('📝 Initial test data:', initialTestData)
+    setEditedTestData(initialTestData)
+    setIsEditingTests(true)
+    setSaveError(null)
+    setSaveSuccess(false)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditingTests(false)
+    setEditedTestData({})
+    setSaveError(null)
+  }
+
+  const handleTestStatusChange = (instrumentName: string, testType: 'stageTest' | 'technicalTest', value: string) => {
+    setEditedTestData(prev => ({
+      ...prev,
+      [instrumentName]: {
+        ...prev[instrumentName],
+        [`${testType}Status`]: value
+      }
+    }))
+  }
+
+  const handleSaveTests = async () => {
+    setSaveError(null)
+    setSaveSuccess(false)
+
+    // Check if any stage test changed to passing status
+    for (const instrumentName in editedTestData) {
+      const instrument = academicInfo.instrumentProgress?.find(i => i.instrumentName === instrumentName)
+      if (!instrument) continue
+
+      const oldStageTestStatus = instrument.tests?.stageTest?.status || 'לא נבחן'
+      const newStageTestStatus = editedTestData[instrumentName].stageTestStatus
+
+      // If stage test changed to passing and wasn't passing before
+      if (PASSING_STATUSES.includes(newStageTestStatus) &&
+          !PASSING_STATUSES.includes(oldStageTestStatus) &&
+          instrument.currentStage < 8) {
+        // Show confirmation modal
+        setStageAdvancementData({
+          instrumentName,
+          currentStage: instrument.currentStage,
+          newStage: instrument.currentStage + 1
+        })
+        setShowStageModal(true)
+        return
+      }
+    }
+
+    // If no stage advancement needed, save directly
+    await saveTestUpdates(false)
+  }
+
+  const saveTestUpdates = async (autoAdvanceStage: boolean) => {
+    setIsSaving(true)
+    setSaveError(null)
+
+    try {
+      // Update each instrument's test status
+      for (const instrumentName in editedTestData) {
+        const testData = editedTestData[instrumentName]
+
+        await apiService.students.updateStageTestStatus(studentId, instrumentName, {
+          stageTestStatus: testData.stageTestStatus,
+          technicalTestStatus: testData.technicalTestStatus,
+          autoAdvanceStage
+        })
+      }
+
+      setSaveSuccess(true)
+      setIsEditingTests(false)
+      setEditedTestData({})
+
+      // Refresh student data
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
+    } catch (error: any) {
+      console.error('Error saving test updates:', error)
+      setSaveError(error.message || 'שגיאה בשמירת נתוני המבחנים')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleConfirmStageAdvancement = async () => {
+    setShowStageModal(false)
+    await saveTestUpdates(true)
+  }
+
+  const handleCancelStageAdvancement = () => {
+    setShowStageModal(false)
+    // Save without stage advancement
+    saveTestUpdates(false)
+  }
 
   // Progress bar component with enhanced styling
   const ProgressBar: React.FC<{ current: number; target: number; label: string; color?: string }> = ({ 
@@ -452,6 +635,167 @@ const AcademicInfoTab: React.FC<AcademicInfoTabProps> = ({ student, studentId })
         </div>
       )}
 
+      {/* Test Results Section */}
+      {academicInfo.instrumentProgress && academicInfo.instrumentProgress.length > 0 && (
+        <InfoSection
+          title="תוצאות מבחנים"
+          icon={ClipboardCheck}
+          className="bg-gradient-to-br from-blue-50 to-cyan-50"
+        >
+          <div className="space-y-4">
+            {/* Edit/Save buttons for admin */}
+            {isAdmin && !isEditingTests && (
+              <div className="flex justify-end mb-4">
+                <button
+                  onClick={handleEditTests}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors shadow-sm"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span>ערוך תוצאות מבחנים</span>
+                </button>
+              </div>
+            )}
+
+            {/* Save/Cancel buttons when editing */}
+            {isAdmin && isEditingTests && (
+              <div className="flex gap-3 justify-end mb-4">
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  <XIcon className="w-4 h-4" />
+                  <span>ביטול</span>
+                </button>
+                <button
+                  onClick={handleSaveTests}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>שומר...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>שמור שינויים</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Success/Error messages */}
+            {saveSuccess && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3 mb-4">
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                <p className="text-green-800">תוצאות המבחנים עודכנו בהצלחה!</p>
+              </div>
+            )}
+
+            {saveError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 mb-4">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <p className="text-red-800">{saveError}</p>
+              </div>
+            )}
+
+            {/* Test results for each instrument */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {academicInfo.instrumentProgress.map((instrument, index) => {
+                const stageTestStatus = isEditingTests
+                  ? editedTestData[instrument.instrumentName]?.stageTestStatus || 'לא נבחן'
+                  : instrument.tests?.stageTest?.status || 'לא נבחן'
+
+                const technicalTestStatus = isEditingTests
+                  ? editedTestData[instrument.instrumentName]?.technicalTestStatus || 'לא נבחן'
+                  : instrument.tests?.technicalTest?.status || 'לא נבחן'
+
+                const getStatusColor = (status: string) => {
+                  if (PASSING_STATUSES.includes(status)) return 'text-green-700 bg-green-100'
+                  if (status === 'נכשל/ה') return 'text-red-700 bg-red-100'
+                  if (status === 'ממתין/ה') return 'text-yellow-700 bg-yellow-100'
+                  if (status === 'פטור/ה') return 'text-blue-700 bg-blue-100'
+                  return 'text-gray-700 bg-gray-100'
+                }
+
+                return (
+                  <div
+                    key={index}
+                    className="bg-white rounded-lg p-5 border border-cyan-200 shadow-sm"
+                  >
+                    <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2 pb-3 border-b border-gray-200">
+                      <Music className="w-5 h-5 text-cyan-600" />
+                      {instrument.instrumentName}
+                    </h4>
+
+                    <div className="space-y-4">
+                      {/* Debug log */}
+                      {console.log('🎨 Rendering test fields, isEditingTests:', isEditingTests, 'instrument:', instrument.instrumentName)}
+                      {/* Stage Test */}
+                      <div>
+                        <label className="block text-base font-semibold text-gray-700 mb-2">
+                          מבחן שלב
+                        </label>
+                        {isEditingTests ? (
+                          <select
+                            value={stageTestStatus}
+                            onChange={(e) => handleTestStatusChange(instrument.instrumentName, 'stageTest', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-base"
+                          >
+                            {TEST_STATUSES.map(status => (
+                              <option key={status} value={status}>{status}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className={`px-4 py-3 rounded-lg text-base font-medium ${getStatusColor(stageTestStatus)}`}>
+                            {stageTestStatus}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Technical Test */}
+                      <div>
+                        <label className="block text-base font-semibold text-gray-700 mb-2">
+                          מבחן טכני
+                        </label>
+                        {isEditingTests ? (
+                          <select
+                            value={technicalTestStatus}
+                            onChange={(e) => handleTestStatusChange(instrument.instrumentName, 'technicalTest', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-base"
+                          >
+                            {TEST_STATUSES.map(status => (
+                              <option key={status} value={status}>{status}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className={`px-4 py-3 rounded-lg text-base font-medium ${getStatusColor(technicalTestStatus)}`}>
+                            {technicalTestStatus}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Current Stage indicator */}
+                      <div className="pt-3 border-t border-gray-200">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600">שלב נוכחי:</span>
+                          <span className="font-bold text-primary-600 text-lg">
+                            {HEBREW_STAGES[instrument.currentStage as keyof typeof HEBREW_STAGES]?.name || instrument.currentStage}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </InfoSection>
+      )}
+
       {/* Achievement Badges Display */}
       <InfoSection title="הישגים ואותות הכרה" icon={Award}>
         <div className="space-y-4">
@@ -728,7 +1072,47 @@ const AcademicInfoTab: React.FC<AcademicInfoTabProps> = ({ student, studentId })
             <p className="text-sm text-gray-500 mt-1">מורים ושיעורים יוצגו כאן לאחר השיבוץ</p>
           </div>
         )}
+
+        {/* Teachers Enrolled but No Lesson Scheduled */}
+        {teachersWithoutLessons.length > 0 && (
+          <div className="mt-6 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-orange-700 mb-3">
+              <AlertTriangle className="w-4 h-4" />
+              <span>מורים ללא שיעור מתוזמן</span>
+            </div>
+            {teachersWithoutLessons.map((teacher, index) => (
+              <div
+                key={teacher._id || index}
+                className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4 flex items-start gap-3"
+              >
+                <div className="p-2 bg-orange-100 rounded-lg flex-shrink-0">
+                  <Clock className="w-5 h-5 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-orange-900">
+                    {teacher.personalInfo?.fullName || 'מורה'}
+                  </p>
+                  <p className="text-sm text-orange-700 mt-1">
+                    התלמיד/ה משוייך/ת למורה זה אך טרם נקבע שיעור. יש ליצור קשר עם המורה לתיאום שיעור.
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </InfoSection>
+
+      {/* Stage Advancement Confirmation Modal */}
+      {stageAdvancementData && (
+        <StageAdvancementConfirmModal
+          isOpen={showStageModal}
+          currentStage={stageAdvancementData.currentStage}
+          newStage={stageAdvancementData.newStage}
+          instrumentName={stageAdvancementData.instrumentName}
+          onConfirm={handleConfirmStageAdvancement}
+          onCancel={handleCancelStageAdvancement}
+        />
+      )}
     </div>
   )
 }

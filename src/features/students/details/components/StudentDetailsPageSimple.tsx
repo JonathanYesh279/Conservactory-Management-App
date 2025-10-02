@@ -22,6 +22,12 @@ const StudentDetailsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Handler to update student data without page reload
+  const handleStudentUpdate = (updatedStudent: any) => {
+    console.log('🔄 Updating student data in parent component:', updatedStudent)
+    setStudent(updatedStudent)
+  }
+
   // Define available tabs
   const tabs: TabConfig[] = [
     { id: 'personal', label: 'פרטים אישיים', component: () => null },
@@ -47,6 +53,8 @@ const StudentDetailsPage: React.FC = () => {
         console.log('🌐 Fetching student data for ID:', studentId)
         const response = await apiService.students.getStudentById(studentId)
         console.log('✅ Student data received:', response)
+        console.log('📚 Enrollments in response:', response?.enrollments)
+        console.log('👨‍🏫 Teacher assignments in response:', response?.teacherAssignments)
         setStudent(response)
       } catch (err) {
         console.error('❌ Error fetching student:', err)
@@ -155,11 +163,12 @@ const StudentDetailsPage: React.FC = () => {
 
       {/* Tab Content */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <StudentTabContent 
+        <StudentTabContent
           activeTab={activeTab}
           studentId={studentId}
           student={student}
           isLoading={false}
+          onStudentUpdate={handleStudentUpdate}
         />
       </div>
     </div>

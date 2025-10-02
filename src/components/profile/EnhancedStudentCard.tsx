@@ -1,17 +1,18 @@
 import React from 'react'
-import { 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Phone, 
-  Clock, 
-  Music, 
-  Calendar, 
-  User, 
-  Star, 
+import {
+  Edit,
+  Trash2,
+  Eye,
+  Phone,
+  Clock,
+  Music,
+  Calendar,
+  User,
   MapPin,
   CheckCircle,
-  AlertCircle 
+  AlertCircle,
+  CheckSquare,
+  FileText
 } from 'lucide-react'
 
 interface Student {
@@ -51,6 +52,8 @@ interface EnhancedStudentCardProps {
   onDelete: (studentId: string) => void
   onViewDetails: (studentId: string) => void
   onScheduleLesson?: (studentId: string) => void
+  onMarkAttendance?: (studentId: string) => void
+  onAddNote?: (studentId: string) => void
   className?: string
 }
 
@@ -60,6 +63,8 @@ export default function EnhancedStudentCard({
   onDelete,
   onViewDetails,
   onScheduleLesson,
+  onMarkAttendance,
+  onAddNote,
   className = ''
 }: EnhancedStudentCardProps) {
   
@@ -69,12 +74,12 @@ export default function EnhancedStudentCard({
   
   const instrumentName = primaryInstrument?.instrumentName || 'לא הוגדר'
   const currentStage = primaryInstrument?.currentStage || 0
-  const maxStage = 10 // Assuming max stage is 10
 
   // Extract lesson schedule info
   const lessonSchedule = student.scheduleInfo || student.teacherAssignments?.[0]
   const lessonTime = lessonSchedule ? `${lessonSchedule.day} ${lessonSchedule.startTime || lessonSchedule.time}` : null
   const lessonDuration = lessonSchedule?.duration || 60
+  const hasScheduledLesson = !!lessonSchedule
 
   // Status logic
   const isActive = student.academicInfo?.isActive !== false && student.status !== 'inactive'
@@ -82,8 +87,13 @@ export default function EnhancedStudentCard({
   const statusText = isActive ? 'פעיל' : 'לא פעיל'
   const statusIcon = isActive ? CheckCircle : AlertCircle
 
+  // Border styling based on lesson schedule
+  const borderClass = hasScheduledLesson
+    ? 'border-2 border-green-400 shadow-sm shadow-green-200'
+    : 'border border-gray-200'
+
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg hover:shadow-lg hover:border-indigo-300 transition-all duration-200 transform hover:-translate-y-1 group ${className}`}>
+    <div className={`bg-white ${borderClass} rounded-lg hover:shadow-lg hover:border-indigo-300 transition-all duration-200 transform hover:-translate-y-1 group ${className}`}>
       {/* Card Header */}
       <div className="px-4 py-3 border-b border-gray-100">
         <div className="flex items-start justify-between">
@@ -105,7 +115,7 @@ export default function EnhancedStudentCard({
               <span className="font-reisinger-yonatan font-medium">{instrumentName}</span>
               {currentStage > 0 && (
                 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-reisinger-yonatan">
-                  שלב {currentStage}/{maxStage}
+                  שלב {currentStage}
                 </span>
               )}
             </div>
@@ -170,30 +180,6 @@ export default function EnhancedStudentCard({
           </div>
         </div>
 
-        {/* Progress Indicator */}
-        {currentStage > 0 && (
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs text-gray-600 font-reisinger-yonatan">
-              <span>התקדמות בכלי</span>
-              <span>{currentStage}/{maxStage}</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
-              <div 
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${(currentStage / maxStage) * 100}%` }}
-              />
-            </div>
-            <div className="flex gap-1">
-              {[...Array(Math.min(currentStage, 5))].map((_, i) => (
-                <Star key={i} className="w-3 h-3 text-yellow-400 fill-current" />
-              ))}
-              {currentStage > 5 && (
-                <span className="text-xs text-yellow-600 font-reisinger-yonatan">+{currentStage - 5}</span>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Lesson Schedule */}
         {lessonTime && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
@@ -216,8 +202,7 @@ export default function EnhancedStudentCard({
 
       {/* Card Footer */}
       <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-        <div className="flex items-center justify-between">
-          
+        <div className="flex flex-wrap gap-2">
           {/* Primary Action Button */}
           <button
             onClick={() => onViewDetails(student.id)}
@@ -235,6 +220,28 @@ export default function EnhancedStudentCard({
             >
               <Calendar className="w-4 h-4" />
               קבע שיעור
+            </button>
+          )}
+
+          {/* Mark Attendance Button */}
+          {onMarkAttendance && (
+            <button
+              onClick={() => onMarkAttendance(student.id)}
+              className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 px-3 py-1 rounded-lg text-sm font-medium font-reisinger-yonatan transition-all duration-200 flex items-center gap-1"
+            >
+              <CheckSquare className="w-4 h-4" />
+              נוכחות
+            </button>
+          )}
+
+          {/* Add Note Button */}
+          {onAddNote && (
+            <button
+              onClick={() => onAddNote(student.id)}
+              className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-100 px-3 py-1 rounded-lg text-sm font-medium font-reisinger-yonatan transition-all duration-200 flex items-center gap-1"
+            >
+              <FileText className="w-4 h-4" />
+              הערה
             </button>
           )}
         </div>

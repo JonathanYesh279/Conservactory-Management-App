@@ -5,7 +5,7 @@
  * with proper validation, error handling, and data consistency
  */
 
-import apiClient from './apiClient'
+import { apiClient } from './apiService.js'
 
 class TheoryEnrollmentService {
   /**
@@ -130,69 +130,68 @@ class TheoryEnrollmentService {
 
   /**
    * Validate enrollment eligibility
-   * @param {string} lessonId - Theory lesson ID  
+   * @param {string} lessonId - Theory lesson ID
    * @param {string} studentId - Student ID
    * @returns {Promise<Object>} Validation result
    */
   async validateEnrollment(lessonId, studentId) {
     try {
-      // Get lesson and student data
-      const [lesson, student] = await Promise.all([
-        apiClient.get(`/theory/${lessonId}`),
-        apiClient.get(`/student/${studentId}`)
-      ])
-      
+      // Get lesson and student data using the correct API endpoints
+      const lessonResponse = await fetch(`${apiClient.baseURL}/theory/${lessonId}`, {
+        headers: apiClient.getHeaders()
+      })
+      const studentResponse = await fetch(`${apiClient.baseURL}/student/${studentId}`, {
+        headers: apiClient.getHeaders()
+      })
+
       const errors = []
       let enrollmentStatus = 'enrolled'
-      
-      // Check if lesson exists and is active
-      if (!lesson || !lesson.isActive) {
-        errors.push('Theory lesson not found or inactive')
+      let lesson = null
+      let student = null
+
+      // Check if lesson exists
+      if (!lessonResponse.ok) {
+        errors.push(`Theory lesson not found (ID: ${lessonId})`)
+      } else {
+        const lessonData = await lessonResponse.json()
+        lesson = lessonData.data || lessonData
+
+        // Check if lesson is active (undefined or true = active, false = inactive)
+        if (lesson.isActive === false) {
+          errors.push('Theory lesson is inactive')
+        }
       }
-      
-      // Check if student exists and is active
-      if (!student || !student.isActive) {
-        errors.push('Student not found or inactive')
+
+      // Check if student exists
+      if (!studentResponse.ok) {
+        errors.push(`Student not found (ID: ${studentId})`)
+      } else {
+        const studentData = await studentResponse.json()
+        student = studentData.data || studentData
+
+        // Check if student is active (undefined or true = active, false = inactive)
+        if (student.isActive === false) {
+          errors.push('Student is inactive')
+        }
       }
-      
+
       if (errors.length > 0) {
         return { isValid: false, errors, enrollmentStatus: null }
       }
-      
-      // Check duplicate enrollment
-      const existingEnrollment = lesson.enrollment?.enrolledStudents?.find(
-        enrollment => enrollment.studentId === studentId && 
-        ['active', 'waitlist'].includes(enrollment.status)
-      )
-      
-      if (existingEnrollment) {
-        errors.push(`Student already ${existingEnrollment.status} in this lesson`)
+
+      // Check duplicate enrollment - simple check using studentIds array
+      if (lesson.studentIds?.includes(studentId)) {
+        errors.push('Student is already enrolled in this lesson')
       }
-      
-      // Check capacity
-      const currentEnrollment = lesson.capacity?.currentEnrollment || 0
-      const maxStudents = lesson.capacity?.maxStudents || Infinity
-      
-      if (currentEnrollment >= maxStudents) {
-        if (lesson.capacity?.waitlistEnabled) {
-          enrollmentStatus = 'waitlist'
-        } else {
-          errors.push('Theory lesson is full and waitlist is disabled')
-        }
+
+      // Check capacity - simplified since we don't have complex enrollment structure
+      const currentEnrollment = lesson.studentIds?.length || 0
+      const maxStudents = lesson.maxStudents || Infinity
+
+      if (maxStudents && currentEnrollment >= maxStudents) {
+        errors.push('Theory lesson is full')
       }
-      
-      // Check academic requirements
-      const academicValidation = this.validateAcademicRequirements(student, lesson)
-      if (!academicValidation.isValid) {
-        errors.push(...academicValidation.errors)
-      }
-      
-      // Check schedule conflicts
-      const scheduleValidation = await this.validateScheduleConflicts(student, lesson)
-      if (!scheduleValidation.isValid) {
-        errors.push(...scheduleValidation.errors)
-      }
-      
+
       return {
         isValid: errors.length === 0,
         errors,
@@ -200,7 +199,7 @@ class TheoryEnrollmentService {
         lesson,
         student
       }
-      
+
     } catch (error) {
       console.error('Validation error:', error)
       return {
@@ -325,19 +324,10 @@ class TheoryEnrollmentService {
    * @returns {Promise<Object>} Updated lesson
    */
   async addStudentToLesson(lessonId, enrollmentData, transaction = null) {
-    const updateData = {
-      $push: {
-        'enrollment.enrolledStudents': enrollmentData
-      },
-      $inc: {
-        'capacity.currentEnrollment': 1
-      },
-      $set: {
-        updatedAt: new Date().toISOString()
-      }
-    }
-    
-    return await apiClient.patch(`/theory/${lessonId}`, updateData, { transaction })
+    // Use the correct backend API endpoint: POST /api/theory/:id/student
+    return await apiClient.post(`/theory/${lessonId}/student`, {
+      studentId: enrollmentData.studentId
+    })
   }
 
   /**
@@ -348,16 +338,10 @@ class TheoryEnrollmentService {
    * @returns {Promise<Object>} Updated student
    */
   async addLessonToStudent(studentId, enrollmentData, transaction = null) {
-    const updateData = {
-      $push: {
-        'enrollments.theoryLessons': enrollmentData
-      },
-      $set: {
-        updatedAt: new Date().toISOString()
-      }
-    }
-    
-    return await apiClient.patch(`/student/${studentId}`, updateData, { transaction })
+    // The backend addStudentToTheory already updates the student document
+    // So this method doesn't need to do anything, but we keep it for compatibility
+    console.log('✓ Student document updated by backend addStudentToTheory')
+    return Promise.resolve({ success: true })
   }
 
   /**
@@ -368,23 +352,12 @@ class TheoryEnrollmentService {
    * @returns {Promise<Object>} Updated lesson
    */
   async removeStudentFromLesson(lessonId, studentId, transaction = null) {
-    const updateData = {
-      $pull: {
-        'enrollment.enrolledStudents': { studentId }
-      },
-      $inc: {
-        'capacity.currentEnrollment': -1
-      },
-      $set: {
-        updatedAt: new Date().toISOString()
-      }
-    }
-    
-    return await apiClient.patch(`/theory/${lessonId}`, updateData, { transaction })
+    // Use the correct backend API endpoint: DELETE /api/theory/:id/student/:studentId
+    return await apiClient.delete(`/theory/${lessonId}/student/${studentId}`)
   }
 
   /**
-   * Remove lesson from student document  
+   * Remove lesson from student document
    * @param {string} studentId - Student ID
    * @param {string} lessonId - Theory lesson ID
    * @param {string} reason - Unenrollment reason
@@ -392,28 +365,10 @@ class TheoryEnrollmentService {
    * @returns {Promise<Object>} Updated student
    */
   async removeLessonFromStudent(studentId, lessonId, reason, transaction = null) {
-    // First mark as inactive, then add audit trail
-    const updateData = {
-      $set: {
-        'enrollments.theoryLessons.$[elem].status': 'inactive',
-        'enrollments.theoryLessons.$[elem].unenrolledAt': new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      $push: {
-        'enrollments.theoryLessons.$[elem].auditTrail': {
-          action: 'unenrolled',
-          performedAt: new Date().toISOString(),
-          reason
-        }
-      }
-    }
-    
-    const arrayFilters = [{ 'elem.lessonId': lessonId, 'elem.status': 'active' }]
-    
-    return await apiClient.patch(`/student/${studentId}`, updateData, { 
-      transaction,
-      arrayFilters 
-    })
+    // The backend removeStudentFromTheory already updates the student document
+    // So this method doesn't need to do anything, but we keep it for compatibility
+    console.log('✓ Student document updated by backend removeStudentFromTheory')
+    return Promise.resolve({ success: true })
   }
 
   /**

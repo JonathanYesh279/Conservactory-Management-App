@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../services/authContext.jsx'
-import { Plus, Search, Edit, Trash2, UserPlus, BookOpen, Eye, Calendar, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, UserPlus, BookOpen, Eye, Calendar, AlertTriangle, Filter, X, CheckSquare, Clock, Music, Star, Phone, Mail, Award } from 'lucide-react'
 import apiService from '../../services/apiService.js'
 import EnhancedStudentCard from './EnhancedStudentCard'
+import { VALID_LOCATIONS } from '../../constants/locations'
 
 interface Student {
   id: string
@@ -53,6 +54,19 @@ export default function TeacherStudentsTab() {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState({
+    status: 'all',
+    instrument: 'all',
+    hasSchedule: 'all',
+    bagrutStatus: 'all'
+  })
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
+  const [showBulkActions, setShowBulkActions] = useState(false)
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false)
+  const [allSystemStudents, setAllSystemStudents] = useState<any[]>([])
+  const [loadingSystemStudents, setLoadingSystemStudents] = useState(false)
 
   useEffect(() => {
     loadTeacherStudents()
@@ -64,18 +78,18 @@ export default function TeacherStudentsTab() {
     try {
       if (showLoading) setLoading(true)
       setError(null) // Clear previous errors
-      
+
       const teacherId = user._id
-      
+
       // First get teacher profile to access studentIds
       const teacherProfile = await apiService.teachers.getTeacher(teacherId)
-      
+
       if (!teacherProfile) {
         throw new Error('לא נמצא פרופיל מורה')
       }
-      
+
       const studentIds = teacherProfile?.teaching?.studentIds || []
-      
+
       if (studentIds.length === 0) {
         console.log('No students assigned to teacher')
         setStudents([])
@@ -85,26 +99,26 @@ export default function TeacherStudentsTab() {
 
       // Fetch specific students using batch endpoint
       const students = await apiService.students.getBatchStudents(studentIds)
-      
+
       if (!Array.isArray(students)) {
         throw new Error('תגובה לא תקינה מהשרת')
       }
-      
+
       // Double-check filtering at component level for extra safety
-      const filteredStudents = students.filter(student => 
+      const filteredStudents = students.filter(student =>
         studentIds.includes(student._id) || studentIds.includes(student.id)
       )
-      
+
       if (filteredStudents.length !== students.length) {
         console.warn(`🔧 Component-level filtering: ${filteredStudents.length}/${students.length} students match teacher's student IDs`)
       }
-      
+
       // Map backend data to enhanced frontend format
       const mappedStudents = filteredStudents.map(student => {
         // Handle fullName split or use firstName/lastName if available
         const fullName = student.personalInfo?.fullName || ''
         const nameParts = fullName.split(' ')
-        
+
         return {
           id: student._id,
           firstName: student.personalInfo?.firstName || nameParts[0] || '',
@@ -131,7 +145,7 @@ export default function TeacherStudentsTab() {
           scheduleInfo: student.scheduleInfo
         }
       })
-      
+
       setStudents(mappedStudents)
       setRetryCount(0) // Reset retry count on success
     } catch (error) {
@@ -143,12 +157,66 @@ export default function TeacherStudentsTab() {
     }
   }
 
-  const filteredStudents = students.filter(student =>
-    searchTerm === '' || 
-    `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.instrument?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const loadAllSystemStudents = async () => {
+    try {
+      setLoadingSystemStudents(true)
+
+      // Get all students from the system
+      const response = await apiService.students.getStudents()
+
+      if (!response || !Array.isArray(response)) {
+        console.error('Invalid response from getStudents')
+        setAllSystemStudents([])
+        return
+      }
+
+      // Get current teacher's student IDs to filter them out
+      const teacherId = user?._id
+      const teacherProfile = await apiService.teachers.getTeacher(teacherId)
+      const assignedStudentIds = teacherProfile?.teaching?.studentIds || []
+
+      // Filter out students that are already assigned to this teacher
+      const availableStudents = response.filter(student =>
+        !assignedStudentIds.includes(student._id) && !assignedStudentIds.includes(student.id)
+      )
+
+      setAllSystemStudents(availableStudents)
+    } catch (error) {
+      console.error('Error loading all students:', error)
+      setAllSystemStudents([])
+    } finally {
+      setLoadingSystemStudents(false)
+    }
+  }
+
+  const filteredStudents = students.filter(student => {
+    // Search filter
+    const matchesSearch = searchTerm === '' ||
+      `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.instrument?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.email?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    // Status filter
+    const matchesStatus = filters.status === 'all' || student.status === filters.status
+
+    // Instrument filter
+    const matchesInstrument = filters.instrument === 'all' || student.instrument === filters.instrument
+
+    // Schedule filter
+    const hasSchedule = student.scheduleInfo || student.teacherAssignments?.length > 0
+    const matchesSchedule = filters.hasSchedule === 'all' ||
+      (filters.hasSchedule === 'yes' && hasSchedule) ||
+      (filters.hasSchedule === 'no' && !hasSchedule)
+
+    // Bagrut filter
+    const isBagrutStudent = student.academicInfo?.isBagrutStudent ||
+      student.academicInfo?.instrumentProgress?.some(p => p.currentStage >= 4)
+    const matchesBagrut = filters.bagrutStatus === 'all' ||
+      (filters.bagrutStatus === 'yes' && isBagrutStudent) ||
+      (filters.bagrutStatus === 'no' && !isBagrutStudent)
+
+    return matchesSearch && matchesStatus && matchesInstrument && matchesSchedule && matchesBagrut
+  })
 
   const handleDeleteStudent = async (studentId: string) => {
     const student = students.find(s => s.id === studentId)
@@ -186,90 +254,150 @@ export default function TeacherStudentsTab() {
   const handleScheduleLesson = (studentId: string) => {
     const student = students.find(s => s.id === studentId)
     if (student) {
-      // Open schedule modal or navigate to scheduling page
-      console.log('Schedule lesson for:', student.personalInfo?.fullName)
-      alert(`תכונה זו תהיה זמינה בקרוב עבור ${student.personalInfo?.fullName}`)
+      // Navigate to schedule with student pre-selected
+      window.location.href = `/teacher/schedule?student=${studentId}`
     }
   }
 
-  const handleStudentSubmit = async (studentData: Partial<Student>) => {
-    try {
-      if (editingStudent) {
-        // Update existing student
-        const backendData = {
-          personalInfo: {
-            firstName: studentData.firstName,
-            lastName: studentData.lastName
-          },
-          contactInfo: {
-            email: studentData.email,
-            phone: studentData.phone
-          },
-          academicInfo: {
-            gradeLevel: studentData.grade
-          },
-          status: studentData.status
-        }
-        
-        const updatedStudent = await apiService.students.updateStudent(editingStudent.id, backendData)
-        
-        // Map response back to frontend format
-        const mappedStudent = {
-          id: updatedStudent._id,
-          firstName: updatedStudent.personalInfo?.firstName || '',
-          lastName: updatedStudent.personalInfo?.lastName || '',
-          email: updatedStudent.contactInfo?.email || '',
-          phone: updatedStudent.contactInfo?.phone || '',
-          instrument: updatedStudent.primaryInstrument || '',
-          grade: updatedStudent.academicInfo?.gradeLevel || '',
-          status: updatedStudent.status || 'active',
-          joinDate: updatedStudent.createdAt
-        }
-        
-        setStudents(prev => prev.map(s => 
-          s.id === editingStudent.id ? mappedStudent : s
-        ))
-      } else {
-        // Create new student
-        const teacherId = user?._id
-        const backendData = {
-          personalInfo: {
-            firstName: studentData.firstName,
-            lastName: studentData.lastName
-          },
-          contactInfo: {
-            email: studentData.email,
-            phone: studentData.phone
-          },
-          academicInfo: {
-            gradeLevel: studentData.grade
-          },
-          status: studentData.status,
-          teacherId
-        }
-        
-        const newStudent = await apiService.students.createStudent(backendData)
-        
-        // Map response back to frontend format
-        const mappedStudent = {
-          id: newStudent._id,
-          firstName: newStudent.personalInfo?.firstName || '',
-          lastName: newStudent.personalInfo?.lastName || '',
-          email: newStudent.contactInfo?.email || '',
-          phone: newStudent.contactInfo?.phone || '',
-          instrument: newStudent.primaryInstrument || '',
-          grade: newStudent.academicInfo?.gradeLevel || '',
-          status: newStudent.status || 'active',
-          joinDate: newStudent.createdAt
-        }
-        
-        setStudents(prev => [...prev, mappedStudent])
+  const handleMarkAttendance = (studentId: string) => {
+    const student = students.find(s => s.id === studentId)
+    if (student) {
+      window.location.href = `/teacher/attendance?student=${studentId}`
+    }
+  }
+
+  const handleAddNote = (studentId: string) => {
+    const student = students.find(s => s.id === studentId)
+    if (student) {
+      const note = prompt(`הוסף הערה עבור ${student.personalInfo?.fullName}:`)
+      if (note && note.trim()) {
+        // In a real app, this would save to the backend
+        showNotification(`הערה נוספה עבור ${student.personalInfo?.fullName}`, 'success')
       }
-      setShowAddModal(false)
-      setEditingStudent(null)
+    }
+  }
+
+  const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
+    const notification = document.createElement('div')
+    notification.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 ${
+      type === 'success' ? 'bg-green-500 text-white' :
+      type === 'error' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
+    }`
+    notification.innerHTML = `<div class="flex items-center gap-2 font-reisinger-yonatan">
+      ${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'} ${message}
+    </div>`
+    document.body.appendChild(notification)
+    setTimeout(() => notification.remove(), 3000)
+  }
+
+  const handleBulkAction = (action: string) => {
+    const selectedStudentList = Array.from(selectedStudents)
+
+    switch (action) {
+      case 'markAttendance':
+        window.location.href = `/teacher/attendance?students=${selectedStudentList.join(',')}`
+        break
+      case 'sendMessage':
+        alert(`שליחת הודעה ל-${selectedStudentList.length} תלמידים`)
+        break
+      case 'export':
+        alert(`ייצוא נתונים של ${selectedStudentList.length} תלמידים`)
+        break
+      default:
+        console.log('Bulk action:', action, selectedStudentList)
+    }
+
+    setSelectedStudents(new Set())
+    setShowBulkActions(false)
+  }
+
+  const toggleStudentSelection = (studentId: string) => {
+    const newSelection = new Set(selectedStudents)
+    if (newSelection.has(studentId)) {
+      newSelection.delete(studentId)
+    } else {
+      newSelection.add(studentId)
+    }
+    setSelectedStudents(newSelection)
+    setShowBulkActions(newSelection.size > 0)
+  }
+
+  const getUniqueInstruments = () => {
+    const instruments = students
+      .map(s => s.instrument)
+      .filter(Boolean)
+      .filter((instrument, index, arr) => arr.indexOf(instrument) === index)
+    return instruments.sort()
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      status: 'all',
+      instrument: 'all',
+      hasSchedule: 'all',
+      bagrutStatus: 'all'
+    })
+  }
+
+  const handleStudentAssignment = async (selectedStudent: any, instrumentData: {
+    instrument: string;
+    lessonDay?: string;
+    lessonTime?: string;
+    lessonDuration?: number;
+    lessonLocation?: string;
+  }) => {
+    try {
+      const teacherId = user?._id
+
+      // Get the current student to access existing teacherAssignments
+      const currentStudent = await apiService.students.getStudent(selectedStudent._id)
+
+      // Check if this teacher already has an assignment with this student
+      const existingAssignmentIndex = (currentStudent.teacherAssignments || []).findIndex(
+        (assignment: any) => assignment.teacherId === teacherId
+      )
+
+      // Create the teacher assignment data
+      const teacherAssignmentData = {
+        teacherId: teacherId,
+        day: instrumentData.lessonDay,
+        time: instrumentData.lessonTime,
+        duration: instrumentData.lessonDuration || 45,
+        location: instrumentData.lessonLocation || '',
+        isActive: true
+      }
+
+      let updatedAssignments
+      if (existingAssignmentIndex >= 0) {
+        // Update existing assignment
+        updatedAssignments = [...(currentStudent.teacherAssignments || [])]
+        updatedAssignments[existingAssignmentIndex] = {
+          ...updatedAssignments[existingAssignmentIndex],
+          ...teacherAssignmentData
+        }
+      } else {
+        // Add new assignment
+        updatedAssignments = [
+          ...(currentStudent.teacherAssignments || []),
+          teacherAssignmentData
+        ]
+      }
+
+      // Update the student with the updated teacher assignments array
+      await apiService.students.updateStudent(selectedStudent._id, {
+        teacherAssignments: updatedAssignments
+      })
+
+      // Reload the teacher's students list
+      await loadTeacherStudents()
+
+      // Show success message
+      showNotification(`${selectedStudent.personalInfo?.fullName} הוקצה בהצלחה`, 'success')
+
+      setShowAssignmentModal(false)
     } catch (error) {
-      console.error('Error saving student:', error)
-      alert('שגיאה בשמירת פרטי התלמיד')
+      console.error('Error assigning student:', error)
+      showNotification('שגיאה בהקצאת התלמיד', 'error')
     }
   }
 
@@ -331,11 +459,14 @@ export default function TeacherStudentsTab() {
           </p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            setShowAssignmentModal(true)
+            loadAllSystemStudents()
+          }}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
           <UserPlus className="w-4 h-4" />
-          <span className="font-reisinger-yonatan">הוסף תלמיד</span>
+          <span className="font-reisinger-yonatan">הקצה תלמיד</span>
         </button>
       </div>
 
@@ -364,11 +495,14 @@ export default function TeacherStudentsTab() {
           </p>
           {!searchTerm && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                setShowAssignmentModal(true)
+                loadAllSystemStudents()
+              }}
               className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-yonatan"
             >
               <UserPlus className="w-4 h-4" />
-              הוסף תלמיד ראשון
+              הקצה תלמיד ראשון
             </button>
           )}
         </div>
@@ -410,8 +544,9 @@ export default function TeacherStudentsTab() {
                 key={student.id}
                 student={student}
                 onEdit={(student) => {
-                  setEditingStudent(student)
-                  setShowAddModal(true)
+                  // For now, we'll disable editing since it was part of the old creation modal
+                  // In the future, this can navigate to a student profile editing page
+                  alert('עריכת תלמיד זמינה רק למנהלים')
                 }}
                 onDelete={handleDeleteStudent}
                 onViewDetails={handleViewDetails}
@@ -422,311 +557,311 @@ export default function TeacherStudentsTab() {
         </>
       )}
 
-      {/* Add/Edit Student Modal */}
-      {showAddModal && (
-        <StudentModal
-          student={editingStudent}
+      {/* Student Assignment Modal */}
+      {showAssignmentModal && (
+        <StudentAssignmentModal
+          allStudents={allSystemStudents}
+          loading={loadingSystemStudents}
           onClose={() => {
-            setShowAddModal(false)
-            setEditingStudent(null)
+            setShowAssignmentModal(false)
+            setAllSystemStudents([])
           }}
-          onSubmit={handleStudentSubmit}
+          onSubmit={handleStudentAssignment}
         />
       )}
     </div>
   )
 }
 
-// Enhanced Student Modal Component
-interface StudentModalProps {
-  student: Student | null
+// Student Assignment Modal Component
+interface StudentAssignmentModalProps {
+  allStudents: any[]
+  loading: boolean
   onClose: () => void
-  onSubmit: (data: Partial<Student>) => void
+  onSubmit: (student: any, instrumentData: {
+    instrument: string;
+    lessonDay?: string;
+    lessonTime?: string;
+    lessonDuration?: number;
+    lessonLocation?: string;
+  }) => void
 }
 
-function StudentModal({ student, onClose, onSubmit }: StudentModalProps) {
+function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: StudentAssignmentModalProps) {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedStudent, setSelectedStudent] = useState<any>(null)
   const [formData, setFormData] = useState({
-    firstName: student?.firstName || '',
-    lastName: student?.lastName || '',
-    email: student?.email || '',
-    phone: student?.phone || '',
-    instrument: student?.instrument || '',
-    grade: student?.grade || '',
-    status: student?.status || 'active' as 'active' | 'inactive',
-    age: student?.personalInfo?.age || '',
-    class: student?.personalInfo?.class || student?.grade || ''
+    instrument: '',
+    lessonDay: '',
+    lessonTime: '',
+    lessonDuration: 45,
+    lessonLocation: ''
   })
-  
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-    
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'שם פרטי הוא שדה חובה'
-    }
-    
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'שם משפחה הוא שדה חובה'
-    }
-    
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'כתובת מייל לא תקינה'
-    }
-    
-    if (formData.phone && !/^[\d\-\+\(\)\s]{8,15}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'מספר טלפון לא תקין'
-    }
-    
-    if (formData.age && (isNaN(Number(formData.age)) || Number(formData.age) < 5 || Number(formData.age) > 25)) {
-      newErrors.age = 'גיל צריך להיות בין 5 ל-25'
-    }
-    
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+  // Filter students based on search query - enhanced for flexible word matching
+  const filteredStudents = allStudents.filter(student => {
+    const searchLower = searchQuery.toLowerCase().trim()
+
+    // If no search query, show all students
+    if (!searchLower) return true
+
+    const fullName = student.personalInfo?.fullName || `${student.personalInfo?.firstName || ''} ${student.personalInfo?.lastName || ''}`.trim()
+    const studentClass = student.personalInfo?.class || student.academicInfo?.class || ''
+    const instruments = [
+      student.academicInfo?.primaryInstrument,
+      ...(student.academicInfo?.instrumentProgress?.map((i: any) => i.instrumentName) || [])
+    ].filter(Boolean).join(' ')
+
+    // Combine all searchable text
+    const searchableText = `${fullName} ${studentClass} ${instruments}`.toLowerCase()
+
+    // Split search query into words and check if ALL words are present
+    // This allows searching "בנימין לזר" or "לזר בנימין" to find "לזר בנימין"
+    const searchWords = searchLower.split(/\s+/).filter(word => word.length > 0)
+
+    // Every search word must be found somewhere in the searchable text
+    return searchWords.every(word => searchableText.includes(word))
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!validateForm()) {
+
+    if (!selectedStudent) {
+      alert('אנא בחר תלמיד')
       return
     }
-    
-    setLoading(true)
+
+    if (!formData.instrument) {
+      alert('אנא בחר כלי נגינה')
+      return
+    }
+
+    setSubmitting(true)
     try {
-      await onSubmit(formData)
+      await onSubmit(selectedStudent, formData)
     } catch (error) {
-      console.error('Error submitting form:', error)
+      console.error('Error submitting assignment:', error)
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4" dir="rtl">
-        <h3 className="text-lg font-bold text-gray-900 mb-4 font-reisinger-yonatan">
-          {student ? 'עריכת תלמיד' : 'הוספת תלמיד חדש'}
+      <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col" dir="rtl">
+        <h3 className="text-xl font-bold text-gray-900 mb-4 font-reisinger-yonatan">
+          הקצאת תלמיד קיים
         </h3>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-                שם פרטי *
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <span className="mr-3 text-gray-600">טוען רשימת תלמידים...</span>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+            {/* Search Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+                חפש תלמיד במערכת
               </label>
-              <input
-                type="text"
-                required
-                value={formData.firstName}
-                onChange={(e) => {
-                  setFormData(prev => ({ ...prev, firstName: e.target.value }))
-                  if (errors.firstName) setErrors(prev => ({ ...prev, firstName: '' }))
-                }}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors ${
-                  errors.firstName ? 'border-red-300 focus:border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="הכנס שם פרטי"
-              />
-              {errors.firstName && (
-                <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.firstName}</p>
-              )}
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="חפש לפי שם, כיתה או כלי נגינה..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-4 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  dir="rtl"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-                שם משפחה *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.lastName}
-                onChange={(e) => {
-                  setFormData(prev => ({ ...prev, lastName: e.target.value }))
-                  if (errors.lastName) setErrors(prev => ({ ...prev, lastName: '' }))
-                }}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors ${
-                  errors.lastName ? 'border-red-300 focus:border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="הכנס שם משפחה"
-              />
-              {errors.lastName && (
-                <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.lastName}</p>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-                גיל
-              </label>
-              <input
-                type="number"
-                min="5"
-                max="25"
-                value={formData.age}
-                onChange={(e) => {
-                  setFormData(prev => ({ ...prev, age: e.target.value }))
-                  if (errors.age) setErrors(prev => ({ ...prev, age: '' }))
-                }}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors ${
-                  errors.age ? 'border-red-300 focus:border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="גיל"
-              />
-              {errors.age && (
-                <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.age}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-                כיתה
-              </label>
-              <input
-                type="text"
-                value={formData.class}
-                onChange={(e) => setFormData(prev => ({ ...prev, class: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                placeholder="למשל: יא, יב, ט"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-              כלי נגינה עיקרי
-            </label>
-            <select
-              value={formData.instrument}
-              onChange={(e) => setFormData(prev => ({ ...prev, instrument: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">בחר כלי נגינה</option>
-              <option value="פסנתר">פסנתר</option>
-              <option value="כינור">כינור</option>
-              <option value="צ'לו">צ'לו</option>
-              <option value="ויולה">ויולה</option>
-              <option value="חצוצרה">חצוצרה</option>
-              <option value="טרומבון">טרומבון</option>
-              <option value="קלרינט">קלרינט</option>
-              <option value="חליל">חליל</option>
-              <option value="סקסופון">סקסופון</option>
-              <option value="הורן">הורן</option>
-              <option value="טובה">טובה</option>
-              <option value="כלי הקשה">כלי הקשה</option>
-              <option value="גיטרה">גיטרה</option>
-              <option value="קונטרבס">קונטרבס</option>
-              <option value="אחר">אחר</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-              דוא"ל
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => {
-                setFormData(prev => ({ ...prev, email: e.target.value }))
-                if (errors.email) setErrors(prev => ({ ...prev, email: '' }))
-              }}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors ${
-                errors.email ? 'border-red-300 focus:border-red-500' : 'border-gray-300'
-              }`}
-              dir="ltr"
-              placeholder="student@example.com"
-            />
-            {errors.email && (
-              <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.email}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-              טלפון
-            </label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => {
-                setFormData(prev => ({ ...prev, phone: e.target.value }))
-                if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }))
-              }}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors ${
-                errors.phone ? 'border-red-300 focus:border-red-500' : 'border-gray-300'
-              }`}
-              dir="ltr"
-              placeholder="05X-XXXXXXX"
-            />
-            {errors.phone && (
-              <p className="mt-1 text-xs text-red-600 font-reisinger-yonatan">{errors.phone}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-              סטטוס התלמיד
-            </label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="active">✅ פעיל - תלמיד פעיל</option>
-              <option value="inactive">⏸️ לא פעיל - השהייה זמנית</option>
-            </select>
-          </div>
-
-          <div className="flex gap-3 mt-6">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  {student ? 'מעדכן...' : 'מוסיף...'}
-                </>
+            {/* Student List */}
+            <div className="flex-1 overflow-y-auto mb-4 border border-gray-200 rounded-lg">
+              {filteredStudents.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  {searchQuery ? 'לא נמצאו תלמידים התואמים את החיפוש' : 'אין תלמידים זמינים להקצאה'}
+                </div>
               ) : (
-                <>
-                  {student ? (
-                    <>
-                      <Edit className="w-4 h-4" />
-                      עדכן תלמיד
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      הוסף תלמיד
-                    </>
-                  )}
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan flex items-center justify-center gap-2"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              ביטול
-            </button>
-          </div>
-        </form>
+                <div className="divide-y divide-gray-200">
+                  {filteredStudents.map(student => {
+                    const fullName = student.personalInfo?.fullName || `${student.personalInfo?.firstName || ''} ${student.personalInfo?.lastName || ''}`.trim()
+                    const studentClass = student.personalInfo?.class || student.academicInfo?.class || ''
+                    const primaryInstrument = student.academicInfo?.primaryInstrument || ''
+                    const isSelected = selectedStudent?._id === student._id
 
-        {/* Success/Error Messages */}
-        {Object.keys(errors).length > 0 && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-2 text-red-800 font-reisinger-yonatan text-sm">
-              <AlertTriangle className="w-4 h-4" />
-              <span>יש שגיאות בטופס, אנא תקן אותן ונסה שוב</span>
+                    return (
+                      <div
+                        key={student._id}
+                        onClick={() => setSelectedStudent(student)}
+                        className={`p-3 cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-indigo-50 border-r-4 border-indigo-600'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">{fullName}</div>
+                            <div className="text-sm text-gray-600 mt-1">
+                              {studentClass && <span>כיתה {studentClass}</span>}
+                              {primaryInstrument && (
+                                <>
+                                  {studentClass && ' • '}
+                                  <span>{primaryInstrument}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
+                              <CheckSquare className="w-4 h-4 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-          </div>
+
+            {/* Instrument Assignment Section (only shown after student selected) */}
+            {selectedStudent && (
+              <div className="space-y-4 border-t pt-4">
+                <h4 className="font-medium text-gray-900 font-reisinger-yonatan">
+                  פרטי השיעור עבור {selectedStudent.personalInfo?.fullName}
+                </h4>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
+                      כלי נגינה לשיעור *
+                    </label>
+                    <select
+                      value={formData.instrument}
+                      onChange={(e) => setFormData(prev => ({ ...prev, instrument: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      required
+                    >
+                      <option value="">בחר כלי נגינה</option>
+                      <option value="פסנתר">פסנתר</option>
+                      <option value="כינור">כינור</option>
+                      <option value="צ'לו">צ'לו</option>
+                      <option value="ויולה">ויולה</option>
+                      <option value="חצוצרה">חצוצרה</option>
+                      <option value="טרומבון">טרומבון</option>
+                      <option value="קלרינט">קלרינט</option>
+                      <option value="חליל">חליל</option>
+                      <option value="סקסופון">סקסופון</option>
+                      <option value="הורן">הורן</option>
+                      <option value="טובה">טובה</option>
+                      <option value="כלי הקשה">כלי הקשה</option>
+                      <option value="גיטרה">גיטרה</option>
+                      <option value="קונטרבס">קונטרבס</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
+                      יום בשבוע
+                    </label>
+                    <select
+                      value={formData.lessonDay}
+                      onChange={(e) => setFormData(prev => ({ ...prev, lessonDay: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">בחר יום</option>
+                      <option value="ראשון">יום ראשון</option>
+                      <option value="שני">יום שני</option>
+                      <option value="שלישי">יום שלישי</option>
+                      <option value="רביעי">יום רביעי</option>
+                      <option value="חמישי">יום חמישי</option>
+                      <option value="שישי">יום שישי</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
+                      שעת התחלה
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.lessonTime}
+                      onChange={(e) => setFormData(prev => ({ ...prev, lessonTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
+                      משך (דקות)
+                    </label>
+                    <input
+                      type="number"
+                      min="15"
+                      max="120"
+                      step="15"
+                      value={formData.lessonDuration}
+                      onChange={(e) => setFormData(prev => ({ ...prev, lessonDuration: parseInt(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
+                      מיקום
+                    </label>
+                    <select
+                      value={formData.lessonLocation}
+                      onChange={(e) => setFormData(prev => ({ ...prev, lessonLocation: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">בחר חדר</option>
+                      {VALID_LOCATIONS.map(location => (
+                        <option key={location} value={location}>{location}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div className="flex gap-3 mt-6 pt-4 border-t">
+              <button
+                type="submit"
+                disabled={!selectedStudent || !formData.instrument || submitting}
+                className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    מקצה...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    הקצה תלמיד
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan flex items-center justify-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                ביטול
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>

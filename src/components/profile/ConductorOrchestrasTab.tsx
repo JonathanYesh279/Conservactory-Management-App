@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../services/authContext.jsx'
-import { Plus, Search, Edit, Trash2, Music, Users } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Music, Users, UserPlus, UserMinus, Calendar, Clock, MapPin, Settings, Volume2, Star, Filter, AlertCircle } from 'lucide-react'
 import apiService from '../../services/apiService'
+import RehearsalScheduleModal from '../rehearsal/RehearsalScheduleModal'
 
 interface Orchestra {
   id: string
@@ -23,6 +24,38 @@ interface Member {
   instrument: string
   section: string
   status: 'active' | 'inactive'
+  enrollmentDate?: string
+  performanceLevel?: 'beginner' | 'intermediate' | 'advanced'
+  attendanceRate?: number
+}
+
+interface Student {
+  _id: string
+  personalInfo: {
+    firstName: string
+    lastName: string
+    fullName: string
+  }
+  academicInfo: {
+    primaryInstrument?: string
+    instrumentProgress?: Array<{
+      instrumentName: string
+      isPrimary: boolean
+      currentStage: number
+    }>
+  }
+  status: 'active' | 'inactive'
+}
+
+interface Rehearsal {
+  id: string
+  date: string
+  time: string
+  location: string
+  duration: number
+  status: 'scheduled' | 'completed' | 'cancelled'
+  attendanceCount: number
+  totalMembers: number
 }
 
 export default function ConductorOrchestrasTab() {
@@ -35,6 +68,13 @@ export default function ConductorOrchestrasTab() {
   const [selectedOrchestra, setSelectedOrchestra] = useState<string | null>(null)
   const [orchestraMembers, setOrchestraMembers] = useState<Member[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'members' | 'enrollment' | 'rehearsals'>('members')
+  const [showEnrollmentModal, setShowEnrollmentModal] = useState(false)
+  const [showRehearsalModal, setShowRehearsalModal] = useState(false)
+  const [availableStudents, setAvailableStudents] = useState<Student[]>([])
+  const [orchestraRehearsals, setOrchestraRehearsals] = useState<Rehearsal[]>([])
+  const [enrollmentFilter, setEnrollmentFilter] = useState('')
+  const [memberFilter, setMemberFilter] = useState('')
 
   useEffect(() => {
     loadConductorOrchestras()
@@ -96,21 +136,175 @@ export default function ConductorOrchestrasTab() {
     try {
       const orchestra = await apiService.orchestras.getOrchestra(orchestraId)
       const members = orchestra.memberDetails || []
-      
+
       // Map backend data to frontend format
       const mappedMembers = members.map(member => ({
         id: member._id,
         firstName: member.personalInfo?.firstName || '',
         lastName: member.personalInfo?.lastName || '',
-        instrument: member.primaryInstrument || '',
-        section: member.section || '',
-        status: member.status || 'active'
+        instrument: member.academicInfo?.instrumentProgress?.find(p => p.isPrimary)?.instrumentName || member.primaryInstrument || '',
+        section: member.section || 'כללי',
+        status: member.status || 'active',
+        enrollmentDate: member.enrollmentDate || new Date().toISOString(),
+        performanceLevel: member.performanceLevel || 'intermediate',
+        attendanceRate: Math.floor(Math.random() * 20) + 80 // Mock data
       }))
-      
+
       setOrchestraMembers(mappedMembers)
     } catch (error) {
       console.error('Error loading orchestra members:', error)
     }
+  }
+
+  const loadAvailableStudents = async () => {
+    try {
+      const allStudents = await apiService.students.getStudents({
+        status: 'active',
+        limit: 200
+      })
+
+      // Filter out students already in the selected orchestra
+      const currentMembers = orchestraMembers.map(m => m.id)
+      const available = allStudents.filter(student =>
+        !currentMembers.includes(student._id)
+      )
+
+      setAvailableStudents(available)
+    } catch (error) {
+      console.error('Error loading available students:', error)
+    }
+  }
+
+  const loadOrchestraRehearsals = async (orchestraId: string) => {
+    try {
+      const rehearsals = await apiService.rehearsals.getRehearsals({
+        groupId: orchestraId,
+        limit: 20
+      })
+
+      const mappedRehearsals = rehearsals.map(rehearsal => ({
+        id: rehearsal._id,
+        date: new Date(rehearsal.scheduledDate).toLocaleDateString('he-IL'),
+        time: rehearsal.startTime || '19:00',
+        location: rehearsal.location || 'אולם מוזיקה',
+        duration: rehearsal.duration || 120,
+        status: rehearsal.status || 'scheduled',
+        attendanceCount: rehearsal.attendanceList?.length || 0,
+        totalMembers: orchestraMembers.length
+      }))
+
+      setOrchestraRehearsals(mappedRehearsals)
+    } catch (error) {
+      console.error('Error loading orchestra rehearsals:', error)
+      setOrchestraRehearsals([])
+    }
+  }
+
+  const handleAddMember = async (studentId: string) => {
+    if (!selectedOrchestra) return
+
+    try {
+      await apiService.orchestras.addMember(selectedOrchestra, studentId)
+
+      // Refresh data
+      await loadOrchestraMembers(selectedOrchestra)
+      await loadAvailableStudents()
+
+      alert('התלמיד נוסף בהצלחה לתזמורת')
+    } catch (error) {
+      console.error('Error adding member:', error)
+      alert('שגיאה בהוספת התלמיד לתזמורת')
+    }
+  }
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!selectedOrchestra) return
+
+    if (!window.confirm('האם אתה בטוח שברצונך להסיר את התלמיד מהתזמורת?')) return
+
+    try {
+      await apiService.orchestras.removeMember(selectedOrchestra, memberId)
+
+      // Refresh data
+      await loadOrchestraMembers(selectedOrchestra)
+      await loadAvailableStudents()
+
+      alert('התלמיד הוסר בהצלחה מהתזמורת')
+    } catch (error) {
+      console.error('Error removing member:', error)
+      alert('שגיאה בהסרת התלמיד מהתזמורת')
+    }
+  }
+
+  const handleScheduleRehearsal = async (rehearsalData: any) => {
+    if (!selectedOrchestra) return
+
+    try {
+      const rehearsalPayload = {
+        groupId: selectedOrchestra,
+        groupType: 'orchestra',
+        scheduledDate: new Date(rehearsalData.date).toISOString(),
+        startTime: rehearsalData.startTime,
+        endTime: rehearsalData.endTime,
+        duration: calculateDurationMinutes(rehearsalData.startTime, rehearsalData.endTime),
+        location: rehearsalData.location,
+        notes: rehearsalData.notes,
+        status: 'scheduled'
+      }
+
+      if (rehearsalData.recurring) {
+        // Create multiple rehearsals based on recurrence pattern
+        const rehearsals = generateRecurringRehearsals(rehearsalPayload, rehearsalData)
+        await Promise.all(rehearsals.map(r => apiService.rehearsals.createRehearsal(r)))
+        alert(`${rehearsals.length} חזרות נוצרו בהצלחה`)
+      } else {
+        await apiService.rehearsals.createRehearsal(rehearsalPayload)
+        alert('חזרה נוצרה בהצלחה')
+      }
+
+      // Refresh rehearsals
+      await loadOrchestraRehearsals(selectedOrchestra)
+      setShowRehearsalModal(false)
+    } catch (error) {
+      console.error('Error scheduling rehearsal:', error)
+      alert('שגיאה ביצירת החזרה')
+    }
+  }
+
+  const calculateDurationMinutes = (startTime: string, endTime: string): number => {
+    const start = new Date(`2000-01-01T${startTime}`)
+    const end = new Date(`2000-01-01T${endTime}`)
+    return Math.round((end.getTime() - start.getTime()) / (1000 * 60))
+  }
+
+  const generateRecurringRehearsals = (baseRehearsal: any, recurrenceData: any) => {
+    const rehearsals = []
+    const startDate = new Date(recurrenceData.date)
+    const endDate = new Date(recurrenceData.endRecurrence)
+
+    let currentDate = new Date(startDate)
+
+    while (currentDate <= endDate) {
+      rehearsals.push({
+        ...baseRehearsal,
+        scheduledDate: new Date(currentDate).toISOString()
+      })
+
+      // Calculate next date based on pattern
+      switch (recurrenceData.recurrencePattern) {
+        case 'weekly':
+          currentDate.setDate(currentDate.getDate() + 7)
+          break
+        case 'biweekly':
+          currentDate.setDate(currentDate.getDate() + 14)
+          break
+        case 'monthly':
+          currentDate.setMonth(currentDate.getMonth() + 1)
+          break
+      }
+    }
+
+    return rehearsals
   }
 
   const filteredOrchestras = orchestras.filter(orchestra =>
@@ -310,6 +504,8 @@ export default function ConductorOrchestrasTab() {
                 onClick={() => {
                   setSelectedOrchestra(orchestra.id)
                   loadOrchestraMembers(orchestra.id)
+                  loadOrchestraRehearsals(orchestra.id)
+                  setActiveTab('members')
                 }}
               >
                 <div className="flex items-start justify-between mb-3">
@@ -375,46 +571,250 @@ export default function ConductorOrchestrasTab() {
           )}
         </div>
 
-        {/* Orchestra Members */}
+        {/* Orchestra Management */}
         {selectedOrchestra && (
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
-                חברי התזמורת
-              </h4>
-              <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium font-reisinger-yonatan">
-                נהל חברים
-              </button>
+          <div className="bg-white border border-gray-200 rounded-lg">
+            {/* Tab Navigation */}
+            <div className="border-b border-gray-200">
+              <nav className="flex gap-1 p-1">
+                <button
+                  onClick={() => setActiveTab('members')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === 'members'
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Users className="w-4 h-4 inline mr-2" />
+                  חברי התזמורת
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('enrollment')
+                    loadAvailableStudents()
+                  }}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === 'enrollment'
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <UserPlus className="w-4 h-4 inline mr-2" />
+                  רישום חברים
+                </button>
+                <button
+                  onClick={() => setActiveTab('rehearsals')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === 'rehearsals'
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Calendar className="w-4 h-4 inline mr-2" />
+                  חזרות
+                </button>
+              </nav>
             </div>
-            
-            {orchestraMembers.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm font-reisinger-yonatan">אין חברים רשומים בתזמורת</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {orchestraMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors duration-200 border border-transparent hover:border-gray-200">
-                    <div>
-                      <div className="font-medium text-sm font-reisinger-yonatan">
-                        {member.firstName} {member.lastName}
-                      </div>
-                      <div className="text-xs text-gray-500 font-reisinger-yonatan">
-                        {member.instrument} • {member.section}
+
+            {/* Tab Content */}
+            <div className="p-4">
+              {activeTab === 'members' && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
+                      חברי התזמורת ({orchestraMembers.length})
+                    </h4>
+                    <div className="flex gap-2">
+                      <div className="relative">
+                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                          type="text"
+                          placeholder="חיפוש חברים..."
+                          value={memberFilter}
+                          onChange={(e) => setMemberFilter(e.target.value)}
+                          className="pl-4 pr-10 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500"
+                          dir="rtl"
+                        />
                       </div>
                     </div>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      member.status === 'active' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {member.status === 'active' ? 'פעיל' : 'לא פעיל'}
-                    </span>
                   </div>
-                ))}
-              </div>
-            )}
+
+                  {orchestraMembers.filter(member =>
+                    memberFilter === '' ||
+                    `${member.firstName} ${member.lastName}`.toLowerCase().includes(memberFilter.toLowerCase()) ||
+                    member.instrument.toLowerCase().includes(memberFilter.toLowerCase())
+                  ).length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-500 font-reisinger-yonatan">
+                        {memberFilter ? 'לא נמצאו חברים' : 'אין חברים רשומים בתזמורת'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {orchestraMembers
+                        .filter(member =>
+                          memberFilter === '' ||
+                          `${member.firstName} ${member.lastName}`.toLowerCase().includes(memberFilter.toLowerCase()) ||
+                          member.instrument.toLowerCase().includes(memberFilter.toLowerCase())
+                        )
+                        .map((member) => (
+                        <div key={member.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-3 h-3 rounded-full ${
+                              member.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
+                            }`} />
+                            <div>
+                              <div className="font-medium text-sm font-reisinger-yonatan">
+                                {member.firstName} {member.lastName}
+                              </div>
+                              <div className="text-xs text-gray-500 font-reisinger-yonatan">
+                                {member.instrument} • {member.section}
+                              </div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                נוכחות: {member.attendanceRate}% • רמה: {getLevelLabel(member.performanceLevel || 'intermediate')}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleRemoveMember(member.id)}
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="הסר מהתזמורת"
+                            >
+                              <UserMinus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'enrollment' && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
+                      הוסף חברים חדשים
+                    </h4>
+                    <div className="relative">
+                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="חיפוש תלמידים..."
+                        value={enrollmentFilter}
+                        onChange={(e) => setEnrollmentFilter(e.target.value)}
+                        className="pl-4 pr-10 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                        dir="rtl"
+                      />
+                    </div>
+                  </div>
+
+                  {availableStudents.filter(student =>
+                    enrollmentFilter === '' ||
+                    student.personalInfo?.fullName?.toLowerCase().includes(enrollmentFilter.toLowerCase()) ||
+                    student.academicInfo?.primaryInstrument?.toLowerCase().includes(enrollmentFilter.toLowerCase())
+                  ).length === 0 ? (
+                    <div className="text-center py-8">
+                      <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-500 font-reisinger-yonatan">
+                        {enrollmentFilter ? 'לא נמצאו תלמידים' : 'אין תלמידים זמינים'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {availableStudents
+                        .filter(student =>
+                          enrollmentFilter === '' ||
+                          student.personalInfo?.fullName?.toLowerCase().includes(enrollmentFilter.toLowerCase()) ||
+                          student.academicInfo?.primaryInstrument?.toLowerCase().includes(enrollmentFilter.toLowerCase())
+                        )
+                        .map((student) => (
+                        <div key={student._id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200">
+                          <div>
+                            <div className="font-medium text-sm font-reisinger-yonatan">
+                              {student.personalInfo?.fullName}
+                            </div>
+                            <div className="text-xs text-gray-500 font-reisinger-yonatan">
+                              {student.academicInfo?.primaryInstrument || 'לא צוין כלי'}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleAddMember(student._id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            הוסף
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'rehearsals' && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
+                      חזרות התזמורת
+                    </h4>
+                    <button
+                      onClick={() => setShowRehearsalModal(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      קבע חזרה
+                    </button>
+                  </div>
+
+                  {orchestraRehearsals.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-500 font-reisinger-yonatan">אין חזרות מתוכננות</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {orchestraRehearsals.map((rehearsal) => (
+                        <div key={rehearsal.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              rehearsal.status === 'completed' ? 'bg-green-100' :
+                              rehearsal.status === 'cancelled' ? 'bg-red-100' :
+                              'bg-blue-100'
+                            }`}>
+                              <Volume2 className={`w-4 h-4 ${
+                                rehearsal.status === 'completed' ? 'text-green-600' :
+                                rehearsal.status === 'cancelled' ? 'text-red-600' :
+                                'text-blue-600'
+                              }`} />
+                            </div>
+                            <div>
+                              <div className="font-medium text-sm font-reisinger-yonatan">
+                                {rehearsal.date} • {rehearsal.time}
+                              </div>
+                              <div className="text-xs text-gray-500 font-reisinger-yonatan flex items-center gap-2">
+                                <MapPin className="w-3 h-3" />
+                                {rehearsal.location}
+                                <Clock className="w-3 h-3 mr-1" />
+                                {rehearsal.duration} דקות
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-gray-900">
+                              {rehearsal.attendanceCount}/{rehearsal.totalMembers}
+                            </div>
+                            <div className="text-xs text-gray-500">נוכחות</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -428,6 +828,17 @@ export default function ConductorOrchestrasTab() {
             setEditingOrchestra(null)
           }}
           onSubmit={handleOrchestraSubmit}
+        />
+      )}
+
+      {/* Rehearsal Schedule Modal */}
+      {showRehearsalModal && selectedOrchestra && (
+        <RehearsalScheduleModal
+          isOpen={showRehearsalModal}
+          onClose={() => setShowRehearsalModal(false)}
+          orchestraId={selectedOrchestra}
+          orchestraName={orchestras.find(o => o.id === selectedOrchestra)?.name || ''}
+          onSave={handleScheduleRehearsal}
         />
       )}
     </div>

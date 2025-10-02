@@ -436,32 +436,51 @@ export const studentService = {
         students = await apiClient.get('/student', {
           ids: studentIds.join(',')
         });
-        
+
         console.log(`📊 Backend returned ${Array.isArray(students) ? students.length : 0} students from batch of ${studentIds.length} IDs`);
         console.log('🔍 Requested IDs:', studentIds);
-        
+
         if (Array.isArray(students) && students.length > 0) {
           console.log('🔍 Sample student IDs from backend:', students.slice(0, 3).map(s => ({ _id: s._id, id: s.id })));
         }
-        
-        // Client-side filtering as fallback if backend returns too many or different students
+
+        // CRITICAL FIX: Backend might be ignoring the ids parameter and returning all students
+        // We MUST filter client-side to ensure only assigned students are shown
         if (Array.isArray(students) && students.length > 0) {
           const originalCount = students.length;
+
+          // Check if backend returned way more students than requested (likely returning all)
+          if (originalCount > studentIds.length * 2) {
+            console.warn(`⚠️ Backend returned ${originalCount} students for ${studentIds.length} IDs - likely returning all students!`);
+          }
+
+          // Strict filtering: only return students whose ID is in the requested list
           students = students.filter(student => {
             const studentId = student._id || student.id;
             const isMatch = studentIds.includes(studentId);
+
+            // Log first few mismatches for debugging
             if (!isMatch && originalCount <= studentIds.length + 5) {
-              // Only log mismatches if we don't have way too many results
-              console.log(`🔍 Student ${studentId} not in requested IDs:`, studentIds);
+              console.log(`🔍 Filtering out student ${studentId} - not in requested IDs`);
             }
+
             return isMatch;
           });
-          console.log(`✅ After client-side filtering: ${students.length} students (from ${originalCount})`);
-          
-          // If we still don't have the expected students, check for ID format issues
-          if (students.length < studentIds.length) {
-            console.warn(`⚠️ Expected ${studentIds.length} students, got ${students.length}`);
-            console.log('🔍 Missing student IDs:', studentIds.filter(id => !students.some(s => s._id === id || s.id === id)));
+
+          console.log(`✅ After strict filtering: ${students.length} students (from ${originalCount} returned by backend)`);
+
+          // Verify we got the expected students
+          if (students.length !== studentIds.length) {
+            console.warn(`⚠️ Expected exactly ${studentIds.length} students, got ${students.length}`);
+            const foundIds = students.map(s => s._id || s.id);
+            const missingIds = studentIds.filter(id => !foundIds.includes(id));
+            if (missingIds.length > 0) {
+              console.log('🔍 Missing student IDs:', missingIds);
+            }
+            const extraIds = foundIds.filter(id => !studentIds.includes(id));
+            if (extraIds.length > 0) {
+              console.log('🔍 Extra student IDs that shouldn\'t be here:', extraIds);
+            }
           }
         }
         
@@ -473,13 +492,19 @@ export const studentService = {
           students = await apiClient.get('/student', {
             studentIds: studentIds.join(',')
           });
-          
+
           if (Array.isArray(students) && students.length > 0) {
             const originalCount = students.length;
-            students = students.filter(student => 
-              studentIds.includes(student._id) || studentIds.includes(student.id)
-            );
-            console.log(`✅ Method 2 - After client-side filtering: ${students.length} students (from ${originalCount})`);
+
+            if (originalCount > studentIds.length * 2) {
+              console.warn(`⚠️ Method 2: Backend returned ${originalCount} students for ${studentIds.length} IDs`);
+            }
+
+            students = students.filter(student => {
+              const studentId = student._id || student.id;
+              return studentIds.includes(studentId);
+            });
+            console.log(`✅ Method 2 - After strict filtering: ${students.length} students (from ${originalCount})`);
           }
           
         } catch (error2) {
@@ -490,13 +515,19 @@ export const studentService = {
             students = await apiClient.post('/student/batch', {
               ids: studentIds
             });
-            
+
             if (Array.isArray(students) && students.length > 0) {
               const originalCount = students.length;
-              students = students.filter(student => 
-                studentIds.includes(student._id) || studentIds.includes(student.id)
-              );
-              console.log(`✅ Method 3 - After client-side filtering: ${students.length} students (from ${originalCount})`);
+
+              if (originalCount > studentIds.length * 2) {
+                console.warn(`⚠️ Method 3: Backend returned ${originalCount} students for ${studentIds.length} IDs`);
+              }
+
+              students = students.filter(student => {
+                const studentId = student._id || student.id;
+                return studentIds.includes(studentId);
+              });
+              console.log(`✅ Method 3 - After strict filtering: ${students.length} students (from ${originalCount})`);
             }
             
           } catch (error3) {
@@ -506,10 +537,20 @@ export const studentService = {
             try {
               const allStudents = await apiClient.get('/student');
               if (Array.isArray(allStudents)) {
-                students = allStudents.filter(student => 
-                  studentIds.includes(student._id) || studentIds.includes(student.id)
-                );
-                console.log(`🔧 Fallback method: filtered ${students.length} students from ${allStudents.length} total`);
+                console.warn(`⚠️ Method 4 Fallback: Getting all ${allStudents.length} students and filtering client-side`);
+
+                students = allStudents.filter(student => {
+                  const studentId = student._id || student.id;
+                  return studentIds.includes(studentId);
+                });
+
+                console.log(`🔧 Fallback method: filtered ${students.length} assigned students from ${allStudents.length} total`);
+
+                if (students.length === 0 && studentIds.length > 0) {
+                  console.error('❌ No matching students found! Check ID format mismatch.');
+                  console.log('Requested IDs:', studentIds);
+                  console.log('Sample student IDs from backend:', allStudents.slice(0, 3).map(s => ({ _id: s._id, id: s.id })));
+                }
               }
             } catch (error4) {
               console.error('All methods failed:', error4.message);
@@ -519,8 +560,22 @@ export const studentService = {
         }
       }
       
+      // Final safety check: ensure we only return requested students
+      if (Array.isArray(students) && students.length > 0) {
+        const finalFiltered = students.filter(student => {
+          const studentId = student._id || student.id;
+          return studentIds.includes(studentId);
+        });
+
+        if (finalFiltered.length !== students.length) {
+          console.warn(`🔒 Final safety filter: ${finalFiltered.length} students (was ${students.length})`);
+          students = finalFiltered;
+        }
+      }
+
+      console.log(`📤 Returning ${students.length} students for teacher`);
       return Array.isArray(students) ? students : [];
-      
+
     } catch (error) {
       console.error('Error fetching batch students:', error);
       return [];
@@ -732,17 +787,161 @@ export const studentService = {
   async updateStudentStageLevel(studentId, newStageLevel) {
     try {
       console.log(`🔄 Updating stage level for student ${studentId} to ${newStageLevel}`);
-      
+
       // Use the new dedicated PATCH endpoint
       const result = await apiClient.patch(`/student/${studentId}/stage-level`, {
         stageLevel: newStageLevel
       });
-      
+
       console.log(`🎵 Updated stage level to ${newStageLevel}`);
       return result;
     } catch (error) {
       console.error('Error updating student stage level:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Update student stage test status with automatic stage advancement
+   * Uses the dedicated backend endpoint: PUT /api/student/:id/test
+   * The backend automatically advances stage when stage test passes
+   *
+   * @param {string} studentId - Student ID
+   * @param {string} instrumentName - Name of the instrument (e.g., "פסנתר")
+   * @param {string} status - Test status (e.g., "עבר/ה", "לא עבר/ה", "עבר/ה בהצטיינות")
+   * @returns {Promise<Object>} Updated student with auto-incremented stage if passed
+   * @throws {Error} With Hebrew error message on failure
+   */
+  async updateStudentStageTest(studentId, instrumentName, status) {
+    try {
+      console.log(`🎯 Updating stage test for student ${studentId}, instrument: ${instrumentName}, status: ${status}`);
+
+      // Validate required parameters
+      if (!studentId || !instrumentName || !status) {
+        throw new Error('חסרים פרמטרים נדרשים: מזהה תלמיד, כלי נגינה וסטטוס');
+      }
+
+      // Validate status value
+      const validStatuses = [
+        'לא נבחן',
+        'עבר/ה',
+        'לא עבר/ה',
+        'עבר/ה בהצטיינות',
+        'עבר/ה בהצטיינות יתרה'
+      ];
+
+      if (!validStatuses.includes(status)) {
+        throw new Error(`סטטוס לא תקין: ${status}. ערכים תקינים: ${validStatuses.join(', ')}`);
+      }
+
+      // Call the dedicated backend endpoint
+      // Backend will automatically increment stage if test passes and stage < 8
+      const updatedStudent = await apiClient.put(`/student/${studentId}/test`, {
+        instrumentName,
+        testType: 'stageTest',
+        status
+      });
+
+      console.log(`✅ Stage test updated successfully for ${instrumentName}`);
+
+      // Invalidate relevant caches
+      await this.invalidateStudentCaches(studentId);
+
+      return updatedStudent;
+    } catch (error) {
+      console.error('❌ Error updating stage test:', error);
+
+      // Provide Hebrew error messages
+      if (error.response?.status === 404) {
+        throw new Error('תלמיד לא נמצא או כלי הנגינה לא נמצא');
+      } else if (error.response?.status === 403) {
+        throw new Error('אין לך הרשאה לעדכן מבחן זה');
+      } else if (error.response?.status === 400) {
+        throw new Error(error.response?.data?.error || 'שגיאה בנתונים שנשלחו');
+      }
+
+      throw new Error(error.message || 'שגיאה בעדכון מבחן שלב');
+    }
+  },
+
+  /**
+   * Update student technical test status
+   * Uses the dedicated backend endpoint: PUT /api/student/:id/test
+   *
+   * @param {string} studentId - Student ID
+   * @param {string} instrumentName - Name of the instrument (e.g., "פסנתר")
+   * @param {string} status - Test status (e.g., "עבר/ה", "לא עבר/ה", "עבר/ה בהצטיינות")
+   * @returns {Promise<Object>} Updated student
+   * @throws {Error} With Hebrew error message on failure
+   */
+  async updateStudentTechnicalTest(studentId, instrumentName, status) {
+    try {
+      console.log(`🔧 Updating technical test for student ${studentId}, instrument: ${instrumentName}, status: ${status}`);
+
+      // Validate required parameters
+      if (!studentId || !instrumentName || !status) {
+        throw new Error('חסרים פרמטרים נדרשים: מזהה תלמיד, כלי נגינה וסטטוס');
+      }
+
+      // Validate status value
+      const validStatuses = [
+        'לא נבחן',
+        'עבר/ה',
+        'לא עבר/ה',
+        'עבר/ה בהצטיינות',
+        'עבר/ה בהצטיינות יתרה'
+      ];
+
+      if (!validStatuses.includes(status)) {
+        throw new Error(`סטטוס לא תקין: ${status}. ערכים תקינים: ${validStatuses.join(', ')}`);
+      }
+
+      // Call the dedicated backend endpoint
+      const updatedStudent = await apiClient.put(`/student/${studentId}/test`, {
+        instrumentName,
+        testType: 'technicalTest',
+        status
+      });
+
+      console.log(`✅ Technical test updated successfully for ${instrumentName}`);
+
+      // Invalidate relevant caches
+      await this.invalidateStudentCaches(studentId);
+
+      return updatedStudent;
+    } catch (error) {
+      console.error('❌ Error updating technical test:', error);
+
+      // Provide Hebrew error messages
+      if (error.response?.status === 404) {
+        throw new Error('תלמיד לא נמצא או כלי הנגינה לא נמצא');
+      } else if (error.response?.status === 403) {
+        throw new Error('אין לך הרשאה לעדכן מבחן זה');
+      } else if (error.response?.status === 400) {
+        throw new Error(error.response?.data?.error || 'שגיאה בנתונים שנשלחו');
+      }
+
+      throw new Error(error.message || 'שגיאה בעדכון מבחן טכני');
+    }
+  },
+
+  /**
+   * Invalidate all caches related to a specific student
+   * @param {string} studentId - Student ID
+   */
+  async invalidateStudentCaches(studentId) {
+    try {
+      // Import cache service dynamically to avoid circular dependencies
+      const { apiCache } = await import('./apiCache.ts');
+
+      // Invalidate student-specific caches
+      apiCache.invalidate(`student_${studentId}`);
+      apiCache.invalidate('students_all');
+
+      console.log(`🗑️ Invalidated caches for student ${studentId}`);
+    } catch (error) {
+      console.warn('⚠️ Failed to invalidate caches:', error);
+      // Don't throw - cache invalidation failure shouldn't break the update
     }
   },
 
@@ -770,7 +969,7 @@ export const studentService = {
   async getStudentById(studentId) {
     try {
       const student = await this.getStudent(studentId);
-      
+
       // Process student data similar to getStudents for consistency
       const processedStudent = {
         ...student,
@@ -778,11 +977,11 @@ export const studentService = {
         primaryInstrument: student.academicInfo?.instrumentProgress?.find(
           progress => progress.isPrimary === true
         )?.instrumentName || null,
-        
+
         primaryStage: student.academicInfo?.instrumentProgress?.find(
           progress => progress.isPrimary === true
         )?.currentStage || null,
-        
+
         // Keep original data structure but add alias fields
         academicInfo: {
           ...student.academicInfo,
@@ -794,12 +993,89 @@ export const studentService = {
           })) || []
         }
       };
-      
+
       console.log(`👤 Retrieved and processed student by ID: ${processedStudent.personalInfo?.fullName}`);
-      
+
       return processedStudent;
     } catch (error) {
       console.error('Error fetching student by ID:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update teacher assignment for a student by teacher ID
+   * Finds the assignment with matching teacherId and updates it
+   * @param {string} studentId - Student ID
+   * @param {string} teacherId - Teacher ID to match
+   * @param {Object} assignmentData - Updated assignment data
+   * @returns {Promise<Object>} Updated student
+   */
+  async updateTeacherAssignment(studentId, teacherId, assignmentData) {
+    try {
+      console.log(`📝 Updating teacher assignment for student ${studentId}, teacher ${teacherId}`);
+
+      // First, get the student to find the correct assignment
+      const student = await this.getStudent(studentId);
+
+      if (!student || !student.teacherAssignments) {
+        throw new Error('Student not found or has no teacher assignments');
+      }
+
+      // Find the assignment with matching teacherId
+      const assignment = student.teacherAssignments.find(a => a.teacherId === teacherId);
+
+      if (!assignment) {
+        throw new Error(`No assignment found for teacher ${teacherId}`);
+      }
+
+      // Use the assignment's ID (or _id) to update via the existing utility
+      const assignmentId = assignment._id || assignment.id;
+
+      if (!assignmentId) {
+        throw new Error('Assignment ID not found');
+      }
+
+      console.log(`🔧 Found assignment ${assignmentId} for teacher ${teacherId}`);
+
+      // Call the existing updateTeacherAssignment utility with the found assignmentId
+      const result = await studentTeacherUtils.updateTeacherAssignment(
+        studentId,
+        assignmentId,
+        assignmentData
+      );
+
+      console.log(`✅ Successfully updated teacher assignment`);
+      return result;
+
+    } catch (error) {
+      console.error('Error updating teacher assignment by teacherId:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add teacher assignment to a student
+   * @param {string} studentId - Student ID
+   * @param {Object} assignmentData - Assignment data
+   * @returns {Promise<Object>} Updated student
+   */
+  async addTeacherAssignment(studentId, assignmentData) {
+    try {
+      console.log(`➕ Adding teacher assignment to student ${studentId}`);
+
+      // Use the existing createTeacherAssignment utility
+      const result = await studentTeacherUtils.createTeacherAssignment(
+        studentId,
+        assignmentData.teacherId,
+        assignmentData
+      );
+
+      console.log(`✅ Successfully added teacher assignment`);
+      return result;
+
+    } catch (error) {
+      console.error('Error adding teacher assignment:', error);
       throw error;
     }
   }
@@ -839,16 +1115,35 @@ export const teacherService = {
    */
   async updateMyProfile(profileData) {
     try {
-      // Format the data to match backend schema
-      const formattedData = {
-        personalInfo: {
+      // Format the data to match backend schema - support partial updates
+      const formattedData = {};
+
+      // Only add personalInfo if explicitly provided
+      if (profileData.personalInfo || profileData.fullName || profileData.email ||
+          profileData.phone || profileData.address || profileData.birthDate) {
+        formattedData.personalInfo = {
           fullName: profileData.fullName || profileData.personalInfo?.fullName || '',
           email: profileData.email || profileData.personalInfo?.email || '',
           phone: profileData.phone || profileData.personalInfo?.phone || '',
           address: profileData.address || profileData.personalInfo?.address || '',
           birthDate: profileData.birthDate || profileData.personalInfo?.birthDate || ''
-        }
-      };
+        };
+      }
+
+      // Add teaching section if provided (for time blocks)
+      if (profileData.teaching) {
+        formattedData.teaching = profileData.teaching;
+      }
+
+      // Add professionalInfo if provided
+      if (profileData.professionalInfo) {
+        formattedData.professionalInfo = profileData.professionalInfo;
+      }
+
+      // Add conducting if provided
+      if (profileData.conducting) {
+        formattedData.conducting = profileData.conducting;
+      }
 
       const response = await apiClient.put('/teacher/profile/me', formattedData);
       
@@ -1424,6 +1719,218 @@ export const theoryService = {
   },
 
   /**
+   * Add student to theory lesson (alias for addStudentToTheory)
+   * @param {string} lessonId - Theory lesson ID
+   * @param {string} studentId - Student ID to add
+   * @returns {Promise<Object>} Updated theory lesson
+   */
+  async addStudentToTheoryLesson(lessonId, studentId) {
+    return this.addStudentToTheory(lessonId, studentId);
+  },
+
+  /**
+   * Remove student from theory lesson (alias for removeStudentFromTheory)
+   * @param {string} lessonId - Theory lesson ID
+   * @param {string} studentId - Student ID to remove
+   * @returns {Promise<Object>} Updated theory lesson
+   */
+  async removeStudentFromTheoryLesson(lessonId, studentId) {
+    return this.removeStudentFromTheory(lessonId, studentId);
+  },
+
+  /**
+   * Get theory teacher's dashboard statistics
+   * @param {string} teacherId - Teacher ID
+   * @returns {Promise<Object>} Dashboard statistics
+   */
+  async getTheoryTeacherStats(teacherId) {
+    try {
+      const lessons = await this.getTheoryLessons({ teacherId });
+
+      // Calculate statistics
+      const totalTheoryStudents = new Set(
+        lessons.flatMap(lesson => lesson.studentIds || [])
+      ).size;
+
+      const today = new Date().toISOString().split('T')[0];
+      const todaysLessons = lessons.filter(lesson =>
+        lesson.date && lesson.date.split('T')[0] === today
+      ).length;
+
+      const weekStart = getWeekStart(new Date());
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+
+      const weeklyLessons = lessons.filter(lesson => {
+        if (!lesson.date) return false;
+        const lessonDate = new Date(lesson.date);
+        return lessonDate >= weekStart && lessonDate < weekEnd;
+      });
+
+      const weeklyTheoryHours = weeklyLessons.reduce((total, lesson) =>
+        total + (lesson.duration || 90), 0
+      ) / 60;
+
+      const activeTheoryGroups = lessons.filter(lesson =>
+        lesson.isActive && lesson.studentIds && lesson.studentIds.length > 0
+      ).length;
+
+      return {
+        totalTheoryStudents,
+        todaysLessons,
+        weeklyTheoryHours: Math.round(weeklyTheoryHours * 10) / 10,
+        activeTheoryGroups,
+        upcomingExams: Math.floor(Math.random() * 5) + 1, // Mock data
+        pendingGrades: Math.floor(Math.random() * 10) + 2 // Mock data
+      };
+    } catch (error) {
+      console.error('Error getting theory teacher stats:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get theory groups for group management
+   * @param {Object} filters - Filter options
+   * @returns {Promise<Array>} Array of theory groups
+   */
+  async getTheoryGroups(filters = {}) {
+    try {
+      const lessons = await this.getTheoryLessons(filters);
+
+      // Group lessons by category + level + teacher
+      const groupsMap = new Map();
+
+      lessons.forEach(lesson => {
+        const groupKey = `${lesson.teacherId}-${lesson.category}-${lesson.level || 'intermediate'}`;
+
+        if (!groupsMap.has(groupKey)) {
+          groupsMap.set(groupKey, {
+            id: groupKey,
+            name: `${lesson.category} - ${mapLevelLabel(lesson.level || 'intermediate')}`,
+            category: lesson.category || 'מגמה',
+            level: lesson.level || 'intermediate',
+            teacherId: lesson.teacherId,
+            teacherName: lesson.teacherName || 'מורה',
+            capacity: lesson.maxStudents || 15,
+            schedule: {
+              dayOfWeek: lesson.dayOfWeek || 'sunday',
+              startTime: lesson.startTime || '09:00',
+              endTime: lesson.endTime || '10:30'
+            },
+            location: lesson.location || 'חדר תיאוריה',
+            isActive: lesson.isActive,
+            studentIds: [],
+            enrolledStudents: 0
+          });
+        }
+
+        const group = groupsMap.get(groupKey);
+        if (lesson.studentIds) {
+          lesson.studentIds.forEach(studentId => {
+            if (!group.studentIds.includes(studentId)) {
+              group.studentIds.push(studentId);
+            }
+          });
+        }
+        group.enrolledStudents = group.studentIds.length;
+      });
+
+      return Array.from(groupsMap.values());
+    } catch (error) {
+      console.error('Error getting theory groups:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get attendance data for universal attendance dashboard
+   * @param {Object} filters - Filter options (teacherId, date, type)
+   * @returns {Promise<Array>} Array of attendance records
+   */
+  async getTheoryAttendance(filters = {}) {
+    try {
+      const lessons = await this.getTheoryLessons();
+
+      // Filter lessons based on filters
+      let filteredLessons = lessons;
+
+      if (filters.teacherId) {
+        filteredLessons = filteredLessons.filter(lesson => lesson.teacherId === filters.teacherId);
+      }
+
+      if (filters.date) {
+        filteredLessons = filteredLessons.filter(lesson =>
+          lesson.date && lesson.date.split('T')[0] === filters.date
+        );
+      }
+
+      // Generate mock attendance records
+      const attendanceRecords = [];
+
+      filteredLessons.forEach(lesson => {
+        if (lesson.studentIds && lesson.studentIds.length > 0) {
+          lesson.studentIds.forEach((studentId, index) => {
+            // Mock attendance status - 80% present, 10% absent, 5% late, 5% excused
+            const rand = Math.random();
+            const status = rand < 0.8 ? 'present' :
+                         rand < 0.9 ? 'absent' :
+                         rand < 0.95 ? 'late' : 'excused';
+
+            attendanceRecords.push({
+              id: `${lesson._id}-${studentId}`,
+              studentId,
+              studentName: `תלמיד ${index + 1}`, // In real app, fetch student details
+              lessonId: lesson._id,
+              lessonType: 'theory',
+              teacherName: lesson.teacherName,
+              groupName: lesson.title || lesson.category,
+              date: lesson.date,
+              time: lesson.startTime,
+              status,
+              notes: status === 'excused' ? 'היעדרות מוצדקת' : undefined,
+              markedBy: lesson.teacherName || 'מערכת',
+              markedAt: new Date().toISOString()
+            });
+          });
+        }
+      });
+
+      return attendanceRecords;
+    } catch (error) {
+      console.error('Error getting theory attendance:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Mark theory lesson attendance
+   * @param {string} lessonId - Theory lesson ID
+   * @param {string} studentId - Student ID
+   * @param {Object} attendanceData - Attendance data (status, notes)
+   * @returns {Promise<Object>} Updated attendance record
+   */
+  async markTheoryAttendance(lessonId, studentId, attendanceData) {
+    try {
+      // In real implementation, this would update attendance in the backend
+      console.log(`📝 Marking theory attendance for student ${studentId} in lesson ${lessonId}:`, attendanceData);
+
+      // For now, return mock updated record
+      return {
+        id: `${lessonId}-${studentId}`,
+        studentId,
+        lessonId,
+        status: attendanceData.status,
+        notes: attendanceData.notes,
+        markedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error marking theory attendance:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Delete theory lesson
    * @param {string} lessonId - Theory lesson ID
    * @returns {Promise<void>}
@@ -1431,7 +1938,7 @@ export const theoryService = {
   async deleteTheoryLesson(lessonId) {
     try {
       await apiClient.delete(`/theory/${lessonId}`);
-      
+
       console.log(`🗑️ Deleted theory lesson: ${lessonId}`);
     } catch (error) {
       console.error('Error deleting theory lesson:', error);
@@ -4047,6 +4554,23 @@ export const testOrchestraRehearsalExtraction = async () => {
     return { success: false, error: error.message };
   }
 };
+
+// Helper functions for theory operations
+function getWeekStart(date) {
+  const start = new Date(date);
+  const day = start.getDay();
+  const diff = start.getDate() - day;
+  return new Date(start.setDate(diff));
+}
+
+function mapLevelLabel(level) {
+  switch (level) {
+    case 'beginner': return 'מתחילים';
+    case 'intermediate': return 'בינוניים';
+    case 'advanced': return 'מתקדמים';
+    default: return 'בינוניים';
+  }
+}
 
 /**
  * Default export with all services

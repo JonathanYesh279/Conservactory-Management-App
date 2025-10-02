@@ -466,12 +466,31 @@ function getWeekData(currentDate: Date, rehearsals: Rehearsal[]): WeekData {
     const date = new Date(startOfWeek)
     date.setDate(startOfWeek.getDate() + i)
     
-    const dayRehearsals = rehearsals.filter(rehearsal => {
-      const rehearsalDate = new Date(rehearsal.date)
-      rehearsalDate.setHours(0, 0, 0, 0)
-      return rehearsalDate.getTime() === date.getTime()
-    })
-    
+    const dayRehearsals = rehearsals
+      .filter(rehearsal => {
+        const rehearsalDate = new Date(rehearsal.date)
+        rehearsalDate.setHours(0, 0, 0, 0)
+        return rehearsalDate.getTime() === date.getTime()
+      })
+      .sort((a, b) => {
+        // Sort by start time (earliest first)
+        const timeA = a.startTime || '00:00'
+        const timeB = b.startTime || '00:00'
+
+        // Debug logging
+        if (date.getDate() === 5) {
+          console.log(`Comparing rehearsals on day ${date.getDate()}:`, {
+            aName: a.orchestra?.name,
+            aTime: timeA,
+            bName: b.orchestra?.name,
+            bTime: timeB,
+            comparison: timeA.localeCompare(timeB)
+          })
+        }
+
+        return timeA.localeCompare(timeB)
+      })
+
     days.push({
       date,
       dayOfWeek: date.getDay(),
@@ -511,12 +530,19 @@ function getMonthData(currentDate: Date, rehearsals: Rehearsal[]): MonthData {
     for (let i = 0; i < 7; i++) {
       const date = new Date(current)
       
-      const dayRehearsals = rehearsals.filter(rehearsal => {
-        const rehearsalDate = new Date(rehearsal.date)
-        rehearsalDate.setHours(0, 0, 0, 0)
-        return rehearsalDate.getTime() === date.getTime()
-      })
-      
+      const dayRehearsals = rehearsals
+        .filter(rehearsal => {
+          const rehearsalDate = new Date(rehearsal.date)
+          rehearsalDate.setHours(0, 0, 0, 0)
+          return rehearsalDate.getTime() === date.getTime()
+        })
+        .sort((a, b) => {
+          // Sort by start time (earliest first)
+          const timeA = a.startTime || '00:00'
+          const timeB = b.startTime || '00:00'
+          return timeA.localeCompare(timeB)
+        })
+
       week.push({
         date,
         dayOfWeek: date.getDay(),

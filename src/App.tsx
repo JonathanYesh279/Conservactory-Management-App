@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './services/authContext.jsx'
 import { SchoolYearProvider } from './services/schoolYearContext.jsx'
 import { BagrutProvider } from './contexts/BagrutContext'
 import { QueryProvider } from './providers/QueryProvider'
+import { SidebarProvider } from './contexts/SidebarContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import { lazyWithRetry, initializeBundleOptimizations } from './utils/bundleOptimization'
@@ -20,6 +21,10 @@ const RehearsalDetails = lazyWithRetry(() => import('./pages/RehearsalDetails'),
 const Bagruts = lazyWithRetry(() => import('./pages/Bagruts'), 'Bagruts')
 const BagrutDetails = lazyWithRetry(() => import('./pages/BagrutDetails'), 'BagrutDetails')
 const Profile = lazyWithRetry(() => import('./pages/Profile'), 'Profile')
+
+// Conductor-specific pages
+const ConductorAttendance = lazyWithRetry(() => import('./components/rehearsal/RehearsalAttendance'), 'ConductorAttendance')
+const OrchestraEnrollmentManager = lazyWithRetry(() => import('./components/enrollment/OrchestraEnrollmentManager'), 'OrchestraEnrollmentManager')
 
 // Lazy load detail pages with optimization
 const StudentDetailsPage = lazyWithRetry(
@@ -61,12 +66,40 @@ function createProtectedRoute(Component: React.ComponentType, loadingMessage: st
 // Protected Route Component with improved authentication handling
 interface ProtectedRouteProps {
   children: React.ReactNode
+  allowedRoles?: string[]
 }
 
-function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, authError, checkAuthStatus } = useAuth()
+function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+  const { isAuthenticated, isLoading, authError, checkAuthStatus, user } = useAuth()
   const [retryAttempts, setRetryAttempts] = React.useState(0)
   const maxRetries = 2
+
+  // Helper function to check if user has required role
+  const hasRequiredRole = () => {
+    if (!allowedRoles || allowedRoles.length === 0) return true
+    if (!user) return false
+
+    const userRole = user.role || user.roles?.[0] || ''
+    const userRoles = user.roles || [userRole]
+
+    // Map Hebrew roles to English for comparison
+    const roleMap: Record<string, string> = {
+      'מנהל': 'admin',
+      'מורה': 'teacher',
+      'מנצח': 'conductor',
+      'מדריך תדר': 'theory-teacher',
+      'מורה תיאוריה': 'theory-teacher'
+    }
+
+    const normalizedUserRoles = userRoles.map((r: string) => roleMap[r] || r)
+    const normalizedUserRole = roleMap[userRole] || userRole
+
+    return allowedRoles.some(role =>
+      normalizedUserRoles.includes(role) ||
+      normalizedUserRole === role ||
+      (role === 'admin' && !userRole) // Default admin access
+    )
+  }
 
   // Auto-retry on auth errors (up to maxRetries)
   React.useEffect(() => {
@@ -106,6 +139,26 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+
+  // Check role permissions
+  if (!hasRequiredRole()) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            <h3 className="text-lg font-bold">אין הרשאה</h3>
+            <p className="text-gray-600">אין לך הרשאה לגשת לעמוד זה</p>
+          </div>
+          <button
+            onClick={() => window.history.back()}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          >
+            חזור
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return <>{children}</>
@@ -156,7 +209,7 @@ function AppRoutes() {
         <Route
           path="/teachers"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['admin', 'teacher', 'conductor', 'theory-teacher']}>
               <Layout>
                 <Teachers />
               </Layout>
@@ -303,6 +356,107 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+
+        {/* Conductor-specific routes */}
+        <Route
+          path="/conductor/attendance"
+          element={
+            <ProtectedRoute allowedRoles={['conductor', 'admin']}>
+              <Layout>
+                <Suspense fallback={<PageLoadingFallback message="טוען נוכחות חזרות..." />}>
+                  <ConductorAttendance />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/conductor/attendance/:rehearsalId"
+          element={
+            <ProtectedRoute allowedRoles={['conductor', 'admin']}>
+              <Layout>
+                <Suspense fallback={<PageLoadingFallback message="טוען נוכחות חזרה..." />}>
+                  <ConductorAttendance />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/conductor/enrollment"
+          element={
+            <ProtectedRoute allowedRoles={['conductor', 'admin']}>
+              <Layout>
+                <Suspense fallback={<PageLoadingFallback message="טוען ניהול רישומים..." />}>
+                  <OrchestraEnrollmentManager />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/conductor/orchestras"
+          element={
+            <ProtectedRoute allowedRoles={['conductor', 'admin']}>
+              <Layout>
+                <Suspense fallback={<PageLoadingFallback message="טוען ניהול תזמורות..." />}>
+                  <Orchestras />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/conductor/rehearsals"
+          element={
+            <ProtectedRoute allowedRoles={['conductor', 'admin']}>
+              <Layout>
+                <Suspense fallback={<PageLoadingFallback message="טוען חזרות..." />}>
+                  <Rehearsals />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/conductor/musicians"
+          element={
+            <ProtectedRoute allowedRoles={['conductor', 'admin']}>
+              <Layout>
+                <Suspense fallback={<PageLoadingFallback message="טוען מוזיקאים..." />}>
+                  <Students />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Theory Teacher specific routes */}
+        <Route
+          path="/theory-teacher/lessons"
+          element={
+            <ProtectedRoute allowedRoles={['theory-teacher', 'admin']}>
+              <Layout>
+                <Suspense fallback={<PageLoadingFallback message="טוען שיעורי תיאוריה..." />}>
+                  <TheoryLessons />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/theory-teacher/groups"
+          element={
+            <ProtectedRoute allowedRoles={['theory-teacher', 'admin']}>
+              <Layout>
+                <Suspense fallback={<PageLoadingFallback message="טוען קבוצות תיאוריה..." />}>
+                  <TheoryLessons />
+                </Suspense>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
@@ -321,7 +475,9 @@ function App() {
       <AuthProvider>
         <SchoolYearProvider>
           <BagrutProvider>
-            <AppRoutes />
+            <SidebarProvider>
+              <AppRoutes />
+            </SidebarProvider>
           </BagrutProvider>
         </SchoolYearProvider>
       </AuthProvider>

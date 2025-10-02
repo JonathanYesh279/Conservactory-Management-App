@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/authContext.jsx'
-import { User, Users, Music, BookOpen, Calendar, Clock, TrendingUp, Activity } from 'lucide-react'
+import { User, Users, Music, BookOpen, Calendar, Clock, TrendingUp, Activity, ArrowRight } from 'lucide-react'
 import TeacherStudentsTab from '../components/profile/TeacherStudentsTab'
 import ConductorOrchestrasTab from '../components/profile/ConductorOrchestrasTab'
 import TeacherScheduleTab from '../components/profile/TeacherScheduleTab'
@@ -26,9 +27,21 @@ interface ProfileStatistics {
 
 export default function Profile() {
   const { user } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('general')
   const [statistics, setStatistics] = useState<ProfileStatistics | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
+
+  // Handle navigation from dashboard with specific tab
+  useEffect(() => {
+    const state = location.state as { activeTab?: string } | null
+    if (state?.activeTab) {
+      setActiveTab(state.activeTab)
+      // Clear the state to prevent persistence on refresh
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [location])
 
   useEffect(() => {
     if (user) {
@@ -251,6 +264,10 @@ export default function Profile() {
   
   const getUserEmail = () => {
     return user?.personalInfo?.email || user?.email || ''
+  }
+
+  const handleBackToDashboard = () => {
+    navigate('/dashboard')
   }
 
   return (

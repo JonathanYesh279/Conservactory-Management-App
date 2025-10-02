@@ -1,28 +1,36 @@
-import { Bell, Calendar, Settings, Music, ChevronDown, ChevronUp, User, LogOut } from 'lucide-react'
+import { Bell, Calendar, Settings, Music, ChevronDown, ChevronUp, User, LogOut, Home } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/authContext.jsx'
+import { useSidebar } from '../contexts/SidebarContext'
 import SchoolYearSelector from './SchoolYearSelector'
 
 export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { isDesktopOpen, isMobile } = useSidebar()
 
-  // Check if screen is mobile size
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
+  // Check if user is admin
+  const isAdmin = !user ||
+    user.role === 'admin' ||
+    user.roles?.includes('admin')
 
-    checkScreenSize()
-    window.addEventListener('resize', checkScreenSize)
-    return () => window.removeEventListener('resize', checkScreenSize)
-  }, [])
+  // Check if user should see the sidebar (all users with roles now get sidebar)
+  const hasSidebar = isAdmin ||
+    user?.role === 'teacher' ||
+    user?.roles?.includes('teacher') ||
+    user?.role === 'conductor' ||
+    user?.roles?.includes('conductor') ||
+    user?.role === 'theory-teacher' ||
+    user?.roles?.includes('theory-teacher') ||
+    user?.role === 'theory_teacher' ||
+    user?.roles?.includes('theory_teacher') ||
+    user?.teaching?.studentIds?.length > 0 ||
+    user?.conducting?.orchestraIds?.length > 0
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -39,11 +47,16 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const menuItems = [
-    { icon: Bell, label: 'התראות', action: () => console.log('Notifications') },
-    { icon: Calendar, label: 'לוח שנה', action: () => console.log('Calendar') },
-    { icon: Settings, label: 'הגדרות', action: () => console.log('Settings') },
-  ]
+  const getMenuItems = () => {
+    const baseItems = [
+      { icon: Bell, label: 'התראות', action: () => console.log('Notifications') },
+      { icon: Calendar, label: 'לוח שנה', action: () => console.log('Calendar') },
+      { icon: Settings, label: 'הגדרות', action: () => console.log('Settings') },
+    ]
+
+    // Since all users now have sidebar, no need for dashboard link in header
+    return baseItems
+  }
 
   const handleProfileClick = () => {
     navigate('/profile')
@@ -58,6 +71,10 @@ export default function Header() {
       console.error('Logout error:', error)
     }
     setIsProfileDropdownOpen(false)
+  }
+
+  const handleDashboardClick = () => {
+    navigate('/dashboard')
   }
 
   const getInitials = () => {
@@ -91,15 +108,23 @@ export default function Header() {
   }
 
   return (
-    <header className="fixed top-0 right-0 left-0 md:right-[280px] h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 pr-16 md:pr-6 z-[999]" style={{ direction: 'rtl' }}>
+    <header
+      className="fixed top-0 left-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between z-[998] transition-all duration-300"
+      style={{
+        direction: 'rtl',
+        right: hasSidebar && !isMobile && isDesktopOpen ? '280px' : '0',
+        paddingLeft: '1.5rem',
+        paddingRight: hasSidebar && !isMobile && !isDesktopOpen ? '4rem' : '1.5rem'
+      }}
+    >
       {/* Right side (RTL) - Brand/Logo */}
       <div className="flex items-center gap-4">
-        <img 
-          src="/logo.png" 
-          alt="Logo" 
+        <img
+          src="/logo.png"
+          alt="Logo"
           className="h-10 w-auto object-contain"
         />
-        
+
         {/* School Year Selector */}
         <SchoolYearSelector />
       </div>
@@ -109,6 +134,17 @@ export default function Header() {
         {/* Desktop - Individual Icons */}
         {!isMobile && (
           <>
+            {/* Dashboard Icon for non-admin users */}
+            {!isAdmin && (
+              <button
+                onClick={handleDashboardClick}
+                className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center hover:bg-indigo-100 hover:border-indigo-300 transition-all duration-150 ease-in-out cursor-pointer"
+                title="לוח בקרה"
+              >
+                <Home className="w-5 h-5 text-indigo-600" />
+              </button>
+            )}
+
             {/* Notification Icon */}
             <button className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 hover:border-gray-300 transition-all duration-150 ease-in-out cursor-pointer">
               <Bell className="w-5 h-5 text-gray-600" />
@@ -143,8 +179,9 @@ export default function Header() {
             {/* Dropdown Menu */}
             {isDropdownOpen && (
               <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[1000]">
-                {menuItems.map((item, index) => {
+                {getMenuItems().map((item, index) => {
                   const Icon = item.icon
+                  const isDashboard = item.label === 'לוח בקרה'
                   return (
                     <button
                       key={index}
@@ -152,13 +189,19 @@ export default function Header() {
                         item.action()
                         setIsDropdownOpen(false)
                       }}
-                      className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between transition-colors duration-150"
+                      className={`w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between transition-colors duration-150 ${
+                        isDashboard ? 'hover:bg-indigo-50' : ''
+                      }`}
                       style={{ direction: 'rtl' }}
                     >
-                      <span className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
+                      <span className={`text-sm font-medium font-reisinger-yonatan ${
+                        isDashboard ? 'text-indigo-700' : 'text-gray-700'
+                      }`}>
                         {item.label}
                       </span>
-                      <Icon className="w-4 h-4 text-gray-500" />
+                      <Icon className={`w-4 h-4 ${
+                        isDashboard ? 'text-indigo-600' : 'text-gray-500'
+                      }`} />
                     </button>
                   )
                 })}

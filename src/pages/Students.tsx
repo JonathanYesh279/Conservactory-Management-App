@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Eye, Edit, Filter, Loader, X, Grid, List, Trash2, ChevronUp, ChevronDown, AlertTriangle, Shield, Archive, Clock, Users, Database } from 'lucide-react'
+import { Search, Plus, Eye, Edit, Filter, Loader, X, Grid, List, Trash2, ChevronUp, ChevronDown, AlertTriangle, Shield, Archive, Clock, Users } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Card } from '../components/ui/card'
 import Table, { StatusBadge } from '../components/ui/Table'
@@ -9,6 +9,7 @@ import StudentForm from '../components/forms/StudentForm'
 import ConfirmationModal from '../components/ui/ConfirmationModal'
 import apiService from '../services/apiService'
 import { useSchoolYear } from '../services/schoolYearContext'
+import { useAuth } from '../services/authContext.jsx'
 import { useCascadeDeletion } from '../hooks/useCascadeDeletion'
 import { cascadeDeletionService } from '../services/cascadeDeletionService'
 import SafeDeleteModal from '../components/SafeDeleteModal'
@@ -17,6 +18,7 @@ import BatchDeletionModal from '../components/BatchDeletionModal'
 
 export default function Students() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -25,18 +27,10 @@ export default function Students() {
   const [filters, setFilters] = useState({
     orchestra: '',
     instrument: '',
-    teacher: '',
-    stageLevel: '',
-    orphaned: '',
-    noActivity: '',
-    integrityStatus: ''
+    stageLevel: ''
   })
   const [showForm, setShowForm] = useState(false)
   const [editingStudentId, setEditingStudentId] = useState(null)
-  const [teachers, setTeachers] = useState([])
-  const [teachersLoading, setTeachersLoading] = useState(false)
-  const [teacherSearchTerm, setTeacherSearchTerm] = useState('')
-  const [showTeacherDropdown, setShowTeacherDropdown] = useState(false)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string} | null>(null)
@@ -69,33 +63,96 @@ export default function Students() {
     return () => document.removeEventListener('click', handleClickOutside)
   }, [editingStageLevelId])
 
-  // Fetch students and teachers from real API when school year changes
+  // Fetch students from real API when school year changes
   useEffect(() => {
     if (!schoolYearLoading) {
       // Load even if no school year is selected, backend will handle it
       loadStudents()
-      loadTeachers()
     }
   }, [currentSchoolYear, schoolYearLoading])
 
-  // Initialize teacher search term when teachers load and there's an existing filter
-  useEffect(() => {
-    if (filters.teacher && teachers.length > 0 && !teacherSearchTerm) {
-      const selectedTeacher = teachers.find(t => t._id === filters.teacher)
-      if (selectedTeacher) {
-        setTeacherSearchTerm(selectedTeacher.personalInfo?.fullName || '')
-      }
+  // Helper function to determine user role and filter logic
+  const getUserRole = () => {
+    if (!user) return 'admin'
+
+    // Check for admin role first
+    if (user.role === 'admin' ||
+        user.roles?.includes('admin') ||
+        user.role === 'מנהל' ||
+        user.roles?.includes('מנהל')) {
+      return 'admin'
     }
-  }, [filters.teacher, teachers, teacherSearchTerm])
+
+    // Check for teacher role - check Hebrew roles too!
+    if (user.role === 'teacher' ||
+        user.roles?.includes('teacher') ||
+        user.role === 'מורה' ||
+        user.roles?.includes('מורה') ||
+        user.teaching?.studentIds?.length > 0) {
+      return 'teacher'
+    }
+
+    // Check for theory teacher role
+    if (user.role === 'theory-teacher' ||
+        user.roles?.includes('theory-teacher') ||
+        user.roles?.includes('theory_teacher') ||
+        user.role === 'מורה תיאוריה' ||
+        user.roles?.includes('מורה תיאוריה')) {
+      return 'theory-teacher'
+    }
+
+    // Check for conductor role
+    if (user.role === 'conductor' ||
+        user.roles?.includes('conductor') ||
+        user.role === 'מנצח' ||
+        user.roles?.includes('מנצח') ||
+        user.conducting?.orchestraIds?.length > 0) {
+      return 'conductor'
+    }
+
+    // Default to admin
+    return 'admin'
+  }
 
   const loadStudents = async () => {
     try {
       setLoading(true)
       setError(null)
-      
-      // Include schoolYearId in the request
-      const filters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
-      const response = await apiService.students.getStudents(filters)
+
+      const userRole = getUserRole()
+      console.log('Loading students for user role:', userRole, 'User:', user?.personalInfo?.fullName)
+
+      let studentsResponse = []
+
+      if (userRole === 'admin') {
+        // Admin sees all students
+        const filters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
+        studentsResponse = await apiService.students.getStudents(filters)
+        console.log('Admin - loaded all students:', studentsResponse.length)
+      } else if (userRole === 'teacher') {
+        // Teacher sees only their assigned students
+        const teacherProfile = await apiService.teachers.getMyProfile()
+        const assignedStudentIds = teacherProfile?.teaching?.studentIds || []
+        console.log('Teacher - assigned student IDs:', assignedStudentIds)
+
+        if (assignedStudentIds.length > 0) {
+          studentsResponse = await apiService.students.getBatchStudents(assignedStudentIds)
+          console.log('Teacher - loaded assigned students:', studentsResponse.length)
+        } else {
+          studentsResponse = []
+          console.log('Teacher - no assigned students')
+        }
+      } else {
+        // Other roles get filtered students based on their permissions
+        const filters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
+        const allStudents = await apiService.students.getStudents(filters)
+
+        // Apply role-specific filtering here if needed
+        studentsResponse = allStudents
+        console.log('Other role - loaded students:', studentsResponse.length)
+      }
+
+      const response = studentsResponse
       
       // Map response data using CORRECT database field names
       const students = response.map(student => ({
@@ -169,7 +226,7 @@ export default function Students() {
             >
               <Eye className="w-4 h-4" />
             </button>
-            <button 
+            <button
               className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
               onClick={(e) => {
                 e.stopPropagation() // Prevent row click
@@ -178,16 +235,6 @@ export default function Students() {
               title="ערוך פרטי התלמיד"
             >
               <Edit className="w-4 h-4" />
-            </button>
-            <button 
-              className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
-              onClick={(e) => {
-                e.stopPropagation() // Prevent row click
-                handleCheckReferences(student.id)
-              }}
-              title="בדוק תלויות"
-            >
-              <Database className="w-4 h-4" />
             </button>
             {(student.referenceCount || student.rawData?.referenceCount || 0) > 0 ? (
               <button 
@@ -225,19 +272,6 @@ export default function Students() {
     }
   }
 
-  const loadTeachers = async () => {
-    try {
-      setTeachersLoading(true)
-      // Include schoolYearId in the request
-      const apiFilters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
-      const teachersData = await apiService.teachers.getTeachers(apiFilters)
-      setTeachers(teachersData)
-    } catch (err) {
-      console.error('Error loading teachers:', err)
-    } finally {
-      setTeachersLoading(false)
-    }
-  }
 
   const handleViewStudent = (studentId) => {
     console.log('=== NAVIGATION DEBUG ===')
@@ -445,35 +479,6 @@ export default function Students() {
     setShowDeleteModal(false)
   }
 
-  // Filter teachers based on search term
-  const filteredTeachers = teachers.filter(teacher => 
-    teacher.personalInfo?.fullName?.toLowerCase().includes(teacherSearchTerm.toLowerCase()) || false
-  )
-
-  // Get selected teacher name for display
-  const getSelectedTeacherName = () => {
-    if (!filters.teacher) return ''
-    const teacher = teachers.find(t => t._id === filters.teacher)
-    return teacher?.personalInfo?.fullName || ''
-  }
-
-  // Handle teacher selection
-  const handleTeacherSelect = (teacherId: string, teacherName: string) => {
-    setFilters(prev => ({ ...prev, teacher: teacherId }))
-    setTeacherSearchTerm(teacherName)
-    setShowTeacherDropdown(false)
-  }
-
-  // Handle teacher search input
-  const handleTeacherSearchChange = (value: string) => {
-    setTeacherSearchTerm(value)
-    setShowTeacherDropdown(true)
-    
-    // If the input is cleared, clear the filter
-    if (value === '') {
-      setFilters(prev => ({ ...prev, teacher: '' }))
-    }
-  }
 
   // Handle stage level edit mode
   const handleStageLevelClick = (studentId: string) => {
@@ -533,18 +538,7 @@ export default function Students() {
     const matchesInstrument = !filters.instrument || student.instrument === filters.instrument
     const matchesStageLevel = !filters.stageLevel || student.stageLevel === parseInt(filters.stageLevel)
     
-    // Teacher filter: check if student has teacher assignment matching the selected teacher
-    const matchesTeacher = !filters.teacher || 
-      (student.rawData.teacherAssignments && 
-       student.rawData.teacherAssignments.some(assignment => assignment.teacherId === filters.teacher))
-    
-    // New filters for orphaned students and integrity status
-    const matchesOrphaned = !filters.orphaned || 
-      (filters.orphaned === 'true' ? student.rawData.isOrphaned : !student.rawData.isOrphaned)
-    const matchesActivity = !filters.noActivity || 
-      (filters.noActivity === 'true' ? student.rawData.hasNoRecentActivity : !student.rawData.hasNoRecentActivity)
-    
-    return matchesSearch && matchesOrchestra && matchesInstrument && matchesStageLevel && matchesTeacher && matchesOrphaned && matchesActivity
+    return matchesSearch && matchesOrchestra && matchesInstrument && matchesStageLevel
   })
 
   // Calculate statistics
@@ -567,37 +561,32 @@ export default function Students() {
               setSelectedStudents(new Set())
             }
           }}
-          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-2 focus:ring-primary-500 cursor-pointer"
         />
       ),
-      width: '50px',
+      render: (student: any) => (
+        <input
+          type="checkbox"
+          checked={selectedStudents.has(student.id)}
+          onChange={(e) => {
+            e.stopPropagation()
+            const newSelected = new Set(selectedStudents)
+            if (e.target.checked) {
+              newSelected.add(student.id)
+            } else {
+              newSelected.delete(student.id)
+            }
+            setSelectedStudents(newSelected)
+          }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-2 focus:ring-primary-500 cursor-pointer"
+        />
+      ),
+      width: '60px',
       align: 'center' as const
     }] : []),
     { key: 'name', header: 'שם התלמיד' },
     { key: 'instrument', header: 'כלי נגינה' },
-    { 
-      key: 'references', 
-      header: 'תלויות', 
-      align: 'center' as const,
-      render: (student: any) => {
-        const count = student.rawData.referenceCount || 0
-        return count > 0 ? (
-          <div className="flex items-center justify-center">
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              count > 10 ? 'bg-red-100 text-red-800' :
-              count > 5 ? 'bg-yellow-100 text-yellow-800' :
-              'bg-green-100 text-green-800'
-            }`}>
-              {count}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center">
-            <span className="text-gray-400 text-xs">-</span>
-          </div>
-        )
-      }
-    },
     { 
       key: 'stageLevel', 
       header: 'שלב', 
@@ -673,41 +662,17 @@ export default function Students() {
     { key: 'grade', header: 'כיתה', align: 'center' as const },
     { key: 'status', header: 'סטטוס', align: 'center' as const },
     {
-      key: 'integrity',
-      header: 'שלמות נתונים',
-      align: 'center' as const,
-      render: (student: any) => {
-        const status = student.rawData.integrityStatus || 'healthy'
-        const isOrphaned = student.rawData.isOrphaned
-        const hasNoActivity = student.rawData.hasNoRecentActivity
-        
-        return (
-          <div className="flex items-center justify-center gap-1">
-            {isOrphaned && (
-              <div className="w-2 h-2 bg-red-500 rounded-full" title="רשומה יתומה" />
-            )}
-            {hasNoActivity && (
-              <div className="w-2 h-2 bg-yellow-500 rounded-full" title="אין פעילות" />
-            )}
-            {status === 'healthy' && !isOrphaned && !hasNoActivity && (
-              <div className="w-2 h-2 bg-green-500 rounded-full" title="תקין" />
-            )}
-          </div>
-        )
-      }
-    },
-    { 
-      key: 'lastActivity', 
-      header: 'פעילות אחרונה', 
+      key: 'lastActivity',
+      header: 'פעילות אחרונה',
       align: 'center' as const,
       render: (student: any) => {
         const lastActivity = student.rawData.lastActivity
         if (!lastActivity) return <span className="text-gray-400 text-xs">-</span>
-        
+
         const date = new Date(lastActivity)
         const now = new Date()
         const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-        
+
         return (
           <span className={`text-xs ${
             diffDays > 30 ? 'text-red-600' :
@@ -825,78 +790,6 @@ export default function Students() {
               <option value="תופים">תופים</option>
             </select>
 
-            {/* Teacher Filter - Searchable */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="חפש מורה..."
-                value={teacherSearchTerm}
-                onChange={(e) => handleTeacherSearchChange(e.target.value)}
-                onFocus={() => setShowTeacherDropdown(true)}
-                onBlur={() => {
-                  // Delay hiding dropdown to allow click events
-                  setTimeout(() => setShowTeacherDropdown(false), 200)
-                }}
-                disabled={teachersLoading}
-                className="w-48 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 placeholder-gray-500"
-              />
-              
-              {/* Clear button */}
-              {teacherSearchTerm && (
-                <button
-                  onClick={() => {
-                    setTeacherSearchTerm('')
-                    setFilters(prev => ({ ...prev, teacher: '' }))
-                    setShowTeacherDropdown(false)
-                  }}
-                  className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-              
-              {/* Dropdown */}
-              {showTeacherDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
-                  {teachersLoading ? (
-                    <div className="px-3 py-2 text-gray-500 text-center">
-                      <Loader className="w-4 h-4 animate-spin mx-auto mb-1" />
-                      טוען מורים...
-                    </div>
-                  ) : filteredTeachers.length > 0 ? (
-                    <>
-                      {/* "All teachers" option */}
-                      <button
-                        onClick={() => handleTeacherSelect('', 'כל המורים')}
-                        className={`w-full text-right px-3 py-2 hover:bg-gray-50 border-b border-gray-100 ${
-                          filters.teacher === '' ? 'bg-primary-50 text-primary-600' : 'text-gray-900'
-                        }`}
-                      >
-                        כל המורים
-                      </button>
-                      
-                      {/* Teacher options */}
-                      {filteredTeachers.map(teacher => (
-                        <button
-                          key={teacher._id}
-                          onClick={() => handleTeacherSelect(teacher._id, teacher.personalInfo?.fullName || 'מורה ללא שם')}
-                          className={`w-full text-right px-3 py-2 hover:bg-gray-50 ${
-                            filters.teacher === teacher._id ? 'bg-primary-50 text-primary-600' : 'text-gray-900'
-                          }`}
-                        >
-                          {teacher.personalInfo?.fullName || 'מורה ללא שם'}
-                        </button>
-                      ))}
-                    </>
-                  ) : (
-                    <div className="px-3 py-2 text-gray-500 text-center">
-                      לא נמצאו מורים
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Stage Level Filter */}
             <select 
               value={filters.stageLevel}
@@ -907,28 +800,6 @@ export default function Students() {
               {[1, 2, 3, 4, 5, 6, 7, 8].map(level => (
                 <option key={level} value={level}>שלב {level}</option>
               ))}
-            </select>
-
-            {/* Orphaned Students Filter */}
-            <select 
-              value={filters.orphaned}
-              onChange={(e) => setFilters(prev => ({ ...prev, orphaned: e.target.value }))}
-              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
-            >
-              <option value="">כל הסטטוסים</option>
-              <option value="true">רשומות יתומות</option>
-              <option value="false">רשומות תקינות</option>
-            </select>
-
-            {/* No Activity Filter */}
-            <select 
-              value={filters.noActivity}
-              onChange={(e) => setFilters(prev => ({ ...prev, noActivity: e.target.value }))}
-              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900"
-            >
-              <option value="">כל הפעילויות</option>
-              <option value="true">אין פעילות</option>
-              <option value="false">יש פעילות</option>
             </select>
 
             <button 
@@ -973,7 +844,7 @@ export default function Students() {
       {/* Results Info */}
       <div className="mb-4 flex items-center justify-between">
         <div className="text-sm text-gray-600">
-          {searchTerm || filters.orchestra || filters.instrument || filters.teacher || filters.stageLevel ? (
+          {searchTerm || filters.orchestra || filters.instrument || filters.stageLevel ? (
             <span>מציג {filteredStudents.length} מתוך {totalStudents} תלמידים</span>
           ) : (
             <span>סה"כ {totalStudents} תלמידים</span>
@@ -1044,16 +915,33 @@ export default function Students() {
 
       {/* Students Display */}
       {viewMode === 'table' ? (
-        <Table 
-          columns={columns} 
+        <Table
+          columns={columns}
           data={filteredStudents}
           onRowClick={(row) => {
-            console.log('=== ROW CLICKED ===')
-            console.log('Row data:', row)
-            console.log('Student ID from row:', row.id)
-            handleViewStudent(row.id)
+            if (isSelectMode) {
+              // In select mode, clicking row toggles selection
+              const newSelected = new Set(selectedStudents)
+              if (newSelected.has(row.id)) {
+                newSelected.delete(row.id)
+              } else {
+                newSelected.add(row.id)
+              }
+              setSelectedStudents(newSelected)
+            } else {
+              // In normal mode, navigate to student details
+              handleViewStudent(row.id)
+            }
           }}
-          rowClassName="hover:bg-gray-50 cursor-pointer transition-colors"
+          rowClassName={(row) => {
+            const isSelected = selectedStudents.has(row.id)
+            return clsx(
+              'cursor-pointer transition-all duration-150',
+              isSelected
+                ? 'bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-500'
+                : 'hover:bg-gray-50'
+            )
+          }}
         />
       ) : (
         <div>
