@@ -63,11 +63,11 @@ export default function Login() {
         {/* Glassmorphism container */}
         <div className="backdrop-blur-lg bg-white/10 border border-white/20 rounded-2xl shadow-xl p-8">
           <div>
-            <h2 
-              className="mt-6 text-center text-3xl font-extrabold text-yellow-400 drop-shadow-lg"
+            <h2
+              className="mt-6 text-center text-3xl font-extrabold text-white drop-shadow-lg"
               style={{ fontFamily: "'Reisinger Yonatan', 'Arial Hebrew', 'Noto Sans Hebrew', Arial, sans-serif" }}
             >
-              ✅ HEBREW WORKING! כניסה לחשבון שלך
+              כניסה למערכת
             </h2>
           </div>
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -135,10 +135,10 @@ export default function Login() {
 
             <div className="text-center">
               <Link
-                to="/dashboard"
-                className="font-medium text-white/90 hover:text-white drop-shadow transition-colors duration-200 font-reisinger-yonatan"
+                to="/forgot-password"
+                className="font-medium text-white/90 hover:text-white drop-shadow transition-colors duration-200 font-reisinger-yonatan underline"
               >
-                דלג למרכז הבקרה (הדגמה)
+                שכחתי סיסמא
               </Link>
             </div>
           </form>

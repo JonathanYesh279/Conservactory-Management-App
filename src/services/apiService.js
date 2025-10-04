@@ -345,6 +345,40 @@ export const authService = {
    */
   isAuthenticated() {
     return !!apiClient.getStoredToken();
+  },
+
+  /**
+   * Request password reset
+   * @param {string} email - User's email address
+   * @returns {Promise} - Success message
+   */
+  async forgotPassword(email) {
+    try {
+      const response = await apiClient.post('/auth/forgot-password', { email });
+      return response;
+    } catch (error) {
+      console.error('🔐 Forgot password error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Reset password with token
+   * @param {string} token - Reset token from email
+   * @param {string} newPassword - New password
+   * @returns {Promise} - Success message
+   */
+  async resetPassword(token, newPassword) {
+    try {
+      const response = await apiClient.post('/auth/reset-password', {
+        token,
+        newPassword
+      });
+      return response;
+    } catch (error) {
+      console.error('🔐 Reset password error:', error);
+      throw error;
+    }
   }
 };
 

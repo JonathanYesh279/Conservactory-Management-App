@@ -7,6 +7,8 @@ import { QueryProvider } from './providers/QueryProvider'
 import { SidebarProvider } from './contexts/SidebarContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import { lazyWithRetry, initializeBundleOptimizations } from './utils/bundleOptimization'
 
 // Lazy load all pages with retry mechanism for better reliability
@@ -170,6 +172,8 @@ function AppRoutes() {
     <div dir="rtl">
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route
           path="/dashboard"
           element={
