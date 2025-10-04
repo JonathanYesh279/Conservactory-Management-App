@@ -654,9 +654,6 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId, isLoading }) 
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">שיעורי תיאוריה</h2>
-          <p className="text-gray-600 mt-1">
-            ניהול הרשמות לשיעורי תיאוריה • כיתה: {studentGrade} • רמה: {studentLevel}
-          </p>
         </div>
 
         {/* View Toggle */}

@@ -2205,16 +2205,44 @@ export const orchestraService = {
   async getOrchestra(orchestraId) {
     try {
       const orchestra = await apiClient.get(`/orchestra/${orchestraId}`);
-      
-      // Get conductor and member details
-      const [conductor, members] = await Promise.all([
-        orchestra.conductorId ? 
-          apiClient.get(`/teacher/${orchestra.conductorId}`).catch(() => null) : 
-          null,
-        orchestra.memberIds?.length > 0 ?
-          apiClient.get('/student', { ids: orchestra.memberIds.join(',') }).catch(() => []) :
-          []
-      ]);
+
+      // Backend already populates members via aggregation pipeline
+      // Use the populated members field directly
+      const memberDetails = Array.isArray(orchestra.members) ? orchestra.members : [];
+
+      // Get conductor details if needed
+      const conductor = orchestra.conductorId ?
+        await apiClient.get(`/teacher/${orchestra.conductorId}`).catch(() => null) :
+        null;
+
+      // Fetch rehearsal schedule information
+      let rehearsalSchedule = null;
+      if (orchestra.rehearsalIds && orchestra.rehearsalIds.length > 0) {
+        try {
+          const allRehearsals = await apiClient.get('/rehearsal', {
+            limit: 200
+          }).catch(() => []);
+
+          // Find the first rehearsal for this orchestra
+          const orchestraRehearsal = Array.isArray(allRehearsals)
+            ? allRehearsals.find(r => r.groupId === orchestra._id)
+            : null;
+
+          if (orchestraRehearsal) {
+            rehearsalSchedule = {
+              dayOfWeek: orchestraRehearsal.dayOfWeek,
+              startTime: orchestraRehearsal.startTime,
+              endTime: orchestraRehearsal.endTime,
+              location: orchestraRehearsal.location,
+              dayName: this.rehearsalUtils?.getDayName
+                ? this.rehearsalUtils.getDayName(orchestraRehearsal.dayOfWeek)
+                : ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][orchestraRehearsal.dayOfWeek] || ''
+            };
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch rehearsal schedule for orchestra ${orchestraId}:`, error);
+        }
+      }
 
       const processedOrchestra = {
         ...orchestra,
@@ -2225,22 +2253,21 @@ export const orchestraService = {
           name: conductor.personalInfo?.fullName,
           instrument: conductor.professionalInfo?.instrument
         } : null,
-        memberDetails: Array.isArray(members) ? members.map(member => ({
-          id: member._id,
-          name: member.personalInfo?.fullName,
-          instrument: member.academicInfo?.instrumentProgress?.find(p => p.isPrimary)?.instrumentName
-        })) : [],
+        // Use the backend-populated members directly (full student data)
+        memberDetails: memberDetails,
         memberCount: orchestra.memberIds?.length || 0,
         rehearsalCount: orchestra.rehearsalIds?.length || 0,
+        // Add rehearsal schedule information
+        rehearsalSchedule: rehearsalSchedule,
         statusInfo: {
           isActive: orchestra.isActive,
           hasRehearsals: orchestra.rehearsalIds?.length > 0,
           lastModified: orchestra.lastModified || orchestra.updatedAt
         }
       };
-      
-      console.log(`🎼 Retrieved orchestra: ${orchestra.name} with ${processedOrchestra.memberCount} members`);
-      
+
+      console.log(`🎼 Retrieved orchestra: ${orchestra.name} with ${memberDetails.length} populated members`);
+
       return processedOrchestra;
     } catch (error) {
       console.error('Error fetching orchestra:', error);

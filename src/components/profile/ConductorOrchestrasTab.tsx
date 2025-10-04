@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../services/authContext.jsx'
-import { Plus, Search, Edit, Trash2, Music, Users, UserPlus, UserMinus, Calendar, Clock, MapPin, Settings, Volume2, Star, Filter, AlertCircle } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Music, Users, UserPlus, UserMinus, Calendar, Clock, MapPin, Settings, Star, Filter, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
 import apiService from '../../services/apiService'
 import RehearsalScheduleModal from '../rehearsal/RehearsalScheduleModal'
+import ConfirmationModal from '../ui/ConfirmationModal'
 
 interface Orchestra {
   id: string
@@ -76,6 +77,20 @@ export default function ConductorOrchestrasTab() {
   const [enrollmentFilter, setEnrollmentFilter] = useState('')
   const [memberFilter, setMemberFilter] = useState('')
 
+  // Notification and confirmation modals
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => void
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  })
+
   useEffect(() => {
     loadConductorOrchestras()
   }, [user])
@@ -138,17 +153,32 @@ export default function ConductorOrchestrasTab() {
       const members = orchestra.memberDetails || []
 
       // Map backend data to frontend format
-      const mappedMembers = members.map(member => ({
-        id: member._id,
-        firstName: member.personalInfo?.firstName || '',
-        lastName: member.personalInfo?.lastName || '',
-        instrument: member.academicInfo?.instrumentProgress?.find(p => p.isPrimary)?.instrumentName || member.primaryInstrument || '',
-        section: member.section || 'כללי',
-        status: member.status || 'active',
-        enrollmentDate: member.enrollmentDate || new Date().toISOString(),
-        performanceLevel: member.performanceLevel || 'intermediate',
-        attendanceRate: Math.floor(Math.random() * 20) + 80 // Mock data
-      }))
+      const mappedMembers = members.map(member => {
+        // Parse fullName into firstName and lastName
+        const fullName = member.personalInfo?.fullName || ''
+        const nameParts = fullName.trim().split(/\s+/)
+        const firstName = nameParts[0] || ''
+        const lastName = nameParts.slice(1).join(' ') || ''
+
+        // Get primary instrument and current stage
+        const primaryInstrument = member.academicInfo?.instrumentProgress?.find(p => p.isPrimary)
+        const instrument = primaryInstrument?.instrumentName || member.primaryInstrument || 'לא צוין'
+        const currentStage = primaryInstrument?.currentStage || 0
+
+        return {
+          id: member._id,
+          fullName: fullName,
+          firstName: firstName,
+          lastName: lastName,
+          instrument: instrument,
+          currentStage: currentStage,
+          section: member.section || 'כללי',
+          status: member.status || 'active',
+          enrollmentDate: member.enrollmentDate || new Date().toISOString(),
+          performanceLevel: member.performanceLevel || 'intermediate',
+          attendanceRate: member.attendanceRate || null // Only use real data
+        }
+      })
 
       setOrchestraMembers(mappedMembers)
     } catch (error) {
@@ -182,16 +212,37 @@ export default function ConductorOrchestrasTab() {
         limit: 20
       })
 
-      const mappedRehearsals = rehearsals.map(rehearsal => ({
-        id: rehearsal._id,
-        date: new Date(rehearsal.scheduledDate).toLocaleDateString('he-IL'),
-        time: rehearsal.startTime || '19:00',
-        location: rehearsal.location || 'אולם מוזיקה',
-        duration: rehearsal.duration || 120,
-        status: rehearsal.status || 'scheduled',
-        attendanceCount: rehearsal.attendanceList?.length || 0,
-        totalMembers: orchestraMembers.length
-      }))
+      const mappedRehearsals = rehearsals.map(rehearsal => {
+        // Try different date field names and formats
+        const dateValue = rehearsal.scheduledDate || rehearsal.date || rehearsal.rehearsalDate
+        let formattedDate = 'תאריך לא זמין'
+
+        if (dateValue) {
+          try {
+            const parsedDate = new Date(dateValue)
+            if (!isNaN(parsedDate.getTime())) {
+              formattedDate = parsedDate.toLocaleDateString('he-IL', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+              })
+            }
+          } catch (e) {
+            console.warn('Failed to parse rehearsal date:', dateValue)
+          }
+        }
+
+        return {
+          id: rehearsal._id,
+          date: formattedDate,
+          time: rehearsal.startTime || '19:00',
+          location: rehearsal.location || 'אולם מוזיקה',
+          duration: rehearsal.duration || 120,
+          status: rehearsal.status || 'scheduled',
+          attendanceCount: rehearsal.attendanceList?.length || 0,
+          totalMembers: orchestraMembers.length
+        }
+      })
 
       setOrchestraRehearsals(mappedRehearsals)
     } catch (error) {
@@ -210,30 +261,41 @@ export default function ConductorOrchestrasTab() {
       await loadOrchestraMembers(selectedOrchestra)
       await loadAvailableStudents()
 
-      alert('התלמיד נוסף בהצלחה לתזמורת')
+      setNotification({ type: 'success', message: 'התלמיד נוסף בהצלחה לתזמורת' })
+      setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error adding member:', error)
-      alert('שגיאה בהוספת התלמיד לתזמורת')
+      setNotification({ type: 'error', message: 'שגיאה בהוספת התלמיד לתזמורת' })
+      setTimeout(() => setNotification(null), 3000)
     }
   }
 
   const handleRemoveMember = async (memberId: string) => {
     if (!selectedOrchestra) return
 
-    if (!window.confirm('האם אתה בטוח שברצונך להסיר את התלמיד מהתזמורת?')) return
+    setConfirmModal({
+      isOpen: true,
+      title: 'הסרת תלמיד מהתזמורת',
+      message: 'האם אתה בטוח שברצונך להסיר את התלמיד מהתזמורת?',
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, isOpen: false })
 
-    try {
-      await apiService.orchestras.removeMember(selectedOrchestra, memberId)
+        try {
+          await apiService.orchestras.removeMember(selectedOrchestra, memberId)
 
-      // Refresh data
-      await loadOrchestraMembers(selectedOrchestra)
-      await loadAvailableStudents()
+          // Refresh data
+          await loadOrchestraMembers(selectedOrchestra)
+          await loadAvailableStudents()
 
-      alert('התלמיד הוסר בהצלחה מהתזמורת')
-    } catch (error) {
-      console.error('Error removing member:', error)
-      alert('שגיאה בהסרת התלמיד מהתזמורת')
-    }
+          setNotification({ type: 'success', message: 'התלמיד הוסר בהצלחה מהתזמורת' })
+          setTimeout(() => setNotification(null), 3000)
+        } catch (error) {
+          console.error('Error removing member:', error)
+          setNotification({ type: 'error', message: 'שגיאה בהסרת התלמיד מהתזמורת' })
+          setTimeout(() => setNotification(null), 3000)
+        }
+      }
+    })
   }
 
   const handleScheduleRehearsal = async (rehearsalData: any) => {
@@ -256,18 +318,20 @@ export default function ConductorOrchestrasTab() {
         // Create multiple rehearsals based on recurrence pattern
         const rehearsals = generateRecurringRehearsals(rehearsalPayload, rehearsalData)
         await Promise.all(rehearsals.map(r => apiService.rehearsals.createRehearsal(r)))
-        alert(`${rehearsals.length} חזרות נוצרו בהצלחה`)
+        setNotification({ type: 'success', message: `${rehearsals.length} חזרות נוצרו בהצלחה` })
       } else {
         await apiService.rehearsals.createRehearsal(rehearsalPayload)
-        alert('חזרה נוצרה בהצלחה')
+        setNotification({ type: 'success', message: 'חזרה נוצרה בהצלחה' })
       }
 
       // Refresh rehearsals
       await loadOrchestraRehearsals(selectedOrchestra)
       setShowRehearsalModal(false)
+      setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error scheduling rehearsal:', error)
-      alert('שגיאה ביצירת החזרה')
+      setNotification({ type: 'error', message: 'שגיאה ביצירת החזרה' })
+      setTimeout(() => setNotification(null), 3000)
     }
   }
 
@@ -315,19 +379,29 @@ export default function ConductorOrchestrasTab() {
   )
 
   const handleDeleteOrchestra = async (orchestraId: string) => {
-    if (!window.confirm('האם אתה בטוח שברצונך למחוק תזמורת זו?')) return
+    setConfirmModal({
+      isOpen: true,
+      title: 'מחיקת תזמורת',
+      message: 'האם אתה בטוח שברצונך למחוק תזמורת זו? פעולה זו אינה ניתנת לביטול.',
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, isOpen: false })
 
-    try {
-      await apiService.orchestras.deleteOrchestra(orchestraId)
-      setOrchestras(prev => prev.filter(o => o.id !== orchestraId))
-      if (selectedOrchestra === orchestraId) {
-        setSelectedOrchestra(null)
-        setOrchestraMembers([])
+        try {
+          await apiService.orchestras.deleteOrchestra(orchestraId)
+          setOrchestras(prev => prev.filter(o => o.id !== orchestraId))
+          if (selectedOrchestra === orchestraId) {
+            setSelectedOrchestra(null)
+            setOrchestraMembers([])
+          }
+          setNotification({ type: 'success', message: 'התזמורת נמחקה בהצלחה' })
+          setTimeout(() => setNotification(null), 3000)
+        } catch (error) {
+          console.error('Error deleting orchestra:', error)
+          setNotification({ type: 'error', message: 'שגיאה במחיקת התזמורת' })
+          setTimeout(() => setNotification(null), 3000)
+        }
       }
-    } catch (error) {
-      console.error('Error deleting orchestra:', error)
-      alert('שגיאה במחיקת התזמורת')
-    }
+    })
   }
 
   const handleOrchestraSubmit = async (orchestraData: Partial<Orchestra>) => {
@@ -403,9 +477,12 @@ export default function ConductorOrchestrasTab() {
       }
       setShowAddModal(false)
       setEditingOrchestra(null)
+      setNotification({ type: 'success', message: editingOrchestra ? 'התזמורת עודכנה בהצלחה' : 'התזמורת נוצרה בהצלחה' })
+      setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error saving orchestra:', error)
-      alert('שגיאה בשמירת פרטי התזמורת')
+      setNotification({ type: 'error', message: 'שגיאה בשמירת פרטי התזמורת' })
+      setTimeout(() => setNotification(null), 3000)
     }
   }
 
@@ -666,14 +743,16 @@ export default function ConductorOrchestrasTab() {
                             }`} />
                             <div>
                               <div className="font-medium text-sm font-reisinger-yonatan">
-                                {member.firstName} {member.lastName}
+                                {member.fullName || `${member.firstName} ${member.lastName}`.trim()}
                               </div>
                               <div className="text-xs text-gray-500 font-reisinger-yonatan">
-                                {member.instrument} • {member.section}
+                                {member.instrument}{member.currentStage ? ` - שלב ${member.currentStage}` : ''}
                               </div>
-                              <div className="text-xs text-gray-400 mt-1">
-                                נוכחות: {member.attendanceRate}% • רמה: {getLevelLabel(member.performanceLevel || 'intermediate')}
-                              </div>
+                              {member.attendanceRate !== null && member.attendanceRate !== undefined && (
+                                <div className="text-xs text-gray-400 mt-1">
+                                  נוכחות: {member.attendanceRate}%
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -730,14 +809,19 @@ export default function ConductorOrchestrasTab() {
                           student.personalInfo?.fullName?.toLowerCase().includes(enrollmentFilter.toLowerCase()) ||
                           student.academicInfo?.primaryInstrument?.toLowerCase().includes(enrollmentFilter.toLowerCase())
                         )
-                        .map((student) => (
+                        .map((student) => {
+                          const primaryInstrument = student.academicInfo?.instrumentProgress?.find(p => p.isPrimary)
+                          const instrumentName = primaryInstrument?.instrumentName || student.academicInfo?.primaryInstrument || 'לא צוין כלי'
+                          const currentStage = primaryInstrument?.currentStage
+
+                          return (
                         <div key={student._id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200">
                           <div>
                             <div className="font-medium text-sm font-reisinger-yonatan">
                               {student.personalInfo?.fullName}
                             </div>
                             <div className="text-xs text-gray-500 font-reisinger-yonatan">
-                              {student.academicInfo?.primaryInstrument || 'לא צוין כלי'}
+                              {instrumentName}{currentStage ? ` - שלב ${currentStage}` : ''}
                             </div>
                           </div>
                           <button
@@ -748,7 +832,8 @@ export default function ConductorOrchestrasTab() {
                             הוסף
                           </button>
                         </div>
-                      ))}
+                          )
+                        })}
                     </div>
                   )}
                 </div>
@@ -778,28 +863,15 @@ export default function ConductorOrchestrasTab() {
                     <div className="space-y-2 max-h-96 overflow-y-auto">
                       {orchestraRehearsals.map((rehearsal) => (
                         <div key={rehearsal.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              rehearsal.status === 'completed' ? 'bg-green-100' :
-                              rehearsal.status === 'cancelled' ? 'bg-red-100' :
-                              'bg-blue-100'
-                            }`}>
-                              <Volume2 className={`w-4 h-4 ${
-                                rehearsal.status === 'completed' ? 'text-green-600' :
-                                rehearsal.status === 'cancelled' ? 'text-red-600' :
-                                'text-blue-600'
-                              }`} />
+                          <div className="flex-1">
+                            <div className="font-medium text-sm font-reisinger-yonatan">
+                              {rehearsal.date} • {rehearsal.time}
                             </div>
-                            <div>
-                              <div className="font-medium text-sm font-reisinger-yonatan">
-                                {rehearsal.date} • {rehearsal.time}
-                              </div>
-                              <div className="text-xs text-gray-500 font-reisinger-yonatan flex items-center gap-2">
-                                <MapPin className="w-3 h-3" />
-                                {rehearsal.location}
-                                <Clock className="w-3 h-3 mr-1" />
-                                {rehearsal.duration} דקות
-                              </div>
+                            <div className="text-xs text-gray-500 font-reisinger-yonatan flex items-center gap-2 mt-1">
+                              <MapPin className="w-3 h-3" />
+                              {rehearsal.location}
+                              <Clock className="w-3 h-3 mr-1" />
+                              {rehearsal.duration} דקות
                             </div>
                           </div>
                           <div className="text-right">
@@ -840,6 +912,40 @@ export default function ConductorOrchestrasTab() {
           orchestraName={orchestras.find(o => o.id === selectedOrchestra)?.name || ''}
           onSave={handleScheduleRehearsal}
         />
+      )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        variant="danger"
+        confirmText="אישור"
+        cancelText="ביטול"
+      />
+
+      {/* Notification Modal */}
+      {notification && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in" dir="rtl">
+          <div className={`flex items-center gap-3 px-6 py-4 rounded-lg shadow-lg ${
+            notification.type === 'success'
+              ? 'bg-green-50 border border-green-200'
+              : 'bg-red-50 border border-red-200'
+          }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            )}
+            <span className={`font-medium font-reisinger-yonatan ${
+              notification.type === 'success' ? 'text-green-800' : 'text-red-800'
+            }`}>
+              {notification.message}
+            </span>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -135,6 +135,32 @@ export default function Profile() {
     )
   }
 
+  // Helper function to check if user is a conductor
+  const isConductor = () => {
+    return (
+      user?.roles?.includes('conductor') ||
+      user?.roles?.includes('מנצח') ||
+      (user?.conducting?.orchestraIds && user.conducting.orchestraIds.length > 0)
+    )
+  }
+
+  // Helper function to check if user is a teacher
+  const isTeacher = () => {
+    return (
+      user?.roles?.includes('teacher') ||
+      user?.roles?.includes('מורה') ||
+      (user?.teaching?.studentIds && user.teaching.studentIds.length > 0)
+    )
+  }
+
+  // Helper function to check if user is a theory teacher
+  const isTheoryTeacher = () => {
+    return (
+      user?.roles?.includes('theory_teacher') ||
+      user?.roles?.includes('מורה תאוריה')
+    )
+  }
+
   const getTabsByRole = (): Tab[] => {
     const baseTabs: Tab[] = [
       {
@@ -145,87 +171,45 @@ export default function Profile() {
       }
     ]
 
-    const userRole = user?.role || user?.roles?.[0] || ''
-    
-    // Handle both English and Hebrew role names
-    switch (userRole) {
-      case 'teacher':
-      case 'מורה':
-        return [
-          ...baseTabs,
-          {
-            id: 'students',
-            label: 'התלמידים שלי',
-            icon: Users,
-            component: TeacherStudentsTab
-          },
-          {
-            id: 'schedule',
-            label: 'לוח זמנים שבועי',
-            icon: Calendar,
-            component: TeacherScheduleTab
-          }
-        ]
-      
-      case 'conductor':
-      case 'מנצח':
-        return [
-          ...baseTabs,
-          {
-            id: 'orchestras',
-            label: 'תזמורות שאני מנצח',
-            icon: Music,
-            component: ConductorOrchestrasTab
-          }
-        ]
-      
-      case 'theory_teacher':
-      case 'מורה תיאוריה':
-        return [
-          ...baseTabs,
-          {
-            id: 'lessons',
-            label: 'שיעורי התיאוריה שלי',
-            icon: BookOpen,
-            component: TheoryTeacherLessonsTab
-          }
-        ]
-      
-      default:
-        // Check if user has roles array with multiple roles (handle both English and Hebrew)
-        const tabs = [...baseTabs]
-        if (user?.roles?.includes('teacher') || user?.roles?.includes('מורה')) {
-          tabs.push({
-            id: 'students',
-            label: 'התלמידים שלי',
-            icon: Users,
-            component: TeacherStudentsTab
-          })
-          tabs.push({
-            id: 'schedule',
-            label: 'לוח זמנים שבועי',
-            icon: Calendar,
-            component: TeacherScheduleTab
-          })
-        }
-        if (user?.roles?.includes('conductor') || user?.roles?.includes('מנצח')) {
-          tabs.push({
-            id: 'orchestras',
-            label: 'תזמורות שאני מנצח',
-            icon: Music,
-            component: ConductorOrchestrasTab
-          })
-        }
-        if (user?.roles?.includes('theory_teacher') || user?.roles?.includes('מורה תיאוריה')) {
-          tabs.push({
-            id: 'lessons',
-            label: 'שיעורי התיאוריה שלי',
-            icon: BookOpen,
-            component: TheoryTeacherLessonsTab
-          })
-        }
-        return tabs
+    const tabs = [...baseTabs]
+
+    // Add teacher tabs if user is a teacher
+    if (isTeacher()) {
+      tabs.push({
+        id: 'students',
+        label: 'התלמידים שלי',
+        icon: Users,
+        component: TeacherStudentsTab
+      })
+      tabs.push({
+        id: 'schedule',
+        label: 'לוח זמנים שבועי',
+        icon: Calendar,
+        component: TeacherScheduleTab
+      })
     }
+
+    // Add conductor tab if user is a conductor
+    if (isConductor()) {
+      tabs.push({
+        id: 'orchestras',
+        label: 'התזמורות שלי',
+        icon: Music,
+        component: ConductorOrchestrasTab
+      })
+    }
+
+    // Add theory teacher tab if user is a theory teacher
+    if (isTheoryTeacher()) {
+      tabs.push({
+        id: 'lessons',
+        label: 'שיעורי התיאוריה שלי',
+        icon: BookOpen,
+        component: TheoryTeacherLessonsTab
+      })
+    }
+
+    return tabs
   }
 
   const tabs = getTabsByRole()
@@ -315,9 +299,9 @@ export default function Profile() {
           loading={loadingStats}
         />
         <StatCard
-          title={user?.roles?.includes('conductor') || user?.roles?.includes('מנצח') ? 'תזמורות' : 'שיעורי תיאוריה'}
+          title={isConductor() ? 'תזמורות' : 'שיעורי תיאוריה'}
           value={loadingStats ? '...' : (statistics?.orchestrasCount || statistics?.theoryLessonsCount)?.toString() || '0'}
-          icon={user?.roles?.includes('conductor') || user?.roles?.includes('מנצח') ? Music : BookOpen}
+          icon={isConductor() ? Music : BookOpen}
           color="indigo"
           loading={loadingStats}
         />
