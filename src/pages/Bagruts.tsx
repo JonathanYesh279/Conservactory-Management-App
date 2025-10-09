@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
-  Search, Plus, Eye, Edit, Trash2, Filter, Loader, 
+import {
+  Search, Plus, Eye, Edit, Trash2, Filter, Loader,
   Grid, List, Download, CheckCircle, Clock, Award,
   FileText, Calendar, User, Music, AlertCircle, XCircle
 } from 'lucide-react'
@@ -13,19 +13,21 @@ import SimplifiedBagrutForm from '../components/SimplifiedBagrutForm'
 import ConfirmationModal from '../components/ui/ConfirmationModal'
 import { useBagrut } from '../hooks/useBagrut'
 import { useSchoolYear } from '../services/schoolYearContext'
+import { useAuth } from '../services/authContext'
 import apiService from '../services/apiService'
 
 export default function Bagruts() {
   const navigate = useNavigate()
   const { currentSchoolYear } = useSchoolYear()
-  const { 
-    bagruts, 
-    loading, 
-    error, 
-    fetchAllBagruts, 
-    createBagrut, 
+  const { user } = useAuth()
+  const {
+    bagruts,
+    loading,
+    error,
+    fetchAllBagruts,
+    createBagrut,
     deleteBagrut,
-    clearError 
+    clearError
   } = useBagrut()
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -39,11 +41,13 @@ export default function Bagruts() {
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [bagrutToDelete, setBagrutToDelete] = useState<{id: string, studentName: string} | null>(null)
-  
+
   // Additional data
   const [students, setStudents] = useState<any[]>([])
   const [teachers, setTeachers] = useState<any[]>([])
   const [loadingAdditionalData, setLoadingAdditionalData] = useState(false)
+  const [teacherBagruts, setTeacherBagruts] = useState<any[]>([])
+  const [isTeacherRole, setIsTeacherRole] = useState(false)
 
   // Load data on mount
   useEffect(() => {
@@ -61,29 +65,81 @@ export default function Bagruts() {
   const loadData = async (forceRefresh = false) => {
     try {
       setLoadingAdditionalData(true)
-      
-      console.log('🔄 Loading bagrut data...', forceRefresh ? '(forced refresh)' : '')
-      
-      // Load bagruts
-      await fetchAllBagruts({ 
-        showInactive: false,
-        sortBy: 'createdAt',
-        order: 'desc'
-      })
-      
-      // Note: bagruts state will be logged in useEffect below when it updates
 
-      // Load students and teachers for filtering and display
-      const [studentsData, teachersData] = await Promise.all([
-        apiService.students.getStudents(),
-        apiService.teachers.getTeachers()
-      ])
-      
-      console.log('🎓 Loaded students data:', studentsData?.length, 'students')
-      console.log('👨‍🏫 Loaded teachers data:', teachersData?.length, 'teachers')
-      
-      setStudents(studentsData)
-      setTeachers(teachersData)
+      console.log('🔄 Loading bagrut data...', forceRefresh ? '(forced refresh)' : '')
+      console.log('👤 Current user:', user?._id, 'Role:', user?.roles?.[0])
+
+      // Check if user is a teacher
+      const userIsTeacher = user?.roles?.includes('מורה') || user?.roles?.includes('teacher')
+      setIsTeacherRole(userIsTeacher)
+
+      if (userIsTeacher) {
+        // Teacher role: Load their students and filter bagruts by their students
+        console.log('🎓 Teacher role detected, loading student bagruts...')
+
+        // Get teacher profile to get their students
+        const teacherProfile = await apiService.teachers.getTeacher(user._id)
+        const teacherStudentIds = teacherProfile.teaching?.studentIds || []
+
+        console.log('👥 Teacher has', teacherStudentIds.length, 'students')
+
+        if (teacherStudentIds.length === 0) {
+          // No students assigned to this teacher
+          setTeacherBagruts([])
+          setStudents([])
+          setTeachers([])
+          return
+        }
+
+        // Load students
+        const studentsData = await apiService.students.getBatchStudents(teacherStudentIds)
+        console.log('📚 Loaded', studentsData.length, 'students')
+
+        // Filter students who have bagrut data
+        const studentsWithBagruts = studentsData.filter(student =>
+          student.academicInfo?.bagrutTracking &&
+          Object.keys(student.academicInfo.bagrutTracking).length > 0
+        )
+
+        console.log('🎯', studentsWithBagruts.length, 'students have bagrut data')
+
+        // Create bagrut objects from student data
+        const bagrutData = studentsWithBagruts.map(student => ({
+          _id: `${student._id}-bagrut`,
+          studentId: student._id,
+          studentName: student.personalInfo?.fullName || 'לא צוין',
+          bagrutTracking: student.academicInfo?.bagrutTracking || {},
+          class: student.personalInfo?.class || student.academicInfo?.class,
+          // Check if student has any active bagrut process
+          hasActiveBagrut: student.academicInfo?.bagrutTracking &&
+            Object.values(student.academicInfo.bagrutTracking).some((track: any) =>
+              track.status !== 'completed' && track.status !== 'cancelled'
+            )
+        }))
+
+        setTeacherBagruts(bagrutData)
+        setStudents(studentsData)
+        setTeachers([teacherProfile])
+      } else {
+        // Admin/other roles: Load all bagruts
+        await fetchAllBagruts({
+          showInactive: false,
+          sortBy: 'createdAt',
+          order: 'desc'
+        })
+
+        // Load students and teachers for filtering and display
+        const [studentsData, teachersData] = await Promise.all([
+          apiService.students.getStudents(),
+          apiService.teachers.getTeachers()
+        ])
+
+        console.log('🎓 Loaded students data:', studentsData?.length, 'students')
+        console.log('👨‍🏫 Loaded teachers data:', teachersData?.length, 'teachers')
+
+        setStudents(studentsData)
+        setTeachers(teachersData)
+      }
     } catch (err) {
       console.error('Error loading data:', err)
     } finally {
@@ -192,37 +248,40 @@ export default function Bagruts() {
     }
   }
 
+  // Use appropriate bagrut source based on user role
+  const bagrutSource = isTeacherRole ? teacherBagruts : bagruts
+
   // Filter bagruts
-  const filteredBagruts = bagruts.filter(bagrut => {
-    const studentName = getStudentName(bagrut.studentId)
+  const filteredBagruts = bagrutSource.filter(bagrut => {
+    const studentName = bagrut.studentName || getStudentName(bagrut.studentId)
     const teacherName = getTeacherName(bagrut.teacherId)
-    
-    const matchesSearch = !searchTerm || 
+
+    const matchesSearch = !searchTerm ||
       studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       teacherName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bagrut.conservatoryName?.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = !filters.status || 
+
+    const matchesStatus = !filters.status ||
       (filters.status === 'completed' && bagrut.isCompleted) ||
       (filters.status === 'pending' && !bagrut.isCompleted)
-    
+
     const matchesTeacher = !filters.teacherId || bagrut.teacherId === filters.teacherId
-    
-    const matchesConservatory = !filters.conservatory || 
+
+    const matchesConservatory = !filters.conservatory ||
       bagrut.conservatoryName === filters.conservatory
-    
+
     const matchesCompletion = filters.isCompleted === '' ||
       (filters.isCompleted === 'true' && bagrut.isCompleted) ||
       (filters.isCompleted === 'false' && !bagrut.isCompleted)
-    
+
     return matchesSearch && matchesStatus && matchesTeacher && matchesConservatory && matchesCompletion
   })
 
   // Calculate statistics
-  const totalBagruts = bagruts.length
-  const completedBagruts = bagruts.filter(b => b.isCompleted).length
+  const totalBagruts = bagrutSource.length
+  const completedBagruts = bagrutSource.filter(b => b.isCompleted).length
   const pendingBagruts = totalBagruts - completedBagruts
-  const excellentGrades = bagruts.filter(b => b.finalGrade && b.finalGrade >= 90).length
+  const excellentGrades = bagrutSource.filter(b => b.finalGrade && b.finalGrade >= 90).length
 
   // Table columns
   const columns = [
@@ -399,15 +458,22 @@ export default function Bagruts() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">ניהול בגרויות</h1>
-          <p className="text-gray-600 mt-1">מעקב אחר תהליכי בגרות, ציונים ומסמכים</p>
+          <p className="text-gray-600 mt-1">
+            {isTeacherRole
+              ? 'מעקב אחר בגרויות התלמידים שלך'
+              : 'מעקב אחר תהליכי בגרות, ציונים ומסמכים'
+            }
+          </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          <Plus className="w-4 h-4 ml-2" />
-          בגרות חדשה
-        </button>
+        {!isTeacherRole && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <Plus className="w-4 h-4 ml-2" />
+            בגרות חדשה
+          </button>
+        )}
       </div>
 
       {/* Statistics Cards */}
@@ -553,10 +619,22 @@ export default function Bagruts() {
         </div>
       )}
 
-      {filteredBagruts.length === 0 && (
+      {filteredBagruts.length === 0 && !loading && !loadingAdditionalData && (
         <div className="text-center py-12">
           <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <div className="text-gray-500 text-lg">לא נמצאו בגרויות התואמות לחיפוש</div>
+          <div className="text-gray-500 text-lg">
+            {isTeacherRole
+              ? totalBagruts === 0
+                ? 'אין לך תלמידים עם תהליכי בגרות פעילים כרגע'
+                : 'לא נמצאו בגרויות התואמות לחיפוש'
+              : 'לא נמצאו בגרויות התואמות לחיפוש'
+            }
+          </div>
+          {isTeacherRole && totalBagruts === 0 && (
+            <p className="text-gray-400 text-sm mt-2">
+              כאשר תלמידיך יירשמו לבגרויות, הן יופיעו כאן
+            </p>
+          )}
         </div>
       )}
 

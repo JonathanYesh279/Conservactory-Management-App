@@ -44,6 +44,9 @@ export default defineConfig({
     },
     hmr: {
       overlay: true,
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5173,
     },
   },
   build: {

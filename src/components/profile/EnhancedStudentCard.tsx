@@ -52,6 +52,7 @@ interface EnhancedStudentCardProps {
   onDelete: (studentId: string) => void
   onViewDetails: (studentId: string) => void
   onScheduleLesson?: (studentId: string) => void
+  onUpdateLesson?: (student: Student) => void
   onMarkAttendance?: (studentId: string) => void
   onAddNote?: (studentId: string) => void
   className?: string
@@ -63,6 +64,7 @@ export default function EnhancedStudentCard({
   onDelete,
   onViewDetails,
   onScheduleLesson,
+  onUpdateLesson,
   onMarkAttendance,
   onAddNote,
   className = ''
@@ -212,16 +214,24 @@ export default function EnhancedStudentCard({
             פרטים מלאים
           </button>
 
-          {/* Schedule Lesson Button */}
-          {onScheduleLesson && (
+          {/* Schedule/Update Lesson Button */}
+          {hasScheduledLesson && onUpdateLesson ? (
+            <button
+              onClick={() => onUpdateLesson(student)}
+              className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 px-3 py-1 rounded-lg text-sm font-medium font-reisinger-yonatan transition-all duration-200 flex items-center gap-1"
+            >
+              <Calendar className="w-4 h-4" />
+              עדכן שיעור קבוע
+            </button>
+          ) : onScheduleLesson && !hasScheduledLesson ? (
             <button
               onClick={() => onScheduleLesson(student.id)}
               className="text-green-600 hover:text-green-800 hover:bg-green-100 px-3 py-1 rounded-lg text-sm font-medium font-reisinger-yonatan transition-all duration-200 flex items-center gap-1"
             >
               <Calendar className="w-4 h-4" />
-              קבע שיעור
+              תזמן שיעור
             </button>
-          )}
+          ) : null}
 
           {/* Mark Attendance Button */}
           {onMarkAttendance && (

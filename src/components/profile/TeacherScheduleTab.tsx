@@ -65,6 +65,13 @@ export default function TeacherScheduleTab() {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{date: string, time: string, dayName: string} | null>(null)
   const [showEditLessonModal, setShowEditLessonModal] = useState(false)
   const [editingLesson, setEditingLesson] = useState<LessonDay | null>(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    message: string
+    onConfirm: () => void
+  } | null>(null)
+  const [showAlertModal, setShowAlertModal] = useState(false)
+  const [alertMessage, setAlertMessage] = useState('')
 
   useEffect(() => {
     loadScheduleData()
@@ -374,18 +381,20 @@ export default function TeacherScheduleTab() {
   }
 
   const handleDeleteLessonDay = async (lessonDay: LessonDay) => {
-    const confirmMessage = 'האם אתה בטוח שברצונך למחוק יום לימוד זה? פעולה זו תמחק את כל השיעורים הקבועים ביום זה.'
-
-    if (!window.confirm(confirmMessage)) return
-
-    try {
-      await apiService.teacherSchedule.deleteTimeBlock(user?._id, lessonDay.id)
-      showNotification('יום הלימוד נמחק בהצלחה', 'success')
-      loadScheduleData()
-    } catch (error) {
-      console.error('Error deleting lesson day:', error)
-      showNotification('שגיאה במחיקת יום הלימוד', 'error')
-    }
+    setConfirmModalConfig({
+      message: 'האם אתה בטוח שברצונך למחוק יום לימוד זה? פעולה זו תמחק את כל השיעורים הקבועים ביום זה.',
+      onConfirm: async () => {
+        try {
+          await apiService.teacherSchedule.deleteTimeBlock(user?._id, lessonDay.id)
+          showNotification('יום הלימוד נמחק בהצלחה', 'success')
+          loadScheduleData()
+        } catch (error) {
+          console.error('Error deleting lesson day:', error)
+          showNotification('שגיאה במחיקת יום הלימוד', 'error')
+        }
+      }
+    })
+    setShowConfirmModal(true)
   }
 
   const handleEditTeachingDay = (teachingDay: any) => {
@@ -416,18 +425,20 @@ export default function TeacherScheduleTab() {
   }
 
   const handleDeleteTeachingDay = async (teachingDay: any) => {
-    const confirmMessage = 'האם אתה בטוח שברצונך למחוק יום לימוד זה? פעולה זו תבטל את הזמינות שלך בזמן זה.'
-
-    if (!window.confirm(confirmMessage)) return
-
-    try {
-      await apiService.teacherSchedule.deleteTimeBlock(user?._id, teachingDay._id || teachingDay.id)
-      showNotification('יום הלימוד נמחק בהצלחה', 'success')
-      loadScheduleData()
-    } catch (error) {
-      console.error('Error deleting teaching day:', error)
-      showNotification('שגיאה במחיקת יום הלימוד', 'error')
-    }
+    setConfirmModalConfig({
+      message: 'האם אתה בטוח שברצונך למחוק יום לימוד זה? פעולה זו תבטל את הזמינות שלך בזמן זה.',
+      onConfirm: async () => {
+        try {
+          await apiService.teacherSchedule.deleteTimeBlock(user?._id, teachingDay._id || teachingDay.id)
+          showNotification('יום הלימוד נמחק בהצלחה', 'success')
+          loadScheduleData()
+        } catch (error) {
+          console.error('Error deleting teaching day:', error)
+          showNotification('שגיאה במחיקת יום הלימוד', 'error')
+        }
+      }
+    })
+    setShowConfirmModal(true)
   }
 
   const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
@@ -441,6 +452,11 @@ export default function TeacherScheduleTab() {
     </div>`
     document.body.appendChild(notification)
     setTimeout(() => notification.remove(), 3000)
+  }
+
+  const showAlert = (message: string) => {
+    setAlertMessage(message)
+    setShowAlertModal(true)
   }
 
   const getTimeSlots = () => {
@@ -647,17 +663,24 @@ export default function TeacherScheduleTab() {
                 return (
                   <div
                     key={`${day.date}-${time}`}
-                    className={`border-l border-gray-100 relative transition-all duration-200 cursor-pointer group ${
-                      isAvailable ? 'hover:bg-blue-50' : ''
+                    className={`border-l border-gray-100 relative transition-all duration-300 group ${
+                      isAvailable
+                        ? 'bg-blue-50/30 hover:bg-blue-100/50 cursor-pointer border-2 border-transparent hover:border-blue-200'
+                        : 'cursor-default'
                     }`}
                     style={{ height: '60px' }}
                     onClick={() => !lesson && handleTimeSlotClick(day.date, time, day.dayName)}
                     title={isAvailable ? 'לחץ להוספת שיעור חדש' : ''}
                   >
-                    {/* Plus icon for available slots */}
+                    {/* Plus icon and label for available slots */}
                     {isAvailable && (
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <Plus className="w-6 h-6 text-blue-500 drop-shadow-lg" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="flex flex-col items-center opacity-30 group-hover:opacity-100 transition-all duration-300 group-hover:scale-110">
+                          <Plus className="w-6 h-6 text-blue-500" />
+                          <span className="text-[10px] text-blue-600 font-medium mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            הוסף שיעור
+                          </span>
+                        </div>
                       </div>
                     )}
 
@@ -844,6 +867,7 @@ export default function TeacherScheduleTab() {
             setSelectedTimeSlot(null)
             loadScheduleData()
           }}
+          showNotification={showNotification}
         />
       )}
 
@@ -861,6 +885,7 @@ export default function TeacherScheduleTab() {
             setEditingLessonDay(null)
             loadScheduleData()
           }}
+          showAlert={showAlert}
         />
       )}
 
@@ -878,6 +903,34 @@ export default function TeacherScheduleTab() {
             setShowEditLessonModal(false)
             setEditingLesson(null)
             loadScheduleData()
+          }}
+          showAlert={showAlert}
+        />
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && confirmModalConfig && (
+        <ConfirmModal
+          message={confirmModalConfig.message}
+          onConfirm={() => {
+            confirmModalConfig.onConfirm()
+            setShowConfirmModal(false)
+            setConfirmModalConfig(null)
+          }}
+          onCancel={() => {
+            setShowConfirmModal(false)
+            setConfirmModalConfig(null)
+          }}
+        />
+      )}
+
+      {/* Alert Modal */}
+      {showAlertModal && (
+        <AlertModal
+          message={alertMessage}
+          onClose={() => {
+            setShowAlertModal(false)
+            setAlertMessage('')
           }}
         />
       )}
@@ -1097,9 +1150,10 @@ interface LessonDayModalProps {
   teacherId: string
   onClose: () => void
   onSave: () => void
+  showAlert: (message: string) => void
 }
 
-function LessonDayModal({ lessonDay, teacherId, onClose, onSave }: LessonDayModalProps) {
+function LessonDayModal({ lessonDay, teacherId, onClose, onSave, showAlert }: LessonDayModalProps) {
   const [formData, setFormData] = useState<Partial<LessonDay>>({
     day: lessonDay?.day || 'ראשון',
     startTime: lessonDay?.startTime || '14:00',
@@ -1115,12 +1169,12 @@ function LessonDayModal({ lessonDay, teacherId, onClose, onSave }: LessonDayModa
 
     // This modal should only handle teaching day blocks (availability), not student lessons
     if (lessonDay?.studentId) {
-      alert('לא ניתן לערוך שיעור תלמיד מכאן. אנא השתמש באפשרות העריכה בכרטיס השיעור.')
+      showAlert('לא ניתן לערוך שיעור תלמיד מכאן. אנא השתמש באפשרות העריכה בכרטיס השיעור.')
       return
     }
 
     if (!formData.day || !formData.startTime || !formData.endTime) {
-      alert('יש למלא את כל השדות הנדרשים')
+      showAlert('יש למלא את כל השדות הנדרשים')
       return
     }
 
@@ -1153,11 +1207,11 @@ function LessonDayModal({ lessonDay, teacherId, onClose, onSave }: LessonDayModa
 
       // If resource not found, it means this time block was deleted or doesn't exist
       if (error?.message?.includes('not found') || error?.message?.includes('Resource not found')) {
-        alert('יום הלימוד הזה כבר לא קיים במערכת. הוא יוסר מהתצוגה.')
+        showAlert('יום הלימוד הזה כבר לא קיים במערכת. הוא יוסר מהתצוגה.')
         onClose() // Close the modal
         onSave() // Trigger refresh to remove the orphaned time block from UI
       } else {
-        alert('שגיאה בשמירת יום הלימוד')
+        showAlert('שגיאה בשמירת יום הלימוד')
       }
     } finally {
       setSaving(false)
@@ -1335,33 +1389,55 @@ interface QuickLessonModalProps {
   teachingDays: any[]
   onClose: () => void
   onSave: () => void
+  showNotification: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-function QuickLessonModal({ timeSlot, teacherId, teachingDays, onClose, onSave }: QuickLessonModalProps) {
+function QuickLessonModal({ timeSlot, teacherId, teachingDays, onClose, onSave, showNotification }: QuickLessonModalProps) {
   const [selectedStudent, setSelectedStudent] = useState('')
   const [duration, setDuration] = useState(45)
   const [students, setStudents] = useState<StudentOption[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [minuteOffset, setMinuteOffset] = useState(0) // New state for minute offset
+  const [minuteOffset, setMinuteOffset] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showDropdown, setShowDropdown] = useState(false)
 
   useEffect(() => {
     loadStudents()
-  }, [teacherId])
+  }, [])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.student-search-dropdown')) {
+        setShowDropdown(false)
+      }
+    }
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDropdown])
 
   const loadStudents = async () => {
     try {
       setLoading(true)
-      const teacherStudents = await apiService.teachers.getTeacherStudents(teacherId)
+      // Fetch ALL students from the app
+      const allStudents = await apiService.students.getStudents()
 
-      const mappedStudents: StudentOption[] = teacherStudents.map(student => {
+      const mappedStudents: StudentOption[] = allStudents.map(student => {
         const primaryInstrument = student.academicInfo?.instrumentProgress?.find(p => p.isPrimary)
           || student.academicInfo?.instrumentProgress?.[0]
 
         return {
           id: student._id,
-          firstName: student.personalInfo?.firstName || '',
-          lastName: student.personalInfo?.lastName || '',
+          firstName: student.personalInfo?.firstName || student.personalInfo?.fullName?.split(' ')[0] || '',
+          lastName: student.personalInfo?.lastName || student.personalInfo?.fullName?.split(' ').slice(1).join(' ') || '',
           instrument: primaryInstrument?.instrumentName || '',
           class: student.personalInfo?.class || student.academicInfo?.class,
           stage: primaryInstrument?.currentStage
@@ -1375,6 +1451,15 @@ function QuickLessonModal({ timeSlot, teacherId, teachingDays, onClose, onSave }
       setLoading(false)
     }
   }
+
+  const filteredStudents = students.filter(student => {
+    if (!searchQuery) return true
+    const query = searchQuery.toLowerCase()
+    const fullName = `${student.firstName} ${student.lastName}`.toLowerCase()
+    return fullName.includes(query) ||
+           student.instrument?.toLowerCase().includes(query) ||
+           student.class?.toLowerCase().includes(query)
+  })
 
   const calculateEndTime = (startTime: string, durationMinutes: number): string => {
     const [hours, minutes] = startTime.split(':').map(Number)
@@ -1398,7 +1483,7 @@ function QuickLessonModal({ timeSlot, teacherId, teachingDays, onClose, onSave }
     e.preventDefault()
 
     if (!selectedStudent) {
-      alert('יש לבחור תלמיד')
+      showNotification('יש לבחור תלמיד', 'error')
       return
     }
 
@@ -1408,6 +1493,9 @@ function QuickLessonModal({ timeSlot, teacherId, teachingDays, onClose, onSave }
       const selectedStudentData = students.find(s => s.id === selectedStudent)
       const actualStartTime = getActualStartTime()
       const endTime = calculateEndTime(actualStartTime, duration)
+
+      console.log('📝 Creating lesson for student:', selectedStudentData)
+      console.log('📅 Lesson details:', { day: timeSlot.dayName, time: actualStartTime, duration })
 
       // Find the teaching day for this slot's day to get default location
       const teachingDayForSlot = teachingDays.find(td => td.day === timeSlot.dayName)
@@ -1421,11 +1509,40 @@ function QuickLessonModal({ timeSlot, teacherId, teachingDays, onClose, onSave }
         endTime: endTime,
         duration: duration,
         location: slotLocation,
-        isActive: true
+        isActive: true,
+        startDate: new Date().toISOString(),
+        isRecurring: true
       }
 
-      // Add teacher assignment to student
-      await apiService.students.addTeacherAssignment(selectedStudent, teacherAssignment)
+      // Get current student data
+      console.log('📖 Fetching student data...')
+      const student = await apiService.students.getStudent(selectedStudent)
+
+      // Add new teacher assignment to student's existing assignments
+      const updatedTeacherAssignments = [
+        ...(student.teacherAssignments || []),
+        teacherAssignment
+      ]
+
+      // Update student with new teacher assignment
+      console.log('💾 Updating student with teacher assignment...')
+      await apiService.students.updateStudent(selectedStudent, {
+        teacherAssignments: updatedTeacherAssignments
+      })
+
+      // Add student to teacher's studentIds if not already there
+      console.log('👨‍🏫 Updating teacher student list...')
+      const teacher = await apiService.teachers.getTeacher(teacherId)
+      const teacherStudentIds = teacher.teaching?.studentIds || []
+
+      if (!teacherStudentIds.includes(selectedStudent)) {
+        await apiService.teachers.updateTeacher(teacherId, {
+          teaching: {
+            ...teacher.teaching,
+            studentIds: [...teacherStudentIds, selectedStudent]
+          }
+        })
+      }
 
       // Also create time block for teacher's schedule with the actual start time
       const timeBlockData = {
@@ -1442,12 +1559,15 @@ function QuickLessonModal({ timeSlot, teacherId, teachingDays, onClose, onSave }
         totalDuration: duration
       }
 
+      console.log('📋 Creating time block for teacher schedule...')
       await apiService.teacherSchedule.createTimeBlock(teacherId, timeBlockData)
 
+      console.log('✅ Lesson created successfully!')
+      showNotification('השיעור נוצר בהצלחה!', 'success')
       onSave()
     } catch (error) {
-      console.error('Error creating weekly lesson assignment:', error)
-      alert('שגיאה ביצירת הקצאת השיעור השבועי')
+      console.error('❌ Error creating weekly lesson assignment:', error)
+      showNotification(`שגיאה ביצירת השיעור השבועי: ${error.message || 'שגיאה לא ידועה'}`, 'error')
     } finally {
       setSaving(false)
     }
@@ -1495,29 +1615,92 @@ function QuickLessonModal({ timeSlot, teacherId, teachingDays, onClose, onSave }
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Student Selection */}
-          <div>
+          {/* Student Selection with Search */}
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
               בחר תלמיד *
             </label>
             {loading ? (
               <div className="text-center py-2 text-gray-500">טוען רשימת תלמידים...</div>
             ) : (
-              <select
-                value={selectedStudent}
-                onChange={(e) => setSelectedStudent(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                required
-              >
-                <option value="">בחר תלמיד</option>
-                {students.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.firstName} {student.lastName}
-                    {student.instrument && ` - ${student.instrument}`}
-                    {student.class && ` (כיתה ${student.class})`}
-                  </option>
-                ))}
-              </select>
+              <div className="relative student-search-dropdown">
+                <div className="relative">
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value)
+                      setShowDropdown(true)
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                    placeholder="חפש תלמיד לפי שם, כלי נגינה או כיתה..."
+                    className="w-full pr-10 pl-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Selected Student Display */}
+                {selectedStudent && !showDropdown && (
+                  <div className="mt-2 p-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm">
+                        <span className="font-medium text-indigo-900">
+                          {students.find(s => s.id === selectedStudent)?.firstName} {students.find(s => s.id === selectedStudent)?.lastName}
+                        </span>
+                        {students.find(s => s.id === selectedStudent)?.instrument && (
+                          <span className="text-indigo-700"> - {students.find(s => s.id === selectedStudent)?.instrument}</span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedStudent('')
+                          setSearchQuery('')
+                          setShowDropdown(true)
+                        }}
+                        className="text-indigo-600 hover:text-indigo-800"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dropdown List */}
+                {showDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredStudents.length > 0 ? (
+                      filteredStudents.map((student) => (
+                        <button
+                          key={student.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedStudent(student.id)
+                            setSearchQuery(`${student.firstName} ${student.lastName}`)
+                            setShowDropdown(false)
+                          }}
+                          className={`w-full text-right px-3 py-2 hover:bg-indigo-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                            selectedStudent === student.id ? 'bg-indigo-100' : ''
+                          }`}
+                        >
+                          <div className="font-medium text-gray-900">
+                            {student.firstName} {student.lastName}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-0.5">
+                            {student.instrument && `${student.instrument}`}
+                            {student.class && ` • כיתה ${student.class}`}
+                            {student.stage && ` • שלב ${student.stage}`}
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-4 text-center text-gray-500">
+                        לא נמצאו תלמידים מתאימים
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -1597,6 +1780,78 @@ function QuickLessonModal({ timeSlot, teacherId, teachingDays, onClose, onSave }
     </div>
   )
 }
+
+// Confirmation Modal Component
+interface ConfirmModalProps {
+  message: string
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+function ConfirmModal({ message, onConfirm, onCancel }: ConfirmModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4" dir="rtl">
+        <div className="flex items-center justify-center mb-6">
+          <div className="p-3 bg-orange-100 rounded-full">
+            <AlertCircle className="w-8 h-8 text-orange-600" />
+          </div>
+        </div>
+
+        <h3 className="text-lg font-bold text-gray-900 text-center mb-4 font-reisinger-yonatan">
+          {message}
+        </h3>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onConfirm}
+            className="flex-1 bg-red-600 text-white py-2.5 px-4 rounded-lg hover:bg-red-700 transition-colors font-reisinger-yonatan font-medium"
+          >
+            אישור
+          </button>
+          <button
+            onClick={onCancel}
+            className="flex-1 bg-gray-200 text-gray-700 py-2.5 px-4 rounded-lg hover:bg-gray-300 transition-colors font-reisinger-yonatan font-medium"
+          >
+            ביטול
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Alert Modal Component
+interface AlertModalProps {
+  message: string
+  onClose: () => void
+}
+
+function AlertModal({ message, onClose }: AlertModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4" dir="rtl">
+        <div className="flex items-center justify-center mb-6">
+          <div className="p-3 bg-blue-100 rounded-full">
+            <AlertCircle className="w-8 h-8 text-blue-600" />
+          </div>
+        </div>
+
+        <h3 className="text-lg font-bold text-gray-900 text-center mb-6 font-reisinger-yonatan">
+          {message}
+        </h3>
+
+        <button
+          onClick={onClose}
+          className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-yonatan font-medium"
+        >
+          הבנתי
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // Edit Lesson Modal Component - for editing individual lessons
 interface EditLessonModalProps {
   lesson: LessonDay
@@ -1604,9 +1859,10 @@ interface EditLessonModalProps {
   teachingDays: any[]
   onClose: () => void
   onSave: () => void
+  showAlert: (message: string) => void
 }
 
-function EditLessonModal({ lesson, teacherId, teachingDays, onClose, onSave }: EditLessonModalProps) {
+function EditLessonModal({ lesson, teacherId, teachingDays, onClose, onSave, showAlert }: EditLessonModalProps) {
   // Helper function defined first
   const calculateDuration = (startTime: string, endTime: string): number => {
     const [startHour, startMin] = startTime.split(':').map(Number)
@@ -1692,13 +1948,13 @@ function EditLessonModal({ lesson, teacherId, teachingDays, onClose, onSave }: E
     e.preventDefault()
 
     if (!formData.day || !formData.startTime || !formData.endTime) {
-      alert('יש למלא את כל השדות הנדרשים')
+      showAlert('יש למלא את כל השדות הנדרשים')
       return
     }
 
     const duration = calculateDuration(formData.startTime, formData.endTime)
     if (duration <= 0) {
-      alert('זמן הסיום חייב להיות לאחר זמן ההתחלה')
+      showAlert('זמן הסיום חייב להיות לאחר זמן ההתחלה')
       return
     }
 

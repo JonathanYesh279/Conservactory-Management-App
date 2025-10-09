@@ -1,9 +1,26 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../services/authContext.jsx'
-import { Plus, Search, Edit, Trash2, UserPlus, BookOpen, Eye, Calendar, AlertTriangle, Filter, X, CheckSquare, Clock, Music, Star, Phone, Mail, Award } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, UserPlus, BookOpen, Eye, Calendar, AlertTriangle, Filter, X, CheckSquare, Clock, Music, Star, Phone, Mail, Award, MapPin } from 'lucide-react'
 import apiService from '../../services/apiService.js'
 import EnhancedStudentCard from './EnhancedStudentCard'
 import { VALID_LOCATIONS } from '../../constants/locations'
+
+// Constants for slot generation
+const VALID_DURATIONS = [30, 45, 60]
+
+// Interface for teacher schedule slots
+interface TeacherScheduleSlot {
+  _id: string
+  day: string
+  startTime: string
+  endTime: string
+  duration: number
+  isAvailable: boolean
+  location?: string
+  teacherName?: string
+  teacherId?: string
+  instrument?: string
+}
 
 interface Student {
   id: string
@@ -68,6 +85,12 @@ export default function TeacherStudentsTab() {
   const [allSystemStudents, setAllSystemStudents] = useState<any[]>([])
   const [loadingSystemStudents, setLoadingSystemStudents] = useState(false)
 
+  // Lesson scheduling modals
+  const [showScheduleLessonModal, setShowScheduleLessonModal] = useState(false)
+  const [showUpdateLessonModal, setShowUpdateLessonModal] = useState(false)
+  const [selectedStudentForLesson, setSelectedStudentForLesson] = useState<Student | null>(null)
+  const [teachingDays, setTeachingDays] = useState<any[]>([])
+
   useEffect(() => {
     loadTeacherStudents()
   }, [user])
@@ -89,6 +112,21 @@ export default function TeacherStudentsTab() {
       }
 
       const studentIds = teacherProfile?.teaching?.studentIds || []
+
+      // Load teacher's teaching days (availability blocks)
+      try {
+        const timeBlocksResponse = await apiService.teacherSchedule.getTimeBlocks(teacherId)
+        let timeBlocks = []
+        if (Array.isArray(timeBlocksResponse)) {
+          timeBlocks = timeBlocksResponse
+        } else if (timeBlocksResponse?.data && Array.isArray(timeBlocksResponse.data)) {
+          timeBlocks = timeBlocksResponse.data
+        }
+        setTeachingDays(timeBlocks.filter(tb => tb._id && tb._id !== 'undefined'))
+      } catch (error) {
+        console.warn('Failed to load teaching days:', error)
+        setTeachingDays([])
+      }
 
       if (studentIds.length === 0) {
         console.log('No students assigned to teacher')
@@ -254,9 +292,14 @@ export default function TeacherStudentsTab() {
   const handleScheduleLesson = (studentId: string) => {
     const student = students.find(s => s.id === studentId)
     if (student) {
-      // Navigate to schedule with student pre-selected
-      window.location.href = `/teacher/schedule?student=${studentId}`
+      setSelectedStudentForLesson(student)
+      setShowScheduleLessonModal(true)
     }
+  }
+
+  const handleUpdateLesson = (student: Student) => {
+    setSelectedStudentForLesson(student)
+    setShowUpdateLessonModal(true)
   }
 
   const handleMarkAttendance = (studentId: string) => {
@@ -551,6 +594,7 @@ export default function TeacherStudentsTab() {
                 onDelete={handleDeleteStudent}
                 onViewDetails={handleViewDetails}
                 onScheduleLesson={handleScheduleLesson}
+                onUpdateLesson={handleUpdateLesson}
               />
             ))}
           </div>
@@ -569,6 +613,44 @@ export default function TeacherStudentsTab() {
           onSubmit={handleStudentAssignment}
         />
       )}
+
+      {/* Schedule Lesson Modal - For students without a scheduled lesson */}
+      {showScheduleLessonModal && selectedStudentForLesson && (
+        <ScheduleLessonModal
+          student={selectedStudentForLesson}
+          teacherId={user?._id || ''}
+          teachingDays={teachingDays}
+          onClose={() => {
+            setShowScheduleLessonModal(false)
+            setSelectedStudentForLesson(null)
+          }}
+          onSave={() => {
+            setShowScheduleLessonModal(false)
+            setSelectedStudentForLesson(null)
+            loadTeacherStudents(false)
+          }}
+          showNotification={showNotification}
+        />
+      )}
+
+      {/* Update Lesson Modal - For students with an existing scheduled lesson */}
+      {showUpdateLessonModal && selectedStudentForLesson && (
+        <UpdateLessonModal
+          student={selectedStudentForLesson}
+          teacherId={user?._id || ''}
+          teachingDays={teachingDays}
+          onClose={() => {
+            setShowUpdateLessonModal(false)
+            setSelectedStudentForLesson(null)
+          }}
+          onSave={() => {
+            setShowUpdateLessonModal(false)
+            setSelectedStudentForLesson(null)
+            loadTeacherStudents(false)
+          }}
+          showNotification={showNotification}
+        />
+      )}
     </div>
   )
 }
@@ -578,26 +660,32 @@ interface StudentAssignmentModalProps {
   allStudents: any[]
   loading: boolean
   onClose: () => void
-  onSubmit: (student: any, instrumentData: {
-    instrument: string;
+  onSubmit: (student: any, scheduleData: {
     lessonDay?: string;
     lessonTime?: string;
     lessonDuration?: number;
     lessonLocation?: string;
+    instrument?: string;
   }) => void
 }
 
 function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: StudentAssignmentModalProps) {
+  const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<any>(null)
   const [formData, setFormData] = useState({
-    instrument: '',
     lessonDay: '',
     lessonTime: '',
     lessonDuration: 45,
-    lessonLocation: ''
+    lessonLocation: '',
+    instrument: ''
   })
   const [submitting, setSubmitting] = useState(false)
+
+  // Slot management state
+  const [availableSlots, setAvailableSlots] = useState<TeacherScheduleSlot[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [selectedSlot, setSelectedSlot] = useState<TeacherScheduleSlot | null>(null)
 
   // Filter students based on search query - enhanced for flexible word matching
   const filteredStudents = allStudents.filter(student => {
@@ -624,6 +712,110 @@ function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: Stu
     return searchWords.every(word => searchableText.includes(word))
   })
 
+  // Load teacher slots when a student is selected
+  useEffect(() => {
+    if (selectedStudent && user?._id) {
+      fetchTeacherSlots()
+    }
+  }, [selectedStudent, user?._id])
+
+  const fetchTeacherSlots = async () => {
+    if (!user?._id) return
+
+    setLoadingSlots(true)
+    try {
+      // Fetch the teacher's own profile to get their teaching blocks
+      const teacher = await apiService.teachers.getTeacher(user._id)
+
+      console.log('Teacher data for slots:', teacher) // Debug log
+
+      // Get available time blocks from the teacher's teaching field
+      const timeBlocks = teacher.teaching?.timeBlocks?.filter((block: any) =>
+        block.isActive !== false
+      ) || []
+
+      console.log('Time blocks found:', timeBlocks) // Debug log
+
+      // Transform time blocks to available slots with different durations
+      const generatedSlots: TeacherScheduleSlot[] = []
+
+      timeBlocks.forEach((block: any) => {
+        const startTime = block.startTime
+        const endTime = block.endTime
+        const dayName = block.day
+
+        // Parse time strings to calculate available slots
+        const [startHour, startMin] = startTime.split(':').map(Number)
+        const [endHour, endMin] = endTime.split(':').map(Number)
+
+        const startTimeMinutes = startHour * 60 + startMin
+        const endTimeMinutes = endHour * 60 + endMin
+        const totalAvailableTime = endTimeMinutes - startTimeMinutes
+
+        // Generate slots for each duration (30, 45, 60 minutes)
+        VALID_DURATIONS.forEach(duration => {
+          // Calculate how many slots of this duration can fit
+          const possibleSlots = Math.floor(totalAvailableTime / duration)
+
+          for (let i = 0; i < possibleSlots; i++) {
+            const slotStartMinutes = startTimeMinutes + (i * duration)
+            const slotEndMinutes = slotStartMinutes + duration
+
+            // Convert back to time format
+            const slotStartHour = Math.floor(slotStartMinutes / 60)
+            const slotStartMinute = slotStartMinutes % 60
+            const slotEndHour = Math.floor(slotEndMinutes / 60)
+            const slotEndMinute = slotEndMinutes % 60
+
+            const slotStartTime = `${slotStartHour.toString().padStart(2, '0')}:${slotStartMinute.toString().padStart(2, '0')}`
+            const slotEndTime = `${slotEndHour.toString().padStart(2, '0')}:${slotEndMinute.toString().padStart(2, '0')}`
+
+            // Check if this slot is already assigned in the teacher's schedule
+            const isAssigned = teacher.teaching?.schedule?.some((lesson: any) => {
+              return lesson.day === dayName &&
+                     lesson.time === slotStartTime &&
+                     lesson.duration === duration
+            }) || false
+
+            if (!isAssigned) {
+              generatedSlots.push({
+                _id: `${block._id || block.day}-${duration}-${i}`,
+                day: dayName,
+                startTime: slotStartTime,
+                endTime: slotEndTime,
+                duration: duration,
+                isAvailable: true,
+                location: block.location,
+                teacherName: teacher.personalInfo?.fullName,
+                teacherId: teacher._id,
+                instrument: teacher.professionalInfo?.instrument || teacher.teaching?.instrument
+              })
+            }
+          }
+        })
+      })
+
+      console.log('Generated available slots:', generatedSlots) // Debug log
+      setAvailableSlots(generatedSlots)
+    } catch (error) {
+      console.error('Error fetching teacher slots:', error)
+      setAvailableSlots([])
+    } finally {
+      setLoadingSlots(false)
+    }
+  }
+
+  const handleSlotSelection = (slot: TeacherScheduleSlot) => {
+    setSelectedSlot(slot)
+    setFormData({
+      lessonDay: slot.day,
+      lessonTime: slot.startTime,
+      lessonDuration: slot.duration,
+      lessonLocation: slot.location || '',
+      instrument: slot.instrument || ''
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -632,8 +824,8 @@ function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: Stu
       return
     }
 
-    if (!formData.instrument) {
-      alert('אנא בחר כלי נגינה')
+    if (!selectedSlot) {
+      alert('אנא בחר זמן שיעור')
       return
     }
 
@@ -648,8 +840,8 @@ function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: Stu
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col" dir="rtl">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col" dir="rtl">
         <h3 className="text-xl font-bold text-gray-900 mb-4 font-reisinger-yonatan">
           הקצאת תלמיד קיים
         </h3>
@@ -729,106 +921,117 @@ function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: Stu
               )}
             </div>
 
-            {/* Instrument Assignment Section (only shown after student selected) */}
+            {/* Smart Slot Selection Section (only shown after student selected) */}
             {selectedStudent && (
               <div className="space-y-4 border-t pt-4">
-                <h4 className="font-medium text-gray-900 font-reisinger-yonatan">
-                  פרטי השיעור עבור {selectedStudent.personalInfo?.fullName}
-                </h4>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-                      כלי נגינה לשיעור *
-                    </label>
-                    <select
-                      value={formData.instrument}
-                      onChange={(e) => setFormData(prev => ({ ...prev, instrument: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      required
-                    >
-                      <option value="">בחר כלי נגינה</option>
-                      <option value="פסנתר">פסנתר</option>
-                      <option value="כינור">כינור</option>
-                      <option value="צ'לו">צ'לו</option>
-                      <option value="ויולה">ויולה</option>
-                      <option value="חצוצרה">חצוצרה</option>
-                      <option value="טרומבון">טרומבון</option>
-                      <option value="קלרינט">קלרינט</option>
-                      <option value="חליל">חליל</option>
-                      <option value="סקסופון">סקסופון</option>
-                      <option value="הורן">הורן</option>
-                      <option value="טובה">טובה</option>
-                      <option value="כלי הקשה">כלי הקשה</option>
-                      <option value="גיטרה">גיטרה</option>
-                      <option value="קונטרבס">קונטרבס</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-                      יום בשבוע
-                    </label>
-                    <select
-                      value={formData.lessonDay}
-                      onChange={(e) => setFormData(prev => ({ ...prev, lessonDay: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">בחר יום</option>
-                      <option value="ראשון">יום ראשון</option>
-                      <option value="שני">יום שני</option>
-                      <option value="שלישי">יום שלישי</option>
-                      <option value="רביעי">יום רביעי</option>
-                      <option value="חמישי">יום חמישי</option>
-                      <option value="שישי">יום שישי</option>
-                    </select>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-gray-900 font-reisinger-yonatan">
+                    בחר זמן שיעור עבור {selectedStudent.personalInfo?.fullName}
+                  </h4>
+                  {selectedSlot && (
+                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-lg">
+                      <CheckSquare className="w-4 h-4" />
+                      <span>נבחר: {selectedSlot.day} {selectedSlot.startTime}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-                      שעת התחלה
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.lessonTime}
-                      onChange={(e) => setFormData(prev => ({ ...prev, lessonTime: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
+                {/* Loading state */}
+                {loadingSlots ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                    <span className="mr-3 text-gray-600">טוען זמנים פנויים...</span>
                   </div>
+                ) : availableSlots.length > 0 ? (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-3">
+                      בחר זמן ומשך שיעור מהאפשרויות הזמינות:
+                    </p>
+                    {/* Group slots by day for better organization */}
+                    {(() => {
+                      const slotsByDay = availableSlots.reduce((acc, slot) => {
+                        if (!acc[slot.day]) acc[slot.day] = []
+                        acc[slot.day].push(slot)
+                        return acc
+                      }, {} as Record<string, typeof availableSlots>)
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-                      משך (דקות)
-                    </label>
-                    <input
-                      type="number"
-                      min="15"
-                      max="120"
-                      step="15"
-                      value={formData.lessonDuration}
-                      onChange={(e) => setFormData(prev => ({ ...prev, lessonDuration: parseInt(e.target.value) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
+                      return Object.entries(slotsByDay).map(([day, daySlots]) => (
+                        <div key={day} className="mb-4">
+                          <h5 className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            יום {day}
+                          </h5>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pr-1">
+                            {daySlots
+                              .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                              .map(slot => {
+                                const isSelected = selectedSlot?._id === slot._id
+                                return (
+                                  <button
+                                    key={slot._id}
+                                    type="button"
+                                    onClick={() => handleSlotSelection(slot)}
+                                    className={`p-3 border rounded-lg transition-all text-right ${
+                                      isSelected
+                                        ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600'
+                                        : slot.duration === 30
+                                        ? 'border-green-300 bg-green-50 hover:border-green-500 hover:bg-green-100'
+                                        : slot.duration === 45
+                                        ? 'border-blue-300 bg-blue-50 hover:border-blue-500 hover:bg-blue-100'
+                                        : 'border-purple-300 bg-purple-50 hover:border-purple-500 hover:bg-purple-100'
+                                    }`}
+                                  >
+                                    <div className="space-y-1">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          <span className="text-sm font-medium text-gray-900">
+                                            {slot.startTime}-{slot.endTime}
+                                          </span>
+                                        </div>
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                          slot.duration === 30 ? 'bg-green-100 text-green-800' :
+                                          slot.duration === 45 ? 'bg-blue-100 text-blue-800' :
+                                          'bg-purple-100 text-purple-800'
+                                        }`}>
+                                          {slot.duration} דק׳
+                                        </span>
+                                      </div>
+                                      {slot.location && (
+                                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                                          <MapPin className="w-3 h-3" />
+                                          {slot.location}
+                                        </div>
+                                      )}
+                                      {slot.instrument && (
+                                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                                          <Music className="w-3 h-3" />
+                                          {slot.instrument}
+                                        </div>
+                                      )}
+                                      {isSelected && (
+                                        <div className="flex justify-center mt-2">
+                                          <CheckSquare className="w-5 h-5 text-indigo-600" />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                          </div>
+                        </div>
+                      ))
+                    })()}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 font-reisinger-yonatan">
-                      מיקום
-                    </label>
-                    <select
-                      value={formData.lessonLocation}
-                      onChange={(e) => setFormData(prev => ({ ...prev, lessonLocation: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">בחר חדר</option>
-                      {VALID_LOCATIONS.map(location => (
-                        <option key={location} value={location}>{location}</option>
-                      ))}
-                    </select>
+                ) : (
+                  <div className="text-center py-6 bg-gray-50 rounded-lg">
+                    <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-gray-500 text-sm mb-2">אין זמנים פנויים</p>
+                    <p className="text-xs text-gray-400">
+                      ייתכן שכל הזמנים הפנויים כבר תפוסים או שלא הוגדרו זמני הוראה
+                    </p>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -836,7 +1039,7 @@ function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: Stu
             <div className="flex gap-3 mt-6 pt-4 border-t">
               <button
                 type="submit"
-                disabled={!selectedStudent || !formData.instrument || submitting}
+                disabled={!selectedStudent || !selectedSlot || submitting}
                 className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan flex items-center justify-center gap-2"
               >
                 {submitting ? (
@@ -863,6 +1066,427 @@ function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: Stu
             </div>
           </form>
         )}
+      </div>
+    </div>
+  )
+}
+
+// Schedule Lesson Modal Component - For creating new scheduled lessons
+interface ScheduleLessonModalProps {
+  student: Student
+  teacherId: string
+  teachingDays: any[]
+  onClose: () => void
+  onSave: () => void
+  showNotification: (message: string, type: 'success' | 'error' | 'info') => void
+}
+
+function ScheduleLessonModal({ student, teacherId, teachingDays, onClose, onSave, showNotification }: ScheduleLessonModalProps) {
+  const [formData, setFormData] = useState({
+    day: '',
+    startTime: '',
+    endTime: '',
+    duration: 45,
+    location: '',
+    notes: ''
+  })
+  const [saving, setSaving] = useState(false)
+
+  const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי']
+  const DURATIONS = [30, 45, 60]
+
+  const handleDurationChange = (duration: number) => {
+    if (!formData.startTime) return
+
+    const [hours, minutes] = formData.startTime.split(':').map(Number)
+    const totalMinutes = hours * 60 + minutes + duration
+    const endHours = Math.floor(totalMinutes / 60)
+    const endMinutes = totalMinutes % 60
+
+    setFormData(prev => ({
+      ...prev,
+      duration,
+      endTime: `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!formData.day || !formData.startTime || !formData.endTime) {
+      showNotification('יש למלא את כל השדות הנדרשים', 'error')
+      return
+    }
+
+    try {
+      setSaving(true)
+
+      const timeBlockData = {
+        day: formData.day,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        location: formData.location || 'חדר מוזיקה',
+        duration: formData.duration,
+        notes: formData.notes,
+        studentId: student.id,
+        studentName: student.personalInfo?.fullName || student.fullName,
+        teacherId: teacherId,
+        recurring: {
+          isRecurring: true,
+          excludeDates: []
+        }
+      }
+
+      await apiService.teacherSchedule.createTimeBlock(teacherId, timeBlockData)
+      showNotification('השיעור הקבוע נוצר בהצלחה', 'success')
+      onSave()
+    } catch (error: any) {
+      console.error('Error creating lesson:', error)
+      showNotification(error.message || 'שגיאה ביצירת השיעור', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4" dir="rtl">
+        <h3 className="text-xl font-bold text-gray-900 mb-4 font-reisinger-yonatan">
+          תזמן שיעור קבוע - {student.personalInfo?.fullName || student.fullName}
+        </h3>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Day Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+              יום
+            </label>
+            <select
+              value={formData.day}
+              onChange={(e) => setFormData(prev => ({ ...prev, day: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-reisinger-yonatan"
+              required
+            >
+              <option value="">בחר יום</option>
+              {DAYS.map(day => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Time Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+                שעת התחלה
+              </label>
+              <input
+                type="time"
+                value={formData.startTime}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, startTime: e.target.value }))
+                  if (formData.duration) {
+                    handleDurationChange(formData.duration)
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+                משך (דקות)
+              </label>
+              <select
+                value={formData.duration}
+                onChange={(e) => handleDurationChange(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-reisinger-yonatan"
+              >
+                {DURATIONS.map(dur => (
+                  <option key={dur} value={dur}>{dur} דק'</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+              מיקום
+            </label>
+            <select
+              value={formData.location}
+              onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-reisinger-yonatan"
+            >
+              <option value="">בחר מיקום</option>
+              {VALID_LOCATIONS.map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+              הערות
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-reisinger-yonatan"
+              rows={3}
+              placeholder="הערות נוספות..."
+            />
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 bg-indigo-600 text-white py-2.5 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan font-medium"
+            >
+              {saving ? 'שומר...' : 'שמור'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 bg-gray-200 text-gray-700 py-2.5 px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan font-medium"
+            >
+              ביטול
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// Update Lesson Modal Component - For updating existing scheduled lessons
+interface UpdateLessonModalProps {
+  student: Student
+  teacherId: string
+  teachingDays: any[]
+  onClose: () => void
+  onSave: () => void
+  showNotification: (message: string, type: 'success' | 'error' | 'info') => void
+}
+
+function UpdateLessonModal({ student, teacherId, teachingDays, onClose, onSave, showNotification }: UpdateLessonModalProps) {
+  const existingSchedule = student.scheduleInfo || student.teacherAssignments?.[0]
+
+  const [formData, setFormData] = useState({
+    day: existingSchedule?.day || '',
+    startTime: existingSchedule?.startTime || existingSchedule?.time || '',
+    duration: existingSchedule?.duration || 45,
+    endTime: existingSchedule?.endTime || '',
+    location: '',
+    notes: ''
+  })
+  const [saving, setSaving] = useState(false)
+  const [timeBlockId, setTimeBlockId] = useState<string | null>(null)
+
+  const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי']
+  const DURATIONS = [30, 45, 60]
+
+  // Load the actual time block to get its ID and full data
+  useEffect(() => {
+    loadTimeBlock()
+  }, [])
+
+  const loadTimeBlock = async () => {
+    try {
+      const timeBlocksResponse = await apiService.teacherSchedule.getTimeBlocks(teacherId)
+      let timeBlocks = []
+      if (Array.isArray(timeBlocksResponse)) {
+        timeBlocks = timeBlocksResponse
+      } else if (timeBlocksResponse?.data && Array.isArray(timeBlocksResponse.data)) {
+        timeBlocks = timeBlocksResponse.data
+      }
+
+      // Find the time block for this student
+      const studentTimeBlock = timeBlocks.find((tb: any) => tb.studentId === student.id)
+
+      if (studentTimeBlock) {
+        setTimeBlockId(studentTimeBlock._id)
+        setFormData({
+          day: studentTimeBlock.day,
+          startTime: studentTimeBlock.startTime,
+          endTime: studentTimeBlock.endTime,
+          duration: studentTimeBlock.duration || 45,
+          location: studentTimeBlock.location || '',
+          notes: studentTimeBlock.notes || ''
+        })
+      }
+    } catch (error) {
+      console.error('Error loading time block:', error)
+    }
+  }
+
+  const handleDurationChange = (duration: number) => {
+    if (!formData.startTime) return
+
+    const [hours, minutes] = formData.startTime.split(':').map(Number)
+    const totalMinutes = hours * 60 + minutes + duration
+    const endHours = Math.floor(totalMinutes / 60)
+    const endMinutes = totalMinutes % 60
+
+    setFormData(prev => ({
+      ...prev,
+      duration,
+      endTime: `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!timeBlockId) {
+      showNotification('לא נמצא שיעור קבוע לעדכון', 'error')
+      return
+    }
+
+    if (!formData.day || !formData.startTime || !formData.endTime) {
+      showNotification('יש למלא את כל השדות הנדרשים', 'error')
+      return
+    }
+
+    try {
+      setSaving(true)
+
+      const timeBlockData = {
+        day: formData.day,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        location: formData.location || 'חדר מוזיקה',
+        duration: formData.duration,
+        notes: formData.notes
+      }
+
+      await apiService.teacherSchedule.updateTimeBlock(teacherId, timeBlockId, timeBlockData)
+      showNotification('השיעור הקבוע עודכן בהצלחה', 'success')
+      onSave()
+    } catch (error: any) {
+      console.error('Error updating lesson:', error)
+      showNotification(error.message || 'שגיאה בעדכון השיעור', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4" dir="rtl">
+        <h3 className="text-xl font-bold text-gray-900 mb-4 font-reisinger-yonatan">
+          עדכן שיעור קבוע - {student.personalInfo?.fullName || student.fullName}
+        </h3>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Day Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+              יום
+            </label>
+            <select
+              value={formData.day}
+              onChange={(e) => setFormData(prev => ({ ...prev, day: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-reisinger-yonatan"
+              required
+            >
+              <option value="">בחר יום</option>
+              {DAYS.map(day => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Time Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+                שעת התחלה
+              </label>
+              <input
+                type="time"
+                value={formData.startTime}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, startTime: e.target.value }))
+                  if (formData.duration) {
+                    handleDurationChange(formData.duration)
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+                משך (דקות)
+              </label>
+              <select
+                value={formData.duration}
+                onChange={(e) => handleDurationChange(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-reisinger-yonatan"
+              >
+                {DURATIONS.map(dur => (
+                  <option key={dur} value={dur}>{dur} דק'</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+              מיקום
+            </label>
+            <select
+              value={formData.location}
+              onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-reisinger-yonatan"
+            >
+              <option value="">בחר מיקום</option>
+              {VALID_LOCATIONS.map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 font-reisinger-yonatan">
+              הערות
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-reisinger-yonatan"
+              rows={3}
+              placeholder="הערות נוספות..."
+            />
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 bg-indigo-600 text-white py-2.5 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan font-medium"
+            >
+              {saving ? 'מעדכן...' : 'עדכן'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 bg-gray-200 text-gray-700 py-2.5 px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-reisinger-yonatan font-medium"
+            >
+              ביטול
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )
