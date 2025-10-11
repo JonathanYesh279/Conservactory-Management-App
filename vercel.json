@@ -29,14 +29,14 @@
     },
     {
       "src": "/api/(.*)",
-      "dest": "https://api.conservatory-app.com/api/$1",
+      "dest": "https://rmc-music.org/api/$1",
       "headers": {
         "X-Forwarded-For": "$remote_addr"
       }
     },
     {
       "src": "/ws/(.*)",
-      "dest": "wss://ws.conservatory-app.com/ws/$1"
+      "dest": "wss://rmc-music.org/ws/$1"
     },
     {
       "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))$",
@@ -83,7 +83,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://api.conservatory-app.com wss://ws.conservatory-app.com https://sentry.io; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://rmc-music.org wss://rmc-music.org https://sentry.io; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
         }
       ]
     },
@@ -112,11 +112,11 @@
   "rewrites": [
     {
       "source": "/health",
-      "destination": "https://api.conservatory-app.com/api/health"
+      "destination": "https://rmc-music.org/api/health"
     },
     {
       "source": "/cascade-health",
-      "destination": "https://api.conservatory-app.com/api/health/cascade-deletion"
+      "destination": "https://rmc-music.org/api/health/cascade-deletion"
     }
   ],
   "env": {
