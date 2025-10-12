@@ -135,7 +135,7 @@ export default function Sidebar() {
 
   // Get all user roles
   const getUserRoles = (): string[] => {
-    if (!user) return ['admin']
+    if (!user) return []
 
     const roles: string[] = []
 
@@ -159,9 +159,14 @@ export default function Sidebar() {
       roles.push('conductor')
     }
 
-    // Normalize role names
+    // Normalize role names - convert Hebrew to English for consistent handling
     return [...new Set(roles.map(role => {
       if (role === 'theory_teacher') return 'theory-teacher'
+      // Convert Hebrew roles to English
+      if (role === 'מנהל') return 'admin'
+      if (role === 'מורה') return 'teacher'
+      if (role === 'מנצח') return 'conductor'
+      if (role === 'מורה תיאוריה') return 'theory-teacher'
       return role
     }))]
   }
@@ -259,6 +264,21 @@ export default function Sidebar() {
   const navigation = getMergedNavigation()
   const groupedNavigation = groupNavigationByCategory(navigation)
   const quickActions = getQuickActions()
+
+  // Debug logging with full details (after variables are initialized)
+  console.log('📋 Sidebar Debug:', {
+    hasUser: !!user,
+    isLoading,
+    userRoles,
+    isAdmin,
+    hasMultipleRoles,
+    isMobile,
+    isDesktopOpen,
+    isOpen,
+    navigationItemsCount: navigation?.length || 0,
+    groupedNavigationCount: groupedNavigation?.length || 0,
+    quickActionsCount: quickActions?.length || 0
+  })
 
   // Close mobile menu when switching to desktop
   useEffect(() => {
@@ -399,7 +419,7 @@ export default function Sidebar() {
         <button
           id="hamburger-button"
           onClick={() => setIsOpen(!isOpen)}
-          className="fixed top-4 right-4 z-[1001] p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors duration-200"
+          className="fixed top-[20px] right-4 z-[60] p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors duration-200"
           aria-label="Toggle menu"
         >
           {isOpen ? (
@@ -414,7 +434,7 @@ export default function Sidebar() {
       {!isMobile && !isDesktopOpen && (
         <button
           onClick={() => setIsDesktopOpen(true)}
-          className="fixed top-4 right-4 z-[1001] p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200"
+          className="fixed top-[20px] right-4 z-[60] p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200"
           aria-label="Open sidebar"
         >
           <Menu className="w-5 h-5 text-indigo-600" />
@@ -424,7 +444,7 @@ export default function Sidebar() {
       {/* Backdrop Overlay - Mobile Only */}
       {isMobile && isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[999] transition-opacity duration-300"
+          className="fixed inset-0 bg-black bg-opacity-50 z-[50] transition-opacity duration-300"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -432,7 +452,7 @@ export default function Sidebar() {
       {/* Sidebar */}
       <div
         id="sidebar"
-        className={`fixed top-0 right-0 w-[280px] h-screen bg-white border-l border-gray-200 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.1)] rtl z-[999] transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`fixed top-0 right-0 w-[280px] h-screen bg-white border-l border-gray-200 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.1)] rtl z-[55] transition-transform duration-300 ease-in-out flex flex-col ${
           isMobile
             ? isOpen ? 'translate-x-0' : 'translate-x-full'
             : isDesktopOpen ? 'translate-x-0' : 'translate-x-full'
@@ -588,7 +608,7 @@ export default function Sidebar() {
 
       {/* Student Form Modal */}
       {showStudentForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1002] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <StudentForm
               onSubmit={handleStudentFormSubmit}
@@ -611,7 +631,7 @@ export default function Sidebar() {
 
       {/* Theory Lesson Form Modal */}
       {showTheoryLessonForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1002] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <TheoryLessonForm
               onSubmit={handleTheoryLessonFormSubmit}
@@ -623,7 +643,7 @@ export default function Sidebar() {
 
       {/* Rehearsal Form Modal */}
       {showRehearsalForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1002] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {loadingOrchestras ? (
               <div className="p-8 text-center">

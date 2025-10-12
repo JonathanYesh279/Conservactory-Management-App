@@ -1,12 +1,13 @@
 /**
  * Personal Info Tab Component
- * 
+ *
  * Displays and allows editing of teacher's personal information
  */
 
 import { useState } from 'react'
-import { User, Phone, Mail, MapPin, Edit, Save, X, Calendar, Award } from 'lucide-react'
+import { User, Phone, Mail, MapPin, Edit, Save, X, Calendar, Award, AlertCircle, CheckCircle } from 'lucide-react'
 import { Teacher } from '../../types'
+import { teacherDetailsApi } from '../../../../../services/teacherDetailsApi'
 
 interface PersonalInfoTabProps {
   teacher: Teacher
@@ -15,6 +16,9 @@ interface PersonalInfoTabProps {
 
 const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ teacher, teacherId }) => {
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
   const [editedData, setEditedData] = useState({
     fullName: teacher.personalInfo?.fullName || '',
     phone: teacher.personalInfo?.phone || '',
@@ -24,11 +28,29 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ teacher, teacherId })
 
   const handleSave = async () => {
     try {
-      // TODO: Implement API call to update teacher personal info
-      console.log('Saving teacher personal info:', editedData)
+      setIsSaving(true)
+      setSaveError(null)
+      setSaveSuccess(false)
+
+      // Call API to update teacher personal info
+      await teacherDetailsApi.updateTeacherPersonalInfo(teacherId, editedData)
+
+      // Update local teacher data
+      teacher.personalInfo.fullName = editedData.fullName
+      teacher.personalInfo.phone = editedData.phone
+      teacher.personalInfo.email = editedData.email
+      teacher.personalInfo.address = editedData.address
+
+      setSaveSuccess(true)
       setIsEditing(false)
-    } catch (error) {
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (error: any) {
       console.error('Error saving teacher personal info:', error)
+      setSaveError(error.message || 'שגיאה בשמירת הנתונים')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -39,11 +61,28 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ teacher, teacherId })
       email: teacher.personalInfo?.email || '',
       address: teacher.personalInfo?.address || '',
     })
+    setSaveError(null)
     setIsEditing(false)
   }
 
   return (
     <div className="p-6 space-y-6">
+      {/* Success Message */}
+      {saveSuccess && (
+        <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+          <CheckCircle className="w-5 h-5" />
+          <span>הנתונים נשמרו בהצלחה!</span>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {saveError && (
+        <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+          <AlertCircle className="w-5 h-5" />
+          <span>{saveError}</span>
+        </div>
+      )}
+
       {/* Header with Edit Button */}
       <div className="flex justify-end">
         {!isEditing ? (
@@ -58,14 +97,25 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ teacher, teacherId })
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              disabled={isSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save className="w-4 h-4" />
-              שמור
+              {isSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  שומר...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  שמור
+                </>
+              )}
             </button>
             <button
               onClick={handleCancel}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              disabled={isSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X className="w-4 h-4" />
               בטל

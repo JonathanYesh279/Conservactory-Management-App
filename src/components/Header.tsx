@@ -14,23 +14,43 @@ export default function Header() {
   const { user, logout } = useAuth()
   const { isDesktopOpen, isMobile } = useSidebar()
 
-  // Check if user is admin
-  const isAdmin = !user ||
+  // Check if user is admin (support both English and Hebrew)
+  const isAdmin = user && (
     user.role === 'admin' ||
-    user.roles?.includes('admin')
+    user.roles?.includes('admin') ||
+    user.role === 'מנהל' ||
+    user.roles?.includes('מנהל')
+  )
 
   // Check if user should see the sidebar (all users with roles now get sidebar)
-  const hasSidebar = isAdmin ||
-    user?.role === 'teacher' ||
-    user?.roles?.includes('teacher') ||
-    user?.role === 'conductor' ||
-    user?.roles?.includes('conductor') ||
-    user?.role === 'theory-teacher' ||
-    user?.roles?.includes('theory-teacher') ||
-    user?.role === 'theory_teacher' ||
-    user?.roles?.includes('theory_teacher') ||
-    user?.teaching?.studentIds?.length > 0 ||
-    user?.conducting?.orchestraIds?.length > 0
+  // Support both English and Hebrew role names
+  const hasSidebar = user && (
+    // Admin
+    user.role === 'admin' ||
+    user.roles?.includes('admin') ||
+    user.role === 'מנהל' ||
+    user.roles?.includes('מנהל') ||
+    // Teacher
+    user.role === 'teacher' ||
+    user.roles?.includes('teacher') ||
+    user.role === 'מורה' ||
+    user.roles?.includes('מורה') ||
+    // Conductor
+    user.role === 'conductor' ||
+    user.roles?.includes('conductor') ||
+    user.role === 'מנצח' ||
+    user.roles?.includes('מנצח') ||
+    // Theory Teacher
+    user.role === 'theory-teacher' ||
+    user.roles?.includes('theory-teacher') ||
+    user.role === 'theory_teacher' ||
+    user.roles?.includes('theory_teacher') ||
+    user.role === 'מורה תיאוריה' ||
+    user.roles?.includes('מורה תיאוריה') ||
+    // Implicit roles
+    user.teaching?.studentIds?.length > 0 ||
+    user.conducting?.orchestraIds?.length > 0
+  )
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -109,10 +129,10 @@ export default function Header() {
 
   return (
     <header
-      className="fixed top-0 left-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between z-[998] transition-all duration-300"
+      className="fixed top-0 left-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between z-[45] transition-all duration-300"
       style={{
         direction: 'rtl',
-        right: hasSidebar && !isMobile && isDesktopOpen ? '280px' : '0',
+        width: hasSidebar && !isMobile && isDesktopOpen ? 'calc(100% - 280px)' : '100%',
         paddingLeft: '1.5rem',
         paddingRight: hasSidebar && !isMobile && !isDesktopOpen ? '4rem' : '1.5rem'
       }}
@@ -178,7 +198,7 @@ export default function Header() {
 
             {/* Dropdown Menu */}
             {isDropdownOpen && (
-              <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[1000]">
+              <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[70]">
                 {getMenuItems().map((item, index) => {
                   const Icon = item.icon
                   const isDashboard = item.label === 'לוח בקרה'
@@ -223,7 +243,7 @@ export default function Header() {
 
           {/* Profile Dropdown */}
           {isProfileDropdownOpen && (
-            <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[1000]">
+            <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[70]">
               <div className="px-4 py-3 border-b border-gray-100">
                 <div className="text-sm font-medium text-gray-700 font-reisinger-yonatan">
                   {getUserFullName()}

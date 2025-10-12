@@ -65,6 +65,8 @@ export default function Teachers() {
   const [showInstrumentDropdown, setShowInstrumentDropdown] = useState(false)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false)
+  const [teacherToEdit, setTeacherToEdit] = useState(null)
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
 
   // Fetch teachers from real API when school year changes
   useEffect(() => {
@@ -201,15 +203,25 @@ export default function Teachers() {
     }
   }
 
-  const handleEditTeacher = (teacherId: string) => {
-    // Navigate to teacher management page with time blocks
-    window.location.href = `/teacher-management/${teacherId}`;
+  const handleEditTeacher = async (teacherId: string) => {
+    try {
+      // Fetch the full teacher data
+      const teacher = await apiService.teachers.getTeacher(teacherId)
+      setTeacherToEdit(teacher)
+      setModalMode('edit')
+      setShowAddTeacherModal(true)
+    } catch (error) {
+      console.error('Error loading teacher for edit:', error)
+      alert('שגיאה בטעינת נתוני המורה')
+    }
   }
 
   const handleAddTeacher = () => {
     const isAdmin = isUserAdmin(user)
 
     if (isAdmin) {
+      setTeacherToEdit(null)
+      setModalMode('add')
       setShowAddTeacherModal(true)
     } else {
       alert('רק מנהלים יכולים להוסיף מורים')
@@ -645,11 +657,17 @@ export default function Teachers() {
         </div>
       )}
 
-      {/* Add Teacher Modal */}
+      {/* Add/Edit Teacher Modal */}
       <AddTeacherModal
         isOpen={showAddTeacherModal}
-        onClose={() => setShowAddTeacherModal(false)}
+        onClose={() => {
+          setShowAddTeacherModal(false)
+          setTeacherToEdit(null)
+          setModalMode('add')
+        }}
         onTeacherAdded={handleTeacherAdded}
+        teacherToEdit={teacherToEdit}
+        mode={modalMode}
       />
     </div>
   )

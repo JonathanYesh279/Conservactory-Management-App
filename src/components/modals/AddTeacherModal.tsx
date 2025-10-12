@@ -16,6 +16,8 @@ interface AddTeacherModalProps {
   isOpen: boolean
   onClose: () => void
   onTeacherAdded: (teacher: any) => void
+  teacherToEdit?: any // If provided, modal opens in edit mode
+  mode?: 'add' | 'edit' // Mode of the modal
 }
 
 interface ScheduleSlot {
@@ -98,7 +100,7 @@ const validateTimeRange = (startTime: string, endTime: string): string | null =>
   return null
 }
 
-const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTeacherAdded }) => {
+const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTeacherAdded, teacherToEdit, mode = 'add' }) => {
   const { currentSchoolYear } = useSchoolYear()
   const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'schedule' | 'conducting'>('personal')
   const [formData, setFormData] = useState<TeacherFormData>({
@@ -127,6 +129,15 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitError, setSubmitError] = useState('')
 
+  // Load teacher data when editing
+  useEffect(() => {
+    if (isOpen && mode === 'edit' && teacherToEdit) {
+      loadTeacherData(teacherToEdit)
+    } else if (isOpen && mode === 'add') {
+      resetForm()
+    }
+  }, [isOpen, mode, teacherToEdit])
+
   // Load orchestras and ensembles for conducting tab
   useEffect(() => {
     if (isOpen) {
@@ -145,6 +156,29 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
     } catch (error) {
       console.error('Failed to load orchestras/ensembles:', error)
     }
+  }
+
+  const loadTeacherData = (teacher: any) => {
+    setFormData({
+      personalInfo: {
+        fullName: teacher.personalInfo?.fullName || '',
+        phone: teacher.personalInfo?.phone || '',
+        email: teacher.personalInfo?.email || '',
+        address: teacher.personalInfo?.address || ''
+      },
+      roles: teacher.roles || [],
+      professionalInfo: {
+        instrument: teacher.professionalInfo?.instrument || '',
+        isActive: teacher.professionalInfo?.isActive ?? true
+      },
+      teaching: {
+        schedule: teacher.teaching?.schedule || []
+      },
+      conducting: {
+        orchestraIds: teacher.conducting?.orchestraIds || []
+      },
+      ensemblesIds: teacher.ensemblesIds || []
+    })
   }
 
   const validateForm = (): boolean => {
@@ -326,16 +360,25 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
         isActive: true
       }
 
-      console.log('🔄 Creating teacher:', teacherData)
-      const newTeacher = await apiService.teachers.addTeacher(teacherData)
-      console.log('✅ Teacher created successfully:', newTeacher)
-      
-      onTeacherAdded(newTeacher)
+      if (mode === 'edit' && teacherToEdit) {
+        // Update existing teacher
+        console.log('🔄 Updating teacher:', teacherData)
+        const updatedTeacher = await apiService.teachers.updateTeacher(teacherToEdit._id, teacherData)
+        console.log('✅ Teacher updated successfully:', updatedTeacher)
+        onTeacherAdded(updatedTeacher)
+      } else {
+        // Create new teacher
+        console.log('🔄 Creating teacher:', teacherData)
+        const newTeacher = await apiService.teachers.addTeacher(teacherData)
+        console.log('✅ Teacher created successfully:', newTeacher)
+        onTeacherAdded(newTeacher)
+      }
+
       resetForm()
       onClose()
     } catch (error: any) {
-      console.error('❌ Failed to create teacher:', error)
-      setSubmitError(error.message || 'שגיאה ביצירת המורה. נסה שוב.')
+      console.error(`❌ Failed to ${mode === 'edit' ? 'update' : 'create'} teacher:`, error)
+      setSubmitError(error.message || `שגיאה ב${mode === 'edit' ? 'עדכון' : 'יצירת'} המורה. נסה שוב.`)
     } finally {
       setIsSubmitting(false)
     }
@@ -386,7 +429,9 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden border border-gray-200">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">הוספת מורה חדש</h2>
+          <h2 className="text-xl font-bold text-gray-900">
+            {mode === 'edit' ? 'עריכת פרטי מורה' : 'הוספת מורה חדש'}
+          </h2>
           <button
             onClick={handleClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -816,7 +861,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
                 ) : (
                   <Save className="w-4 h-4 ml-2" />
                 )}
-                {isSubmitting ? 'שומר...' : 'שמור מורה'}
+                {isSubmitting ? 'שומר...' : (mode === 'edit' ? 'עדכן מורה' : 'שמור מורה')}
               </button>
             </div>
           </div>
