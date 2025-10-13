@@ -455,40 +455,32 @@ export default function TeacherDashboard() {
 
     switch (action) {
       case 'addLesson':
-        console.log('Adding lesson - checking time blocks...')
-        // Check if teacher has time blocks (ימי לימוד) before allowing lesson creation
-        if (teacherTimeBlocks.length === 0) {
-          console.log('No time blocks found, showing notification')
-          setShowTimeBlockNotification(true)
-        } else {
-          console.log('Time blocks found, opening lesson modal')
-          console.log('Students available for lesson:', students.length, students)
-          setShowAddLessonModal(true)
-          console.log('Modal state set to true')
-        }
+        // Navigate to profile students tab with add student action
+        navigate('/profile?tab=students&action=addStudent')
         break
       case 'markAttendance':
-        // Navigate to profile with attendance functionality
-        navigate('/profile', { state: { activeTab: 'schedule' } })
+        // Navigate to profile attendance tab
+        navigate('/profile?tab=attendance')
         break
       case 'viewSchedule':
         // Navigate to profile schedule tab
-        navigate('/profile', { state: { activeTab: 'schedule' } })
+        navigate('/profile?tab=schedule')
         break
       case 'manageStudents':
         // Navigate to profile students tab
-        navigate('/profile', { state: { activeTab: 'students' } })
+        navigate('/profile?tab=students')
         break
       case 'manageTeachingDays':
-        setShowAvailabilityModal(true)
+        // Navigate to profile schedule tab (where teachers manage their teaching days)
+        navigate('/profile?tab=schedule')
         break
       case 'viewOrchestras':
         // Navigate to profile orchestras tab
-        navigate('/profile', { state: { activeTab: 'orchestras' } })
+        navigate('/profile?tab=orchestras')
         break
       case 'viewTheoryLessons':
         // Navigate to profile theory lessons tab
-        navigate('/profile', { state: { activeTab: 'theory-lessons' } })
+        navigate('/profile?tab=lessons')
         break
       case 'addOrchestra':
         // Navigate to orchestra creation or open modal

@@ -57,6 +57,12 @@ export default function TheoryLessons() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [lessonToDelete, setLessonToDelete] = useState<any>(null)
 
+  // Pagination state for date-based loading
+  const [dateRange, setDateRange] = useState({
+    pastMonthsLoaded: 1,
+    futureMonthsLoaded: 1
+  })
+
   // Bulk delete state
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [bulkDeleteType, setBulkDeleteType] = useState<'date' | 'category' | 'teacher'>('date')
@@ -72,11 +78,43 @@ export default function TheoryLessons() {
     loadTheoryLessons()
   }, [])
 
+  // Reload when date range changes
+  useEffect(() => {
+    if (dateRange.pastMonthsLoaded > 1 || dateRange.futureMonthsLoaded > 1) {
+      loadTheoryLessons()
+    }
+  }, [dateRange])
+
   const loadTheoryLessons = async () => {
     try {
       setLoading(true)
       setError(null)
-      const lessonsData = await theoryService.getTheoryLessons(filters)
+
+      // Calculate date range based on loaded months
+      const today = new Date()
+      const fromDate = new Date(today)
+      fromDate.setMonth(today.getMonth() - dateRange.pastMonthsLoaded)
+      fromDate.setHours(0, 0, 0, 0)
+
+      const toDate = new Date(today)
+      toDate.setMonth(today.getMonth() + dateRange.futureMonthsLoaded)
+      toDate.setHours(23, 59, 59, 999)
+
+      // Build filters with date range
+      const dateFilters = {
+        ...filters,
+        fromDate: fromDate.toISOString().split('T')[0],
+        toDate: toDate.toISOString().split('T')[0]
+      }
+
+      console.log('📅 Loading theory lessons with date range:', {
+        fromDate: dateFilters.fromDate,
+        toDate: dateFilters.toDate,
+        pastMonths: dateRange.pastMonthsLoaded,
+        futureMonths: dateRange.futureMonthsLoaded
+      })
+
+      const lessonsData = await theoryService.getTheoryLessons(dateFilters)
       setLessons(lessonsData)
     } catch (error) {
       console.error('Error loading theory lessons:', error)
@@ -84,6 +122,22 @@ export default function TheoryLessons() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Load more past lessons (1 additional month)
+  const loadMorePastLessons = () => {
+    setDateRange(prev => ({
+      ...prev,
+      pastMonthsLoaded: prev.pastMonthsLoaded + 1
+    }))
+  }
+
+  // Load more future lessons (1 additional month)
+  const loadMoreFutureLessons = () => {
+    setDateRange(prev => ({
+      ...prev,
+      futureMonthsLoaded: prev.futureMonthsLoaded + 1
+    }))
   }
 
   // Helper function to format day header
@@ -674,6 +728,17 @@ export default function TheoryLessons() {
                     </div>
                   )
                 })}
+                {/* Load More Future Lessons Button */}
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={loadMoreFutureLessons}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>טען שיעורים נוספים</span>
+                    <span className="text-sm text-blue-600">({dateRange.futureMonthsLoaded} חודשים נטענו)</span>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -721,6 +786,17 @@ export default function TheoryLessons() {
                     </div>
                   )
                 })}
+                {/* Load More Past Lessons Button */}
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={loadMorePastLessons}
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>טען שיעורים נוספים</span>
+                    <span className="text-sm text-gray-600">({dateRange.pastMonthsLoaded} חודשים נטענו)</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

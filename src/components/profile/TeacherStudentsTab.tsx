@@ -4,6 +4,7 @@ import { Plus, Search, Edit, Trash2, UserPlus, BookOpen, Eye, Calendar, AlertTri
 import apiService from '../../services/apiService.js'
 import EnhancedStudentCard from './EnhancedStudentCard'
 import { VALID_LOCATIONS } from '../../constants/locations'
+import IndividualLessonAttendance from '../attendance/IndividualLessonAttendance'
 
 // Constants for slot generation
 const VALID_DURATIONS = [30, 45, 60]
@@ -62,7 +63,11 @@ interface Student {
   }
 }
 
-export default function TeacherStudentsTab() {
+interface TeacherStudentsTabProps {
+  action?: string
+}
+
+export default function TeacherStudentsTab({ action }: TeacherStudentsTabProps = {}) {
   const { user } = useAuth()
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,9 +96,21 @@ export default function TeacherStudentsTab() {
   const [selectedStudentForLesson, setSelectedStudentForLesson] = useState<Student | null>(null)
   const [teachingDays, setTeachingDays] = useState<any[]>([])
 
+  // Attendance modal
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false)
+  const [selectedStudentForAttendance, setSelectedStudentForAttendance] = useState<Student | null>(null)
+
   useEffect(() => {
     loadTeacherStudents()
   }, [user])
+
+  // Handle action parameter to open assignment modal
+  useEffect(() => {
+    if (action === 'addStudent' && !loading) {
+      setShowAssignmentModal(true)
+      loadAllSystemStudents()
+    }
+  }, [action, loading])
 
   const loadTeacherStudents = async (showLoading = true) => {
     if (!user?._id) return
@@ -305,7 +322,8 @@ export default function TeacherStudentsTab() {
   const handleMarkAttendance = (studentId: string) => {
     const student = students.find(s => s.id === studentId)
     if (student) {
-      window.location.href = `/teacher/attendance?student=${studentId}`
+      setSelectedStudentForAttendance(student)
+      setShowAttendanceModal(true)
     }
   }
 
@@ -509,7 +527,7 @@ export default function TeacherStudentsTab() {
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
           <UserPlus className="w-4 h-4" />
-          <span className="font-reisinger-yonatan">הקצה תלמיד</span>
+          <span className="font-reisinger-yonatan">הוסף תלמיד</span>
         </button>
       </div>
 
@@ -545,7 +563,7 @@ export default function TeacherStudentsTab() {
               className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-reisinger-yonatan"
             >
               <UserPlus className="w-4 h-4" />
-              הקצה תלמיד ראשון
+              הוסף תלמיד ראשון
             </button>
           )}
         </div>
@@ -595,6 +613,8 @@ export default function TeacherStudentsTab() {
                 onViewDetails={handleViewDetails}
                 onScheduleLesson={handleScheduleLesson}
                 onUpdateLesson={handleUpdateLesson}
+                onMarkAttendance={handleMarkAttendance}
+                onAddNote={handleAddNote}
               />
             ))}
           </div>
@@ -649,6 +669,22 @@ export default function TeacherStudentsTab() {
             loadTeacherStudents(false)
           }}
           showNotification={showNotification}
+        />
+      )}
+
+      {/* Individual Lesson Attendance Modal */}
+      {showAttendanceModal && selectedStudentForAttendance && (
+        <IndividualLessonAttendance
+          student={selectedStudentForAttendance}
+          teacherId={user?._id || ''}
+          onClose={() => {
+            setShowAttendanceModal(false)
+            setSelectedStudentForAttendance(null)
+          }}
+          onSave={() => {
+            // Optionally reload student data to reflect attendance changes
+            loadTeacherStudents(false)
+          }}
         />
       )}
     </div>
@@ -841,9 +877,9 @@ function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: Stu
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col" dir="rtl">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col" dir="rtl">
         <h3 className="text-xl font-bold text-gray-900 mb-4 font-reisinger-yonatan">
-          הקצאת תלמיד קיים
+          הוסף תלמיד
         </h3>
 
         {loading ? (
@@ -1050,7 +1086,7 @@ function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: Stu
                 ) : (
                   <>
                     <UserPlus className="w-4 h-4" />
-                    הקצה תלמיד
+                    הוסף תלמיד
                   </>
                 )}
               </button>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Filter, Loader, Calendar, Users, X, Grid, List, Eye, Edit } from 'lucide-react'
+import { Search, Plus, Filter, Loader, Calendar, Users, X, Grid, List, Eye, Edit, Trash2 } from 'lucide-react'
 import { Card } from '../components/ui/card'
 import Table, { StatusBadge } from '../components/ui/Table'
 import TeacherCard from '../components/TeacherCard'
 import AddTeacherModal from '../components/modals/AddTeacherModal'
+import ConfirmationModal from '../components/ui/ConfirmationModal'
 import apiService from '../services/apiService'
 import { useSchoolYear } from '../services/schoolYearContext'
 import { useAuth } from '../services/authContext'
@@ -67,6 +68,8 @@ export default function Teachers() {
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false)
   const [teacherToEdit, setTeacherToEdit] = useState(null)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [teacherToDelete, setTeacherToDelete] = useState<Teacher | null>(null)
 
   // Fetch teachers from real API when school year changes
   useEffect(() => {
@@ -116,7 +119,7 @@ export default function Teachers() {
         </StatusBadge>,
         actions: (
           <div className="flex space-x-2 space-x-reverse">
-            <button 
+            <button
               className="p-1.5 text-primary-600 hover:text-primary-900 hover:bg-primary-100 rounded transition-colors"
               onClick={(e) => {
                 e.stopPropagation()
@@ -126,7 +129,7 @@ export default function Teachers() {
             >
               <Eye className="w-4 h-4" />
             </button>
-            <button 
+            <button
               className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
               onClick={(e) => {
                 e.stopPropagation()
@@ -135,6 +138,16 @@ export default function Teachers() {
               title="ערוך פרטי המורה"
             >
               <Edit className="w-4 h-4" />
+            </button>
+            <button
+              className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-100 rounded transition-colors"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDeleteTeacher(teacher._id)
+              }}
+              title="מחק מורה"
+            >
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         )
@@ -214,6 +227,36 @@ export default function Teachers() {
       console.error('Error loading teacher for edit:', error)
       alert('שגיאה בטעינת נתוני המורה')
     }
+  }
+
+  const handleDeleteTeacher = (teacherId: string) => {
+    const teacher = teachers.find(t => t.id === teacherId)
+    if (!teacher) return
+
+    setTeacherToDelete(teacher)
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeleteTeacher = async () => {
+    if (!teacherToDelete) return
+
+    try {
+      await apiService.teachers.deleteTeacher(teacherToDelete.id)
+      // Refresh the teachers list
+      loadTeachers()
+      setShowDeleteConfirm(false)
+      setTeacherToDelete(null)
+    } catch (error) {
+      console.error('Error deleting teacher:', error)
+      alert('שגיאה במחיקת המורה: ' + (error.message || 'אירעה שגיאה'))
+      setShowDeleteConfirm(false)
+      setTeacherToDelete(null)
+    }
+  }
+
+  const cancelDeleteTeacher = () => {
+    setShowDeleteConfirm(false)
+    setTeacherToDelete(null)
   }
 
   const handleAddTeacher = () => {
@@ -668,6 +711,18 @@ export default function Teachers() {
         onTeacherAdded={handleTeacherAdded}
         teacherToEdit={teacherToEdit}
         mode={modalMode}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title="מחיקת מורה"
+        message={teacherToDelete ? `האם אתה בטוח שברצונך למחוק את המורה ${teacherToDelete.name}? פעולה זו היא בלתי הפיכה.` : ''}
+        confirmText="מחק"
+        cancelText="ביטול"
+        onConfirm={confirmDeleteTeacher}
+        onCancel={cancelDeleteTeacher}
+        variant="danger"
       />
     </div>
   )

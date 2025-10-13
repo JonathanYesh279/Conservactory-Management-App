@@ -109,6 +109,10 @@ class ApiClient {
       } else if (response.status === 403) {
         throw new Error('Access denied. Insufficient permissions.');
       } else if (response.status === 404) {
+        // For attendance lookups, return null instead of throwing
+        if (endpoint.includes('/attendance/individual')) {
+          return null;
+        }
         throw new Error('Resource not found.');
       } else if (response.status >= 500) {
         throw new Error('Server error. Please try again later.');
@@ -177,8 +181,9 @@ class ApiClient {
     }
 
     try {
-      // Only log non-validation requests to reduce noise
-      if (endpoint !== '/auth/validate') {
+      // Only log non-validation and non-attendance-lookup requests to reduce noise
+      const isAttendanceLookup = endpoint.includes('/attendance/individual') && method === 'GET';
+      if (endpoint !== '/auth/validate' && !isAttendanceLookup) {
         console.log(`🌐 API Request: ${method} ${url}`, options.body ? { body: options.body } : '');
       }
       
@@ -192,8 +197,9 @@ class ApiClient {
       
       const result = await this.handleResponse(response, endpoint);
       
-      // Only log non-validation responses to reduce noise
-      if (endpoint !== '/auth/validate') {
+      // Only log non-validation and non-attendance-lookup responses to reduce noise
+      const isAttendanceLookupForLogging = endpoint.includes('/attendance/individual') && method === 'GET';
+      if (endpoint !== '/auth/validate' && !isAttendanceLookupForLogging) {
         console.log(`✅ API Response: ${method} ${endpoint}`, { status: response.status });
       }
       
@@ -202,12 +208,16 @@ class ApiClient {
       if (error.name === 'AbortError') {
         throw new Error('Request timeout. Please check your connection.');
       }
-      
-      // Only log non-validation errors to reduce noise
-      if (endpoint !== '/auth/validate') {
+
+      // Don't log expected 404s for attendance lookups (this is normal when no record exists yet)
+      const isAttendanceLookup = endpoint.includes('/attendance/individual') && method === 'GET';
+      const is404 = error.message === 'Resource not found.';
+
+      // Only log non-validation errors and non-404-attendance errors to reduce noise
+      if (endpoint !== '/auth/validate' && !(isAttendanceLookup && is404)) {
         console.error(`❌ API Error: ${method} ${endpoint}`, error.message);
       }
-      
+
       throw error;
     }
   }
@@ -4634,6 +4644,204 @@ function mapLevelLabel(level) {
 }
 
 /**
+ * Attendance Service
+ * Handles individual lesson attendance tracking and management
+ * Backend endpoints: /api/attendance/*
+ */
+export const attendanceService = {
+  /**
+   * Save or update individual lesson attendance
+   * @param {Object} attendanceData - Attendance record data
+   * @returns {Promise<Object>} Saved attendance record
+   */
+  async saveIndividualLessonAttendance(attendanceData) {
+    try {
+      console.log('💾 Saving individual lesson attendance:', attendanceData);
+
+      // Check if attendance already exists for this date
+      const existingAttendance = await this.getIndividualLessonAttendance({
+        studentId: attendanceData.studentId,
+        teacherId: attendanceData.teacherId,
+        date: attendanceData.date
+      });
+
+      let result;
+      if (existingAttendance && existingAttendance._id) {
+        // Update existing attendance
+        result = await apiClient.put(`/attendance/individual/${existingAttendance._id}`, attendanceData);
+      } else {
+        // Create new attendance
+        result = await apiClient.post('/attendance/individual', attendanceData);
+      }
+
+      console.log('✅ Attendance saved successfully');
+      return result;
+    } catch (error) {
+      console.error('❌ Error saving attendance:', error);
+      throw new Error(error.message || 'שגיאה בשמירת הנוכחות');
+    }
+  },
+
+  /**
+   * Get attendance for a specific date and student
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object|null>} Attendance record or null
+   */
+  async getIndividualLessonAttendance(params) {
+    const { studentId, teacherId, date } = params;
+
+    const queryParams = new URLSearchParams({
+      studentId,
+      teacherId,
+      date
+    }).toString();
+
+    // The API client will return null for 404s automatically for attendance endpoints
+    const result = await apiClient.get(`/attendance/individual?${queryParams}`);
+    return result;
+  },
+
+  /**
+   * Get attendance history for a student
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Array>} Array of attendance records
+   */
+  async getStudentAttendanceHistory(params) {
+    try {
+      const { studentId, teacherId, lessonType = 'individual', limit = 20, startDate, endDate } = params;
+      console.log(`📚 Loading attendance history for student ${studentId}`);
+
+      const queryParams = new URLSearchParams({
+        studentId,
+        lessonType,
+        limit: limit.toString()
+      });
+
+      if (teacherId) queryParams.append('teacherId', teacherId);
+      if (startDate) queryParams.append('startDate', startDate);
+      if (endDate) queryParams.append('endDate', endDate);
+
+      const result = await apiClient.get(`/attendance/history?${queryParams}`);
+      return Array.isArray(result) ? result : [];
+    } catch (error) {
+      console.error('❌ Error loading attendance history:', error);
+      return []; // Return empty array on error
+    }
+  },
+
+  /**
+   * Get attendance statistics for a student
+   * @param {string} studentId - Student ID
+   * @param {Object} options - Query options
+   * @returns {Promise<Object>} Attendance statistics
+   */
+  async getStudentAttendanceStats(studentId, options = {}) {
+    try {
+      const { teacherId, lessonType, startDate, endDate } = options;
+      console.log(`📊 Loading attendance stats for student ${studentId}`);
+
+      const queryParams = new URLSearchParams({ studentId });
+      if (teacherId) queryParams.append('teacherId', teacherId);
+      if (lessonType) queryParams.append('lessonType', lessonType);
+      if (startDate) queryParams.append('startDate', startDate);
+      if (endDate) queryParams.append('endDate', endDate);
+
+      const result = await apiClient.get(`/attendance/stats?${queryParams}`);
+      return result || {
+        total: 0,
+        present: 0,
+        absent: 0,
+        attendanceRate: 0
+      };
+    } catch (error) {
+      console.error('❌ Error loading attendance stats:', error);
+      return {
+        total: 0,
+        present: 0,
+        absent: 0,
+        attendanceRate: 0
+      };
+    }
+  },
+
+  /**
+   * Get teacher's attendance overview
+   * @param {string} teacherId - Teacher ID
+   * @param {Object} options - Query options
+   * @returns {Promise<Object>} Teacher attendance overview
+   */
+  async getTeacherAttendanceOverview(teacherId, options = {}) {
+    try {
+      const { startDate, endDate, studentId } = options;
+      console.log(`👨‍🏫 Loading attendance overview for teacher ${teacherId}`);
+
+      const queryParams = new URLSearchParams({ teacherId });
+      if (startDate) queryParams.append('startDate', startDate);
+      if (endDate) queryParams.append('endDate', endDate);
+      if (studentId) queryParams.append('studentId', studentId);
+
+      const result = await apiClient.get(`/attendance/teacher/overview?${queryParams}`);
+      return result || {
+        totalLessons: 0,
+        markedLessons: 0,
+        unmarkedLessons: 0,
+        overallAttendanceRate: 0,
+        students: []
+      };
+    } catch (error) {
+      console.error('❌ Error loading teacher attendance overview:', error);
+      return {
+        totalLessons: 0,
+        markedLessons: 0,
+        unmarkedLessons: 0,
+        overallAttendanceRate: 0,
+        students: []
+      };
+    }
+  },
+
+  /**
+   * Delete an attendance record
+   * @param {string} attendanceId - Attendance record ID
+   * @returns {Promise<void>}
+   */
+  async deleteAttendanceRecord(attendanceId) {
+    try {
+      console.log(`🗑️ Deleting attendance record ${attendanceId}`);
+      await apiClient.delete(`/attendance/individual/${attendanceId}`);
+      console.log('✅ Attendance record deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting attendance record:', error);
+      throw new Error(error.message || 'שגיאה במחיקת רשומת הנוכחות');
+    }
+  },
+
+  /**
+   * Get upcoming lessons without attendance marked
+   * @param {string} teacherId - Teacher ID
+   * @param {Object} options - Query options
+   * @returns {Promise<Array>} Array of upcoming lessons
+   */
+  async getUnmarkedLessons(teacherId, options = {}) {
+    try {
+      const { days = 7 } = options;
+      console.log(`📅 Loading unmarked lessons for teacher ${teacherId}`);
+
+      const queryParams = new URLSearchParams({
+        teacherId,
+        days: days.toString()
+      });
+
+      const result = await apiClient.get(`/attendance/unmarked?${queryParams}`);
+      return Array.isArray(result) ? result : [];
+    } catch (error) {
+      console.error('❌ Error loading unmarked lessons:', error);
+      return [];
+    }
+  }
+};
+
+/**
  * Default export with all services
  * Complete API service collection matching backend schemas
  */
@@ -4651,6 +4859,7 @@ export default {
   schedule: scheduleService,
   analytics: analyticsService,
   assignments: assignmentService,
+  attendance: attendanceService,
   test: apiTestUtils,
   client: apiClient,
   // Utility functions

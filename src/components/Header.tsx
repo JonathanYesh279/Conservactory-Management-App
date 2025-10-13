@@ -1,4 +1,4 @@
-import { Bell, Calendar, Settings, Music, ChevronDown, ChevronUp, User, LogOut, Home } from 'lucide-react'
+import { User, LogOut, Home } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/authContext.jsx'
@@ -6,9 +6,7 @@ import { useSidebar } from '../contexts/SidebarContext'
 import SchoolYearSelector from './SchoolYearSelector'
 
 export default function Header() {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -55,9 +53,6 @@ export default function Header() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false)
-      }
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
         setIsProfileDropdownOpen(false)
       }
@@ -67,16 +62,6 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const getMenuItems = () => {
-    const baseItems = [
-      { icon: Bell, label: 'התראות', action: () => console.log('Notifications') },
-      { icon: Calendar, label: 'לוח שנה', action: () => console.log('Calendar') },
-      { icon: Settings, label: 'הגדרות', action: () => console.log('Settings') },
-    ]
-
-    // Since all users now have sidebar, no need for dashboard link in header
-    return baseItems
-  }
 
   const handleProfileClick = () => {
     navigate('/profile')
@@ -165,70 +150,9 @@ export default function Header() {
               </button>
             )}
 
-            {/* Notification Icon */}
-            <button className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 hover:border-gray-300 transition-all duration-150 ease-in-out cursor-pointer">
-              <Bell className="w-5 h-5 text-gray-600" />
-            </button>
-
-            {/* Calendar Icon */}
-            <button className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 hover:border-gray-300 transition-all duration-150 ease-in-out cursor-pointer">
-              <Calendar className="w-5 h-5 text-gray-600" />
-            </button>
-
-            {/* Settings Icon */}
-            <button className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 hover:border-gray-300 transition-all duration-150 ease-in-out cursor-pointer">
-              <Settings className="w-5 h-5 text-gray-600" />
-            </button>
           </>
         )}
 
-        {/* Mobile - Dropdown Menu */}
-        {isMobile && (
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 hover:border-gray-300 transition-all duration-150 ease-in-out cursor-pointer"
-            >
-              {isDropdownOpen ? (
-                <ChevronUp className="w-5 h-5 text-gray-600" />
-              ) : (
-                <ChevronDown className="w-5 h-5 text-gray-600" />
-              )}
-            </button>
-
-            {/* Dropdown Menu */}
-            {isDropdownOpen && (
-              <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[70]">
-                {getMenuItems().map((item, index) => {
-                  const Icon = item.icon
-                  const isDashboard = item.label === 'לוח בקרה'
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        item.action()
-                        setIsDropdownOpen(false)
-                      }}
-                      className={`w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between transition-colors duration-150 ${
-                        isDashboard ? 'hover:bg-indigo-50' : ''
-                      }`}
-                      style={{ direction: 'rtl' }}
-                    >
-                      <span className={`text-sm font-medium font-reisinger-yonatan ${
-                        isDashboard ? 'text-indigo-700' : 'text-gray-700'
-                      }`}>
-                        {item.label}
-                      </span>
-                      <Icon className={`w-4 h-4 ${
-                        isDashboard ? 'text-indigo-600' : 'text-gray-500'
-                      }`} />
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* User Avatar with Profile Dropdown */}
         <div className="relative" ref={profileDropdownRef}>

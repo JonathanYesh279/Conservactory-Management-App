@@ -11,7 +11,7 @@ interface TheoryLessonCardProps {
   lesson: TheoryLesson
   onView?: (lesson: TheoryLesson) => void
   onEdit?: (lesson: TheoryLesson) => void
-  onDelete?: (lessonId: string) => void
+  onDelete?: (lesson: TheoryLesson) => void
   onViewAttendance?: (lesson: TheoryLesson) => void
   selectable?: boolean
   selected?: boolean
@@ -94,7 +94,7 @@ export default function TheoryLessonCard({ lesson, onView, onEdit, onDelete, onV
             )}
             {onDelete && (
               <button
-                onClick={() => onDelete(lesson._id)}
+                onClick={() => onDelete(lesson)}
                 className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 title="מחק שיעור"
               >

@@ -62,7 +62,7 @@ const teacherNavigation: NavigationItem[] = [
   { name: 'לוח בקרה', href: '/dashboard', icon: Home, category: 'general' },
   { name: 'התלמידים שלי', href: '/students', icon: Users, category: 'personal', roles: ['teacher'] },
   { name: 'לוח זמנים שלי', href: '/profile', icon: Calendar, category: 'personal', roles: ['teacher'] },
-  { name: 'נוכחות', href: '/attendance', icon: UserCheck, category: 'operations', roles: ['teacher'] },
+  { name: 'נוכחות', href: '/profile?tab=attendance', icon: UserCheck, category: 'operations', roles: ['teacher'] },
   { name: 'ניהול בגרויות', href: '/bagruts', icon: Award, category: 'operations', roles: ['teacher'] },
   { name: 'פרופיל', href: '/profile', icon: User, category: 'personal' },
 ]
@@ -96,9 +96,9 @@ const quickActionsByRole = {
     { name: 'תזמן חזרה', href: '/rehearsals/new', icon: Calendar, role: 'admin' },
   ],
   teacher: [
-    { name: 'הוסף שיעור', href: '/profile', icon: Plus, role: 'teacher' },
-    { name: 'סמן נוכחות', href: '/attendance', icon: CheckSquare, role: 'teacher' },
-    { name: 'צפה בלוח זמנים', href: '/profile', icon: Clock, role: 'teacher' },
+    { name: 'הוסף שיעור', href: '/profile?tab=students&action=addStudent', icon: Plus, role: 'teacher' },
+    { name: 'סמן נוכחות', href: '/profile?tab=attendance', icon: CheckSquare, role: 'teacher' },
+    { name: 'צפה בלוח זמנים', href: '/profile?tab=schedule', icon: Clock, role: 'teacher' },
   ],
   conductor: [
     { name: 'תזמן חזרה', href: '/rehearsals/new', icon: CalendarPlus, role: 'conductor' },

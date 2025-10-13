@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/authContext.jsx'
-import { User, Users, Music, BookOpen, Calendar, Clock, TrendingUp, Activity, ArrowRight } from 'lucide-react'
+import { User, Users, Music, BookOpen, Calendar, Clock, TrendingUp, Activity, ArrowRight, CheckSquare } from 'lucide-react'
 import TeacherStudentsTab from '../components/profile/TeacherStudentsTab'
 import ConductorOrchestrasTab from '../components/profile/ConductorOrchestrasTab'
 import TeacherScheduleTab from '../components/profile/TeacherScheduleTab'
 import TheoryTeacherLessonsTab from '../components/profile/TheoryTeacherLessonsTab'
+import TeacherAttendanceTab from '../components/profile/TeacherAttendanceTab'
 import GeneralInfoTab from '../components/profile/GeneralInfoTab'
 import apiService, { teacherService } from '../services/apiService'
 
@@ -32,13 +33,34 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState('general')
   const [statistics, setStatistics] = useState<ProfileStatistics | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
+  const [actionParam, setActionParam] = useState<string | null>(null)
 
-  // Handle navigation from dashboard with specific tab
+  // Handle navigation from dashboard or sidebar with specific tab
   useEffect(() => {
+    // Check for state-based navigation first (from navigate with state)
     const state = location.state as { activeTab?: string } | null
     if (state?.activeTab) {
       setActiveTab(state.activeTab)
       // Clear the state to prevent persistence on refresh
+      window.history.replaceState(null, '', window.location.pathname)
+      return
+    }
+
+    // Check for query parameter-based navigation (from URL)
+    const searchParams = new URLSearchParams(location.search)
+    const tabParam = searchParams.get('tab')
+    const action = searchParams.get('action')
+
+    if (tabParam) {
+      setActiveTab(tabParam)
+    }
+
+    if (action) {
+      setActionParam(action)
+    }
+
+    // Clear the query parameters
+    if (tabParam || action) {
       window.history.replaceState(null, '', window.location.pathname)
     }
   }, [location])
@@ -187,6 +209,16 @@ export default function Profile() {
         icon: Calendar,
         component: TeacherScheduleTab
       })
+      // Add attendance tab only if teacher has students
+      const hasStudents = user?.teaching?.studentIds && user.teaching.studentIds.length > 0
+      if (hasStudents) {
+        tabs.push({
+          id: 'attendance',
+          label: 'נוכחות',
+          icon: CheckSquare,
+          component: TeacherAttendanceTab
+        })
+      }
     }
 
     // Add conductor tab if user is a conductor
@@ -215,6 +247,12 @@ export default function Profile() {
   const tabs = getTabsByRole()
   const activeTabData = tabs.find(tab => tab.id === activeTab) || tabs[0]
   const ActiveComponent = activeTabData.component
+
+  // Component props to pass action parameter
+  const componentProps: any = {}
+  if (activeTab === 'students' && actionParam) {
+    componentProps.action = actionParam
+  }
 
   const getRoleDisplayName = () => {
     const role = user?.role || user?.roles?.[0] || ''
@@ -333,7 +371,7 @@ export default function Profile() {
 
         {/* Tab Content */}
         <div className="p-6">
-          <ActiveComponent />
+          <ActiveComponent {...componentProps} />
         </div>
       </div>
     </div>
