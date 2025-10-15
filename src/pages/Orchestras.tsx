@@ -470,6 +470,7 @@ export default function Orchestras() {
           onViewDetails={handleViewDetails}
           onEditOrchestra={handleEditOrchestra}
           onManageMembers={handleManageMembers}
+          onDeleteOrchestra={handleDeleteOrchestra}
         />
       )}
 

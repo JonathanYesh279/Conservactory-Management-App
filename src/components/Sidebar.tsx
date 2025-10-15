@@ -43,7 +43,7 @@ interface NavigationItem {
   category?: string
 }
 
-// Admin navigation (full access)
+// Admin navigation (full access) - Note: attendance href will be dynamic based on user's additional roles
 const adminNavigation: NavigationItem[] = [
   { name: 'מידע כללי', href: '/dashboard', icon: Home, category: 'general' },
   { name: 'תלמידים', href: '/students', icon: Users, category: 'management', roles: ['admin'] },
@@ -51,9 +51,8 @@ const adminNavigation: NavigationItem[] = [
   { name: 'שיעורי תיאוריה', href: '/theory-lessons', icon: BookOpen, category: 'management', roles: ['admin'] },
   { name: 'תזמורות', href: '/orchestras', icon: Music, category: 'management', roles: ['admin'] },
   { name: 'חזרות', href: '/rehearsals', icon: Calendar, category: 'management', roles: ['admin'] },
-  { name: 'בגרויות', href: '/bagruts', icon: Award, category: 'operations', roles: ['admin'] },
-  { name: 'נוכחות', href: '/attendance', icon: UserCheck, category: 'operations', roles: ['admin'] },
-  { name: 'דוחות', href: '/reports', icon: BarChart3, category: 'management', roles: ['admin'] },
+  { name: 'בגרויות', href: '/bagruts', icon: Award, category: 'management', roles: ['admin'] },
+  { name: 'נוכחות', href: '/teachers', icon: UserCheck, category: 'operations', roles: ['admin'] },
   { name: 'הגדרות', href: '/settings', icon: Settings, category: 'system', roles: ['admin'] },
 ]
 
@@ -72,7 +71,7 @@ const conductorNavigation: NavigationItem[] = [
   { name: 'לוח בקרה', href: '/dashboard', icon: Home, category: 'general' },
   { name: 'התזמורות שלי', href: '/orchestras', icon: Music, category: 'personal', roles: ['conductor'] },
   { name: 'חזרות', href: '/rehearsals', icon: Calendar, category: 'personal', roles: ['conductor'] },
-  { name: 'נוכחות', href: '/conductor/attendance', icon: UserCheck, category: 'operations', roles: ['conductor'] },
+  { name: 'נוכחות', href: '/profile?tab=orchestras', icon: UserCheck, category: 'operations', roles: ['conductor'] },
   { name: 'ניהול רישומים', href: '/conductor/enrollment', icon: UserPlus, category: 'operations', roles: ['conductor'] },
   { name: 'פרופיל', href: '/profile', icon: User, category: 'personal' },
 ]
@@ -82,7 +81,7 @@ const theoryTeacherNavigation: NavigationItem[] = [
   { name: 'לוח בקרה', href: '/dashboard', icon: Home, category: 'general' },
   { name: 'השיעורים שלי', href: '/theory-lessons', icon: BookOpen, category: 'personal', roles: ['theory-teacher'] },
   { name: 'קבוצות תיאוריה', href: '/theory-lessons', icon: Users, category: 'personal', roles: ['theory-teacher'] },
-  { name: 'נוכחות', href: '/attendance', icon: UserCheck, category: 'operations', roles: ['theory-teacher'] },
+  { name: 'נוכחות', href: '/profile?tab=lessons', icon: UserCheck, category: 'operations', roles: ['theory-teacher'] },
   { name: 'תכנית לימודים', href: '/theory-lessons', icon: FileText, category: 'personal', roles: ['theory-teacher'] },
   { name: 'פרופיל', href: '/profile', icon: User, category: 'personal' },
 ]
@@ -103,7 +102,7 @@ const quickActionsByRole = {
   conductor: [
     { name: 'תזמן חזרה', href: '/rehearsals/new', icon: CalendarPlus, role: 'conductor' },
     { name: 'נהל תזמורת', href: '/orchestras', icon: Music, role: 'conductor' },
-    { name: 'סמן נוכחות', href: '/conductor/attendance', icon: CheckSquare, role: 'conductor' },
+    { name: 'סמן נוכחות', href: '/profile?tab=orchestras', icon: CheckSquare, role: 'conductor' },
   ],
   'theory-teacher': [
     { name: 'תזמן שיעור תיאוריה', href: '/theory-lessons/new', icon: CalendarPlus, role: 'theory-teacher' },
@@ -139,23 +138,17 @@ export default function Sidebar() {
 
     const roles: string[] = []
 
-    // Check for admin role (both English and Hebrew)
-    if (user.role === 'admin' || user.role === 'מנהל' ||
-        user.roles?.includes('admin') || user.roles?.includes('מנהל')) {
-      return ['admin'] // Admin role overrides everything
-    }
-
-    // Collect all roles
+    // Collect all roles (don't return early for admin)
     if (user.role) roles.push(user.role)
     if (user.roles && Array.isArray(user.roles)) {
       roles.push(...user.roles)
     }
 
     // Check for implicit roles based on data
-    if (user.teaching?.studentIds?.length > 0 && !roles.includes('teacher')) {
+    if (user.teaching?.studentIds?.length > 0 && !roles.includes('teacher') && !roles.includes('מורה')) {
       roles.push('teacher')
     }
-    if (user.conducting?.orchestraIds?.length > 0 && !roles.includes('conductor')) {
+    if (user.conducting?.orchestraIds?.length > 0 && !roles.includes('conductor') && !roles.includes('מנצח')) {
       roles.push('conductor')
     }
 
@@ -178,8 +171,34 @@ export default function Sidebar() {
   // Build merged navigation for multi-role users
   const getMergedNavigation = (): NavigationItem[] => {
     if (isAdmin) {
-      // Admin gets full admin navigation
-      return adminNavigation
+      // Admin gets full admin navigation, but we need to adjust the attendance link
+      // if they also have teacher or conductor roles
+      const navigation = [...adminNavigation]
+
+      // Find the attendance item
+      const attendanceIndex = navigation.findIndex(item => item.name === 'נוכחות')
+
+      if (attendanceIndex !== -1) {
+        // Determine smart attendance navigation based on additional roles
+        let attendanceHref = '/teachers' // Default admin attendance
+
+        // Priority: teacher > conductor > theory-teacher
+        if (userRoles.includes('teacher')) {
+          attendanceHref = '/profile?tab=attendance'
+        } else if (userRoles.includes('conductor')) {
+          attendanceHref = '/profile?tab=orchestras'
+        } else if (userRoles.includes('theory-teacher')) {
+          attendanceHref = '/profile?tab=lessons'
+        }
+
+        // Update the attendance navigation
+        navigation[attendanceIndex] = {
+          ...navigation[attendanceIndex],
+          href: attendanceHref
+        }
+      }
+
+      return navigation
     }
 
     const navigationMap = new Map<string, NavigationItem>()
@@ -215,13 +234,10 @@ export default function Sidebar() {
 
   // Get quick actions for all user roles
   const getQuickActions = () => {
-    if (isAdmin) {
-      return quickActionsByRole.admin
-    }
-
     const actions: typeof quickActionsByRole.admin = []
     const actionMap = new Map<string, boolean>()
 
+    // Collect quick actions from ALL user roles (including multi-role admins)
     userRoles.forEach(role => {
       const roleActions = quickActionsByRole[role as keyof typeof quickActionsByRole]
       if (roleActions) {
@@ -345,7 +361,7 @@ export default function Sidebar() {
 
   const getRoleBadgeColor = (role: string): string => {
     switch (role) {
-      case 'admin': return 'bg-purple-100 text-purple-700'
+      case 'admin': return 'bg-red-100 text-red-700'
       case 'teacher': return 'bg-blue-100 text-blue-700'
       case 'conductor': return 'bg-green-100 text-green-700'
       case 'theory-teacher': return 'bg-yellow-100 text-yellow-700'
@@ -487,7 +503,7 @@ export default function Sidebar() {
         </div>
 
         {/* User Role Badges - Show when user has multiple roles */}
-        {hasMultipleRoles && !isAdmin && (
+        {hasMultipleRoles && (
           <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
             <div className="flex flex-wrap gap-2">
               {userRoles.map(role => (
@@ -552,8 +568,8 @@ export default function Sidebar() {
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-right">{item.name}</span>
-                              {/* Show role badge for non-admin multi-role users */}
-                              {hasMultipleRoles && !isAdmin && item.roles && item.roles.length === 1 && (
+                              {/* Show role badge for multi-role users */}
+                              {hasMultipleRoles && item.roles && item.roles.length === 1 && (
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${getRoleBadgeColor(item.roles[0])}`}>
                                   {getRoleLabel(item.roles[0])}
                                 </span>
@@ -586,7 +602,7 @@ export default function Sidebar() {
                         <div className="flex items-center gap-2">
                           <span className="text-right">{action.name}</span>
                           {/* Show role badge for multi-role quick actions */}
-                          {hasMultipleRoles && !isAdmin && action.role && (
+                          {hasMultipleRoles && action.role && (
                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${getRoleBadgeColor(action.role)}`}>
                               {getRoleLabel(action.role)}
                             </span>

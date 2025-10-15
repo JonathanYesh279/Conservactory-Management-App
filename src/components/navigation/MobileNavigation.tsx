@@ -38,7 +38,6 @@ const mainNavigation: NavigationItem[] = [
   { name: 'שיעורי תיאוריה', href: '/theory-lessons', icon: BookOpen },
   { name: 'תזמורות', href: '/orchestras', icon: Music, badge: 5 },
   { name: 'חזרות', href: '/rehearsals', icon: Calendar },
-  { name: 'נוכחות', href: '/attendance', icon: UserCheck },
   { name: 'דוחות', href: '/reports', icon: BarChart3 },
   { name: 'הגדרות', href: '/settings', icon: Settings }
 ]

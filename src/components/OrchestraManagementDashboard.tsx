@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
-import { 
-  Users, 
-  Music, 
-  Calendar, 
-  MapPin, 
-  User, 
+import {
+  Users,
+  Music,
+  Calendar,
+  MapPin,
+  User,
   AlertCircle,
   Clock,
   Edit,
   Eye,
-  UserPlus
+  UserPlus,
+  Trash2
 } from 'lucide-react'
 import { Card } from './ui/Card'
 import StatsCard from './ui/StatsCard'
@@ -62,12 +63,14 @@ interface OrchestraManagementDashboardProps {
   onViewDetails?: (orchestraId: string) => void
   onEditOrchestra?: (orchestra: Orchestra) => void
   onManageMembers?: (orchestraId: string) => void
+  onDeleteOrchestra?: (orchestraId: string) => void
 }
 
 export default function OrchestraManagementDashboard({
   onViewDetails,
   onEditOrchestra,
-  onManageMembers
+  onManageMembers,
+  onDeleteOrchestra
 }: OrchestraManagementDashboardProps) {
   const [orchestras, setOrchestras] = useState<OrchestraWithDetails[]>([])
   const [loading, setLoading] = useState(true)
@@ -271,9 +274,9 @@ export default function OrchestraManagementDashboard({
           const readiness = getOrchestraReadiness(orchestra)
 
           return (
-            <Card 
-              key={orchestra._id} 
-              className="hover:shadow-lg transition-shadow cursor-pointer hover:border-primary-300" 
+            <Card
+              key={orchestra._id}
+              className="hover:shadow-lg transition-shadow cursor-pointer hover:border-primary-300 p-5"
               onClick={() => onViewDetails?.(orchestra._id)}
             >
               <div className="space-y-4">
@@ -368,6 +371,16 @@ export default function OrchestraManagementDashboard({
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
+                      onManageMembers?.(orchestra._id)
+                    }}
+                    className="flex items-center gap-1 px-3 py-2 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+                  >
+                    <UserPlus className="w-3 h-3" />
+                    חברים
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
                       onEditOrchestra?.(orchestra)
                     }}
                     className="flex items-center gap-1 px-3 py-2 text-xs bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
@@ -378,12 +391,11 @@ export default function OrchestraManagementDashboard({
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      onManageMembers?.(orchestra._id)
+                      onDeleteOrchestra?.(orchestra._id)
                     }}
-                    className="flex items-center gap-1 px-3 py-2 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+                    className="flex items-center gap-1 px-3 py-2 text-xs bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors"
                   >
-                    <UserPlus className="w-3 h-3" />
-                    חברים
+                    <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
               </div>

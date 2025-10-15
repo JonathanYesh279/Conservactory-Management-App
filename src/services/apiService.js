@@ -406,21 +406,25 @@ export const studentService = {
     try {
       // Ensure schoolYearId is included if provided
       const params = { ...filters };
-      
-      const students = await apiClient.get('/student', params);
-      
+
+      const response = await apiClient.get('/student', params);
+
+      // Handle both paginated and non-paginated responses
+      const isPaginated = response && response.data && response.pagination;
+      const studentsArray = isPaginated ? response.data : (Array.isArray(response) ? response : []);
+
       // Process students to fix schema mismatch and add computed fields
-      const processedStudents = Array.isArray(students) ? students.map(student => ({
+      const processedStudents = studentsArray.map(student => ({
         ...student,
         // Add computed fields for frontend compatibility
         primaryInstrument: student.academicInfo?.instrumentProgress?.find(
           progress => progress.isPrimary === true
         )?.instrumentName || null,
-        
+
         primaryStage: student.academicInfo?.instrumentProgress?.find(
           progress => progress.isPrimary === true
         )?.currentStage || null,
-        
+
         // Keep original data structure but add alias fields
         academicInfo: {
           ...student.academicInfo,
@@ -431,10 +435,18 @@ export const studentService = {
             stage: progress.currentStage        // Frontend expects 'stage'
           })) || []
         }
-      })) : [];
-      
-      console.log(`📚 Retrieved ${processedStudents.length} students with processed schema`);
-      
+      }));
+
+      console.log(`📚 Retrieved ${processedStudents.length} students with processed schema${isPaginated ? ` (Page ${response.pagination.currentPage}/${response.pagination.totalPages})` : ''}`);
+
+      // Return in the same format as received
+      if (isPaginated) {
+        return {
+          data: processedStudents,
+          pagination: response.pagination
+        };
+      }
+
       return processedStudents;
     } catch (error) {
       console.error('Error fetching students:', error);
@@ -1214,11 +1226,15 @@ export const teacherService = {
     try {
       // Ensure schoolYearId is included if provided
       const params = { ...filters };
-      
-      const teachers = await apiClient.get('/teacher', params);
-      
+
+      const response = await apiClient.get('/teacher', params);
+
+      // Handle both paginated and non-paginated responses
+      const isPaginated = response && response.data && response.pagination;
+      const teachersArray = isPaginated ? response.data : (Array.isArray(response) ? response : []);
+
       // Process teachers to match frontend expectations and add computed fields
-      const processedTeachers = Array.isArray(teachers) ? teachers.map(teacher => ({
+      const processedTeachers = teachersArray.map(teacher => ({
         ...teacher,
         // Add computed fields for easier frontend use
         primaryRole: teacher.roles?.[0] || 'לא מוגדר',
@@ -1227,27 +1243,36 @@ export const teacherService = {
         activeStudentIds: teacher.teaching?.studentIds || [],
         hasTimeBlocks: teacher.teaching?.timeBlocks?.length > 0,
         timeBlockCount: teacher.teaching?.timeBlocks?.length || 0,
-        
+
         // Flatten active status (check both levels)
         isTeacherActive: teacher.isActive && teacher.professionalInfo?.isActive,
-        
+
         // Add teaching availability summary
         availabilityDays: teacher.teaching?.timeBlocks?.map(block => block.day) || [],
-        totalTeachingHours: teacher.teaching?.timeBlocks?.reduce((total, block) => 
+        totalTeachingHours: teacher.teaching?.timeBlocks?.reduce((total, block) =>
           total + (block.totalDuration || 0), 0) || 0,
-        
+
         // Orchestra/Ensemble assignments
         orchestraCount: teacher.conducting?.orchestraIds?.length || 0,
         ensembleCount: teacher.conducting?.ensemblesIds?.length || 0,
-        
+
         // Legacy compatibility fields
         assignmentCount: teacher.teaching?.studentIds?.length || 0,
         activeStudents: teacher.teaching?.studentIds?.length || 0,
         isActive: teacher.isActive && teacher.professionalInfo?.isActive,
         primaryInstrument: teacher.professionalInfo?.instrument || 'לא הוגדר'
-      })) : [];
-      
-      console.log(`👨‍🏫 Retrieved ${processedTeachers.length} teachers with processed data`);
+      }));
+
+      console.log(`👨‍🏫 Retrieved ${processedTeachers.length} teachers with processed data${isPaginated ? ` (Page ${response.pagination.currentPage}/${response.pagination.totalPages})` : ''}`);
+
+      // Return in the same format as received
+      if (isPaginated) {
+        return {
+          data: processedTeachers,
+          pagination: response.pagination
+        };
+      }
+
       return processedTeachers;
     } catch (error) {
       console.error('Error fetching teachers:', error);

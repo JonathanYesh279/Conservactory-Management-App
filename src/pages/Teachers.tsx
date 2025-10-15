@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Filter, Loader, Calendar, Users, X, Grid, List, Eye, Edit, Trash2 } from 'lucide-react'
+import { Search, Plus, Filter, Loader, Calendar, Users, X, Grid, List, Eye, Edit, Trash2, ChevronDown } from 'lucide-react'
 import { Card } from '../components/ui/card'
 import Table, { StatusBadge } from '../components/ui/Table'
 import TeacherCard from '../components/TeacherCard'
@@ -59,6 +59,12 @@ export default function Teachers() {
     instrument: '',
     role: ''
   })
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [totalTeachersCount, setTotalTeachersCount] = useState(0)
+  const TEACHERS_PER_PAGE = 20
   const [selectedTeacher, setSelectedTeacher] = useState(null)
   const [scheduleData, setScheduleData] = useState(null)
   const [scheduleLoading, setScheduleLoading] = useState(false)
@@ -75,19 +81,49 @@ export default function Teachers() {
   useEffect(() => {
     if (!schoolYearLoading) {
       // Load even if no school year is selected, backend will handle it
-      loadTeachers()
+      loadTeachers(1, false)
     }
   }, [currentSchoolYear, schoolYearLoading])
 
-  const loadTeachers = async () => {
+  const loadTeachers = async (page = 1, append = false) => {
     try {
-      setLoading(true)
+      if (append) {
+        setLoadingMore(true)
+      } else {
+        setLoading(true)
+        setCurrentPage(1)
+        setHasMore(true)
+      }
       setError(null)
-      
-      // Include schoolYearId in the request
-      const filters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
-      const teachersData = await apiService.teachers.getTeachers(filters)
-      
+
+      console.log('Loading teachers for page:', page)
+
+      // Include schoolYearId and pagination in the request
+      const filters = {
+        ...(currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}),
+        page,
+        limit: TEACHERS_PER_PAGE
+      }
+      const result = await apiService.teachers.getTeachers(filters)
+
+      let teachersData
+      let paginationMeta = null
+
+      // Check if response is paginated
+      if (result.data && result.pagination) {
+        teachersData = result.data
+        paginationMeta = result.pagination
+        setHasMore(result.pagination.hasNextPage)
+        setTotalTeachersCount(result.pagination.totalCount)
+        console.log('Loaded teachers page', page, ':', result.data.length, '/', result.pagination.totalCount)
+      } else {
+        // Fallback for non-paginated response
+        teachersData = result
+        setHasMore(false)
+        setTotalTeachersCount(result.length)
+        console.log('Loaded all teachers:', result.length)
+      }
+
       // Filter out current user from the list and use processed data from API service with computed fields
       const filteredTeachers = teachersData.filter(teacher => teacher._id !== user?._id)
       const transformedTeachers = filteredTeachers.map(teacher => ({
@@ -152,13 +188,19 @@ export default function Teachers() {
           </div>
         )
       }))
-      
-      setTeachers(transformedTeachers)
+
+      // Either append to existing teachers or replace them
+      if (append) {
+        setTeachers(prevTeachers => [...prevTeachers, ...transformedTeachers])
+      } else {
+        setTeachers(transformedTeachers)
+      }
     } catch (err) {
       console.error('Error loading teachers:', err)
       setError(err.message)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
@@ -242,8 +284,8 @@ export default function Teachers() {
 
     try {
       await apiService.teachers.deleteTeacher(teacherToDelete.id)
-      // Refresh the teachers list
-      loadTeachers()
+      // Refresh the teachers list from page 1
+      loadTeachers(1, false)
       setShowDeleteConfirm(false)
       setTeacherToDelete(null)
     } catch (error) {
@@ -272,11 +314,24 @@ export default function Teachers() {
   }
 
   const handleTeacherAdded = (newTeacher: any) => {
-    // Refresh the teachers list
+    // Refresh the teachers list from page 1
     if (!schoolYearLoading) {
-      loadTeachers()
+      loadTeachers(1, false)
     }
   }
+
+  // Handle loading more teachers
+  const handleLoadMore = async () => {
+    const nextPage = currentPage + 1
+    setCurrentPage(nextPage)
+    await loadTeachers(nextPage, true)
+  }
+
+  // Reset pagination when filters or search change
+  useEffect(() => {
+    setCurrentPage(1)
+    setHasMore(true)
+  }, [searchTerm, filters.instrument, filters.role])
 
   // Available instruments list
   const allInstruments = [
@@ -323,12 +378,13 @@ export default function Teachers() {
   })
 
   // Calculate statistics using correct database structure
-  const totalTeachers = teachers.length
+  // Use totalTeachersCount from pagination when available, otherwise use loaded teachers length
+  const totalTeachers = totalTeachersCount > 0 ? totalTeachersCount : teachers.length
   const activeTeachers = teachers.filter(t => t.isActive).length
   const totalStudents = teachers.reduce((sum, t) => sum + t.studentCount, 0)
   const avgStudentsPerTeacher = totalTeachers > 0 ? (totalStudents / totalTeachers).toFixed(1) : 0
-  
-  // Additional statistics from enhanced data
+
+  // Additional statistics from enhanced data (based on loaded teachers only)
   const teachersWithAvailability = teachers.filter(t => t.hasTimeBlocks).length
   const totalTeachingHours = teachers.reduce((sum, t) => sum + t.totalTeachingHours, 0)
   const teachersWithOrchestras = teachers.filter(t => t.orchestraCount > 0).length
@@ -439,8 +495,8 @@ export default function Teachers() {
       <div className="text-center py-12">
         <div className="text-red-600 text-lg mb-4">❌ שגיאה בטעינת הנתונים</div>
         <div className="text-gray-600 mb-6">{error}</div>
-        <button 
-          onClick={loadTeachers}
+        <button
+          onClick={() => loadTeachers(1, false)}
           className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
         >
           נסה שוב
@@ -605,7 +661,10 @@ export default function Teachers() {
           {searchTerm || filters.instrument || filters.role ? (
             <span>מציג {filteredTeachers.length} מתוך {totalTeachers} מורים</span>
           ) : (
-            <span>סה"כ {totalTeachers} מורים</span>
+            <span>
+              מציג {teachers.length} מתוך {totalTeachers} מורים
+              {hasMore && <span className="text-primary-600 font-medium"> (טען עוד לצפייה בנוספים)</span>}
+            </span>
           )}
         </div>
         
@@ -697,6 +756,29 @@ export default function Teachers() {
       {filteredTeachers.length === 0 && !loading && (
         <div className="text-center py-12 text-gray-500">
           לא נמצאו מורים התואמים לחיפוש
+        </div>
+      )}
+
+      {/* Load More Button */}
+      {hasMore && filteredTeachers.length > 0 && !loading && (
+        <div className="flex justify-center mt-8 mb-6">
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+          >
+            {loadingMore ? (
+              <>
+                <Loader className="w-5 h-5 animate-spin" />
+                <span>טוען עוד מורים...</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-5 h-5" />
+                <span>טען עוד מורים</span>
+              </>
+            )}
+          </button>
         </div>
       )}
 

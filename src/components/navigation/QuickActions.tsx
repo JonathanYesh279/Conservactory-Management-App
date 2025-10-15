@@ -51,7 +51,7 @@ const allQuickActions: QuickAction[] = [
   {
     id: 'student-attendance',
     label: 'רישום נוכחות תלמידים',
-    href: '/attendance/students',
+    href: '/profile?tab=attendance',
     icon: UserCheck,
     description: 'רישום נוכחות לשיעור או חזרה',
     category: 'ניהול תלמידים',

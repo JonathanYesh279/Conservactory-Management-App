@@ -29,6 +29,12 @@ export default function Students() {
     instrument: '',
     stageLevel: ''
   })
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [totalStudentsCount, setTotalStudentsCount] = useState(0)
+  const STUDENTS_PER_PAGE = 20
   const [showForm, setShowForm] = useState(false)
   const [editingStudentId, setEditingStudentId] = useState(null)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
@@ -67,7 +73,7 @@ export default function Students() {
   useEffect(() => {
     if (!schoolYearLoading) {
       // Load even if no school year is selected, backend will handle it
-      loadStudents()
+      loadStudents(1, false)
     }
   }, [currentSchoolYear, schoolYearLoading])
 
@@ -114,45 +120,90 @@ export default function Students() {
     return 'admin'
   }
 
-  const loadStudents = async () => {
+  const loadStudents = async (page = 1, append = false) => {
     try {
-      setLoading(true)
+      if (append) {
+        setLoadingMore(true)
+      } else {
+        setLoading(true)
+        setCurrentPage(1)
+        setHasMore(true)
+      }
       setError(null)
 
       const userRole = getUserRole()
-      console.log('Loading students for user role:', userRole, 'User:', user?.personalInfo?.fullName)
+      console.log('Loading students for user role:', userRole, 'User:', user?.personalInfo?.fullName, 'Page:', page)
 
       let studentsResponse = []
 
+      let response
+      let paginationMeta = null
+
       if (userRole === 'admin') {
-        // Admin sees all students
-        const filters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
-        studentsResponse = await apiService.students.getStudents(filters)
-        console.log('Admin - loaded all students:', studentsResponse.length)
+        // Admin sees all students with pagination
+        const filters = {
+          ...(currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}),
+          page,
+          limit: STUDENTS_PER_PAGE
+        }
+        const result = await apiService.students.getStudents(filters)
+
+        // Check if response is paginated
+        if (result.data && result.pagination) {
+          response = result.data
+          paginationMeta = result.pagination
+          setHasMore(result.pagination.hasNextPage)
+          setTotalStudentsCount(result.pagination.totalCount)
+          console.log('Admin - loaded students page', page, ':', result.data.length, '/', result.pagination.totalCount)
+        } else {
+          // Fallback for non-paginated response
+          response = result
+          setHasMore(false)
+          setTotalStudentsCount(result.length)
+          console.log('Admin - loaded all students:', result.length)
+        }
       } else if (userRole === 'teacher') {
-        // Teacher sees only their assigned students
+        // Teacher sees only their assigned students (no pagination for now, as it's a smaller set)
         const teacherProfile = await apiService.teachers.getMyProfile()
         const assignedStudentIds = teacherProfile?.teaching?.studentIds || []
         console.log('Teacher - assigned student IDs:', assignedStudentIds)
 
         if (assignedStudentIds.length > 0) {
-          studentsResponse = await apiService.students.getBatchStudents(assignedStudentIds)
-          console.log('Teacher - loaded assigned students:', studentsResponse.length)
+          response = await apiService.students.getBatchStudents(assignedStudentIds)
+          console.log('Teacher - loaded assigned students:', response.length)
         } else {
-          studentsResponse = []
+          response = []
           console.log('Teacher - no assigned students')
         }
+        // For teachers, we load all at once, so no more pages
+        setHasMore(false)
+        setTotalStudentsCount(response.length)
       } else {
-        // Other roles get filtered students based on their permissions
-        const filters = currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}
-        const allStudents = await apiService.students.getStudents(filters)
+        // Other roles get filtered students based on their permissions with pagination
+        const filters = {
+          ...(currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}),
+          page,
+          limit: STUDENTS_PER_PAGE
+        }
+        const result = await apiService.students.getStudents(filters)
 
-        // Apply role-specific filtering here if needed
-        studentsResponse = allStudents
-        console.log('Other role - loaded students:', studentsResponse.length)
+        // Check if response is paginated
+        if (result.data && result.pagination) {
+          response = result.data
+          paginationMeta = result.pagination
+          setHasMore(result.pagination.hasNextPage)
+          setTotalStudentsCount(result.pagination.totalCount)
+          console.log('Other role - loaded students page', page, ':', result.data.length, '/', result.pagination.totalCount)
+        } else {
+          // Fallback for non-paginated response
+          response = result
+          setHasMore(false)
+          setTotalStudentsCount(result.length)
+          console.log('Other role - loaded all students:', result.length)
+        }
       }
 
-      const response = studentsResponse
+      studentsResponse = response
       
       // Map response data using CORRECT database field names
       const students = response.map(student => ({
@@ -262,13 +313,19 @@ export default function Students() {
           </div>
         )
       }))
-      
-      setStudents(transformedStudents)
+
+      // Either append to existing students or replace them
+      if (append) {
+        setStudents(prevStudents => [...prevStudents, ...transformedStudents])
+      } else {
+        setStudents(transformedStudents)
+      }
     } catch (err) {
       console.error('Error loading students:', err)
       setError(err.message)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
@@ -385,8 +442,8 @@ export default function Students() {
           }
         }
       }
-      
-      loadStudents() // Reload the students list
+
+      loadStudents(1, false) // Reload the students list from page 1
       handleCloseForm() // Close the form
     } catch (error) {
       console.error('Error saving student:', error)
@@ -401,8 +458,8 @@ export default function Students() {
   const handleDeleteStudent = async (studentId: string) => {
     try {
       await apiService.students.deleteStudent(studentId)
-      // Reload students list after successful deletion
-      loadStudents()
+      // Reload students list after successful deletion from page 1
+      loadStudents(1, false)
     } catch (err) {
       console.error('Error deleting student:', err)
       alert('שגיאה במחיקת התלמיד')
@@ -454,7 +511,7 @@ export default function Students() {
       await cascadeDeletionService.executeDelete(studentId, options)
       setShowSafeDeleteModal(false)
       setStudentToDelete(null)
-      loadStudents()
+      loadStudents(1, false)
     } catch (error) {
       console.error('Error in safe deletion:', error)
       alert('שגיאה במחיקה המאובטחת')
@@ -509,10 +566,10 @@ export default function Students() {
       setUpdatingStageLevel(stageLevelConfirm.studentId)
       
       await apiService.students.updateStudentStageLevel(stageLevelConfirm.studentId, stageLevelConfirm.newLevel)
-      
-      // Refresh students data
-      await loadStudents()
-      
+
+      // Refresh students data from page 1
+      await loadStudents(1, false)
+
       setStageLevelConfirm(null)
       setEditingStageLevelId(null)
     } catch (error) {
@@ -528,6 +585,19 @@ export default function Students() {
     setEditingStageLevelId(null)
   }
 
+  // Handle loading more students
+  const handleLoadMore = async () => {
+    const nextPage = currentPage + 1
+    setCurrentPage(nextPage)
+    await loadStudents(nextPage, true)
+  }
+
+  // Reset pagination when filters or search change
+  useEffect(() => {
+    setCurrentPage(1)
+    setHasMore(true)
+  }, [searchTerm, filters.orchestra, filters.instrument, filters.stageLevel])
+
   // Filter students based on search and filters
   const filteredStudents = students.filter(student => {
     const matchesSearch = !searchTerm || 
@@ -542,9 +612,10 @@ export default function Students() {
   })
 
   // Calculate statistics
-  const totalStudents = students.length
+  // Use totalStudentsCount from pagination when available, otherwise use loaded students length
+  const totalStudents = totalStudentsCount > 0 ? totalStudentsCount : students.length
   const activeStudents = students.filter(s => s.rawData?.isActive).length
-  const inactiveStudents = totalStudents - activeStudents
+  const inactiveStudents = students.filter(s => !s.rawData?.isActive).length
   const studentsWithLessons = students.filter(s => s.teacherAssignments > 0).length
 
   const columns = [
@@ -847,7 +918,10 @@ export default function Students() {
           {searchTerm || filters.orchestra || filters.instrument || filters.stageLevel ? (
             <span>מציג {filteredStudents.length} מתוך {totalStudents} תלמידים</span>
           ) : (
-            <span>סה"כ {totalStudents} תלמידים</span>
+            <span>
+              מציג {students.length} מתוך {totalStudents} תלמידים
+              {hasMore && <span className="text-primary-600 font-medium"> (טען עוד לצפייה בנוספים)</span>}
+            </span>
           )}
         </div>
         
@@ -1013,6 +1087,29 @@ export default function Students() {
         </div>
       )}
 
+      {/* Load More Button */}
+      {hasMore && filteredStudents.length > 0 && !loading && (
+        <div className="flex justify-center mt-8 mb-6">
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+          >
+            {loadingMore ? (
+              <>
+                <Loader className="w-5 h-5 animate-spin" />
+                <span>טוען עוד תלמידים...</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-5 h-5" />
+                <span>טען עוד תלמידים</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Delete confirmation modal */}
       <ConfirmationModal
         isOpen={showDeleteModal}
@@ -1065,7 +1162,7 @@ export default function Students() {
           setShowBatchDeletionModal(false)
           setSelectedStudents(new Set())
           setIsSelectMode(false)
-          loadStudents()
+          loadStudents(1, false)
         }}
       />
     </div>
