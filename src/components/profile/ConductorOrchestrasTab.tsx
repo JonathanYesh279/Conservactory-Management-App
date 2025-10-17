@@ -76,6 +76,7 @@ export default function ConductorOrchestrasTab() {
   const [orchestraRehearsals, setOrchestraRehearsals] = useState<Rehearsal[]>([])
   const [enrollmentFilter, setEnrollmentFilter] = useState('')
   const [memberFilter, setMemberFilter] = useState('')
+  const [loadingStudents, setLoadingStudents] = useState(false)
 
   // Notification and confirmation modals
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -94,6 +95,13 @@ export default function ConductorOrchestrasTab() {
   useEffect(() => {
     loadConductorOrchestras()
   }, [user])
+
+  // Load available students when enrollment tab is active
+  useEffect(() => {
+    if (selectedOrchestra && activeTab === 'enrollment') {
+      loadAvailableStudents()
+    }
+  }, [selectedOrchestra, activeTab])
 
   const loadConductorOrchestras = async () => {
     if (!user?._id) return
@@ -187,21 +195,53 @@ export default function ConductorOrchestrasTab() {
   }
 
   const loadAvailableStudents = async () => {
+    if (!selectedOrchestra) return
+
     try {
-      const allStudents = await apiService.students.getStudents({
+      setLoadingStudents(true)
+      console.log('🔍 Loading available students for orchestra:', selectedOrchestra)
+
+      // Get all active students
+      const response = await apiService.students.getStudents({
         status: 'active',
-        limit: 200
+        limit: 500
       })
 
+      console.log('📋 Raw API response:', response)
+
+      // Handle different response structures
+      let allStudents = []
+      if (Array.isArray(response)) {
+        allStudents = response
+      } else if (response && Array.isArray(response.data)) {
+        allStudents = response.data
+      } else if (response && response.students && Array.isArray(response.students)) {
+        allStudents = response.students
+      } else {
+        console.error('❌ Unexpected response structure:', response)
+        allStudents = []
+      }
+
+      console.log('📋 Total active students fetched:', allStudents.length)
+
+      // Get current orchestra to check its members
+      const orchestra = await apiService.orchestras.getOrchestra(selectedOrchestra)
+      const currentMemberIds = orchestra.memberIds || []
+
+      console.log('👥 Current orchestra members:', currentMemberIds.length)
+
       // Filter out students already in the selected orchestra
-      const currentMembers = orchestraMembers.map(m => m.id)
       const available = allStudents.filter(student =>
-        !currentMembers.includes(student._id)
+        !currentMemberIds.includes(student._id) && student.isActive !== false
       )
 
+      console.log('✅ Available students for enrollment:', available.length)
       setAvailableStudents(available)
     } catch (error) {
-      console.error('Error loading available students:', error)
+      console.error('❌ Error loading available students:', error)
+      setAvailableStudents([])
+    } finally {
+      setLoadingStudents(false)
     }
   }
 
@@ -775,7 +815,7 @@ export default function ConductorOrchestrasTab() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="font-semibold text-gray-900 font-reisinger-yonatan">
-                      הוסף חברים חדשים
+                      רישום חברים {!loadingStudents && `(${availableStudents.length} זמינים)`}
                     </h4>
                     <div className="relative">
                       <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -786,54 +826,72 @@ export default function ConductorOrchestrasTab() {
                         onChange={(e) => setEnrollmentFilter(e.target.value)}
                         className="pl-4 pr-10 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                         dir="rtl"
+                        disabled={loadingStudents}
                       />
                     </div>
                   </div>
 
-                  {availableStudents.filter(student =>
-                    enrollmentFilter === '' ||
-                    student.personalInfo?.fullName?.toLowerCase().includes(enrollmentFilter.toLowerCase()) ||
-                    student.academicInfo?.primaryInstrument?.toLowerCase().includes(enrollmentFilter.toLowerCase())
-                  ).length === 0 ? (
+                  {/* Loading state */}
+                  {loadingStudents ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                      <p className="text-gray-500 font-reisinger-yonatan">טוען רשימת תלמידים...</p>
+                    </div>
+                  ) : availableStudents.length === 0 ? (
                     <div className="text-center py-8">
                       <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                       <p className="text-gray-500 font-reisinger-yonatan">
-                        {enrollmentFilter ? 'לא נמצאו תלמידים' : 'אין תלמידים זמינים'}
+                        כל התלמידים כבר רשומים לתזמורת
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {availableStudents
-                        .filter(student =>
-                          enrollmentFilter === '' ||
-                          student.personalInfo?.fullName?.toLowerCase().includes(enrollmentFilter.toLowerCase()) ||
-                          student.academicInfo?.primaryInstrument?.toLowerCase().includes(enrollmentFilter.toLowerCase())
-                        )
-                        .map((student) => {
-                          const primaryInstrument = student.academicInfo?.instrumentProgress?.find(p => p.isPrimary)
-                          const instrumentName = primaryInstrument?.instrumentName || student.academicInfo?.primaryInstrument || 'לא צוין כלי'
-                          const currentStage = primaryInstrument?.currentStage
-
-                          return (
-                        <div key={student._id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200">
-                          <div>
-                            <div className="font-medium text-sm font-reisinger-yonatan">
-                              {student.personalInfo?.fullName}
-                            </div>
-                            <div className="text-xs text-gray-500 font-reisinger-yonatan">
-                              {instrumentName}{currentStage ? ` - שלב ${currentStage}` : ''}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleAddMember(student._id)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors"
-                          >
-                            <UserPlus className="w-4 h-4" />
-                            הוסף
-                          </button>
+                    <div>
+                      {availableStudents.filter(student =>
+                        enrollmentFilter === '' ||
+                        student.personalInfo?.fullName?.toLowerCase().includes(enrollmentFilter.toLowerCase()) ||
+                        student.academicInfo?.primaryInstrument?.toLowerCase().includes(enrollmentFilter.toLowerCase())
+                      ).length === 0 ? (
+                        <div className="text-center py-8">
+                          <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                          <p className="text-gray-500 font-reisinger-yonatan">
+                            לא נמצאו תלמידים תואמים
+                          </p>
                         </div>
-                          )
-                        })}
+                      ) : (
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                          {availableStudents
+                            .filter(student =>
+                              enrollmentFilter === '' ||
+                              student.personalInfo?.fullName?.toLowerCase().includes(enrollmentFilter.toLowerCase()) ||
+                              student.academicInfo?.primaryInstrument?.toLowerCase().includes(enrollmentFilter.toLowerCase())
+                            )
+                            .map((student) => {
+                              const primaryInstrument = student.academicInfo?.instrumentProgress?.find(p => p.isPrimary)
+                              const instrumentName = primaryInstrument?.instrumentName || student.academicInfo?.primaryInstrument || 'לא צוין כלי'
+                              const currentStage = primaryInstrument?.currentStage
+
+                              return (
+                            <div key={student._id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200">
+                              <div>
+                                <div className="font-medium text-sm font-reisinger-yonatan">
+                                  {student.personalInfo?.fullName}
+                                </div>
+                                <div className="text-xs text-gray-500 font-reisinger-yonatan">
+                                  {instrumentName}{currentStage ? ` - שלב ${currentStage}` : ''}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleAddMember(student._id)}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors"
+                              >
+                                <UserPlus className="w-4 h-4" />
+                                הוסף
+                              </button>
+                            </div>
+                              )
+                            })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

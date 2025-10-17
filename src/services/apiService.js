@@ -1599,23 +1599,50 @@ export const teacherService = {
  */
 export const theoryService = {
   /**
-   * Get all theory lessons with optional filters
-   * @param {Object} filters - Filter options (including schoolYearId)
-   * @returns {Promise<Array>} Array of theory lessons with exact backend schema
+   * Get all theory lessons with optional filters and pagination
+   * @param {Object} filters - Filter options (including schoolYearId, page, limit)
+   * @returns {Promise<Object>} Object with lessons array and pagination metadata
    */
   async getTheoryLessons(filters = {}) {
     try {
       // Ensure schoolYearId is included if provided
+      // Support pagination parameters: page, limit
       const params = { ...filters };
 
       const response = await apiClient.get('/theory', params);
 
-      // Extract data from the backend response structure
+      // Backend should return: { success, data: lessons, pagination: { page, limit, totalPages, totalCount } }
+      // For now, support both old format (array) and new format (object with pagination)
+
+      if (Array.isArray(response)) {
+        // Old format - just array of lessons
+        console.log(`📖 Retrieved ${response.length} theory lessons (legacy format)`);
+        return {
+          data: response,
+          pagination: {
+            page: 1,
+            limit: response.length,
+            totalPages: 1,
+            totalCount: response.length
+          }
+        };
+      }
+
+      // New format with pagination
       const lessons = response?.data || [];
+      const pagination = response?.pagination || {
+        page: 1,
+        limit: lessons.length,
+        totalPages: 1,
+        totalCount: lessons.length
+      };
 
-      console.log(`📖 Retrieved ${Array.isArray(lessons) ? lessons.length : 0} theory lessons`);
+      console.log(`📖 Retrieved ${Array.isArray(lessons) ? lessons.length : 0} theory lessons (page ${pagination.page}/${pagination.totalPages})`);
 
-      return Array.isArray(lessons) ? lessons : [];
+      return {
+        data: Array.isArray(lessons) ? lessons : [],
+        pagination
+      };
     } catch (error) {
       console.error('Error fetching theory lessons:', error);
       throw error;

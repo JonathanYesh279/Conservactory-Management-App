@@ -9,9 +9,8 @@ import BulkTheoryUpdateTab from '../components/BulkTheoryUpdateTab'
 import ConfirmationModal from '../components/ui/ConfirmationModal'
 import Modal from '../components/ui/Modal'
 import { theoryService } from '../services/apiService'
-import { 
-  filterLessons, 
-  type TheoryLesson 
+import {
+  type TheoryLesson
 } from '../utils/theoryLessonUtils'
 
 // Custom CSS for scrollbar styling
@@ -57,11 +56,13 @@ export default function TheoryLessons() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [lessonToDelete, setLessonToDelete] = useState<any>(null)
 
-  // Pagination state for date-based loading
-  const [dateRange, setDateRange] = useState({
-    pastMonthsLoaded: 1,
-    futureMonthsLoaded: 1
-  })
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [hasNextPage, setHasNextPage] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   // Bulk delete state
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
@@ -75,69 +76,88 @@ export default function TheoryLessons() {
 
   // Load theory lessons on component mount
   useEffect(() => {
-    loadTheoryLessons()
+    loadTheoryLessons(false)
   }, [])
 
-  // Reload when date range changes
+  // Reset to first page and reload when filters change
   useEffect(() => {
-    if (dateRange.pastMonthsLoaded > 1 || dateRange.futureMonthsLoaded > 1) {
-      loadTheoryLessons()
-    }
-  }, [dateRange])
+    setCurrentPage(1)
+    setLessons([])
+    loadTheoryLessons(false)
+  }, [filters, searchQuery])
 
-  const loadTheoryLessons = async () => {
+  const loadTheoryLessons = async (isLoadMore: boolean = false) => {
     try {
-      setLoading(true)
+      if (isLoadMore) {
+        setLoadingMore(true)
+      } else {
+        setLoading(true)
+      }
       setError(null)
 
-      // Calculate date range based on loaded months
-      const today = new Date()
-      const fromDate = new Date(today)
-      fromDate.setMonth(today.getMonth() - dateRange.pastMonthsLoaded)
-      fromDate.setHours(0, 0, 0, 0)
-
-      const toDate = new Date(today)
-      toDate.setMonth(today.getMonth() + dateRange.futureMonthsLoaded)
-      toDate.setHours(23, 59, 59, 999)
-
-      // Build filters with date range
-      const dateFilters = {
+      // Build filters with pagination
+      // Include search query for backend filtering
+      const params = {
         ...filters,
-        fromDate: fromDate.toISOString().split('T')[0],
-        toDate: toDate.toISOString().split('T')[0]
+        page: isLoadMore ? currentPage + 1 : currentPage,
+        limit: itemsPerPage,
+        search: searchQuery // Backend will use this for searching across title, description, teacher name, etc.
       }
 
-      console.log('📅 Loading theory lessons with date range:', {
-        fromDate: dateFilters.fromDate,
-        toDate: dateFilters.toDate,
-        pastMonths: dateRange.pastMonthsLoaded,
-        futureMonths: dateRange.futureMonthsLoaded
-      })
+      console.log('📅 Loading theory lessons with pagination:', params)
 
-      const lessonsData = await theoryService.getTheoryLessons(dateFilters)
-      setLessons(lessonsData)
+      const response = await theoryService.getTheoryLessons(params)
+
+      // Handle both new format (with pagination) and old format (array)
+      if (response.data && response.pagination) {
+        if (isLoadMore) {
+          // Append new lessons to existing ones
+          setLessons(prev => [...prev, ...response.data])
+          setCurrentPage(response.pagination.currentPage)
+        } else {
+          // Replace lessons with new data
+          setLessons(response.data)
+        }
+        setTotalPages(response.pagination.totalPages)
+        setTotalCount(response.pagination.totalCount)
+        setHasNextPage(response.pagination.hasNextPage || false)
+      } else if (Array.isArray(response)) {
+        // Legacy format
+        if (isLoadMore) {
+          setLessons(prev => [...prev, ...response])
+        } else {
+          setLessons(response)
+        }
+        setTotalPages(1)
+        setTotalCount(response.length)
+        setHasNextPage(false)
+      } else {
+        setLessons([])
+        setTotalPages(1)
+        setTotalCount(0)
+        setHasNextPage(false)
+      }
     } catch (error) {
       console.error('Error loading theory lessons:', error)
       setError('שגיאה בטעינת שיעורי התיאוריה')
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
-  // Load more past lessons (1 additional month)
-  const loadMorePastLessons = () => {
-    setDateRange(prev => ({
-      ...prev,
-      pastMonthsLoaded: prev.pastMonthsLoaded + 1
-    }))
+  // Handle load more
+  const handleLoadMore = () => {
+    if (hasNextPage && !loadingMore) {
+      loadTheoryLessons(true)
+    }
   }
 
-  // Load more future lessons (1 additional month)
-  const loadMoreFutureLessons = () => {
-    setDateRange(prev => ({
-      ...prev,
-      futureMonthsLoaded: prev.futureMonthsLoaded + 1
-    }))
+  // Handle refresh (for use by child components)
+  const handleRefresh = () => {
+    setCurrentPage(1)
+    setLessons([])
+    loadTheoryLessons(false)
   }
 
   // Helper function to format day header
@@ -173,18 +193,11 @@ export default function TheoryLessons() {
 
   // Group lessons by individual dates
   const groupedLessonsByDay = useMemo(() => {
-    // First filter the lessons
-    const filtered = filterLessons(lessons, {
-      searchQuery,
-      category: filters.category,
-      teacherId: filters.teacherId,
-      date: filters.date
-    })
-
+    // Backend handles filtering, so we use lessons directly
     // Group by date
     const lessonsByDate = new Map<string, TheoryLesson[]>()
-    
-    filtered.forEach(lesson => {
+
+    lessons.forEach(lesson => {
       const dateKey = lesson.date // Assuming date is in YYYY-MM-DD format
       if (!lessonsByDate.has(dateKey)) {
         lessonsByDate.set(dateKey, [])
@@ -240,17 +253,17 @@ export default function TheoryLessons() {
       all: [...todayLessons, ...futureLessons, ...pastLessons],
       flatList: sortedDates.flatMap(([, lessons]) => lessons)
     }
-  }, [lessons, searchQuery, filters])
+  }, [lessons])
 
   // Use the flat list for table view
   const filteredAndSortedLessons = groupedLessonsByDay.flatList
 
   // Calculate statistics
   const stats = {
-    totalLessons: lessons.length,
+    totalLessons: totalCount || lessons.length, // Use backend total count if available
     activeLessons: lessons.filter(l => l.isActive).length,
     totalStudents: lessons.reduce((sum, l) => sum + (l.studentIds?.length || 0), 0),
-    averageAttendance: lessons.length > 0 
+    averageAttendance: lessons.length > 0
       ? Math.round(lessons.reduce((sum, l) => {
           const attendees = l.attendanceList?.filter(a => a.status === 'הגיע/ה').length || 0
           return sum + (attendees / (l.maxStudents || 1))
@@ -297,7 +310,10 @@ export default function TheoryLessons() {
       setEditingLessons([])
       setFormMode('create')
       setSelectedLessons(new Set())
-      await loadTheoryLessons()
+      // Reset to first page and reload
+      setCurrentPage(1)
+      setLessons([])
+      await loadTheoryLessons(false)
     } catch (error) {
       console.error('Error saving theory lesson:', error)
       throw error
@@ -314,7 +330,10 @@ export default function TheoryLessons() {
 
     try {
       await theoryService.deleteTheoryLesson(lessonToDelete._id)
-      await loadTheoryLessons()
+      // Reset to first page and reload
+      setCurrentPage(1)
+      setLessons([])
+      await loadTheoryLessons(false)
       setShowDeleteModal(false)
       setLessonToDelete(null)
     } catch (error) {
@@ -357,7 +376,10 @@ export default function TheoryLessons() {
           return
       }
 
-      await loadTheoryLessons()
+      // Reset to first page and reload
+      setCurrentPage(1)
+      setLessons([])
+      await loadTheoryLessons(false)
       setShowBulkDeleteModal(false)
       setBulkDeleteData({ startDate: '', endDate: '', category: '', teacherId: '' })
       setError(null)
@@ -614,7 +636,7 @@ export default function TheoryLessons() {
             )}
           </div>
           <button
-            onClick={loadTheoryLessons}
+            onClick={handleRefresh}
             className="text-sm text-primary-600 hover:text-primary-700 font-medium"
           >
             רענן
@@ -728,17 +750,6 @@ export default function TheoryLessons() {
                     </div>
                   )
                 })}
-                {/* Load More Future Lessons Button */}
-                <div className="flex justify-center pt-2">
-                  <button
-                    onClick={loadMoreFutureLessons}
-                    className="flex items-center gap-2 px-6 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>טען שיעורים נוספים</span>
-                    <span className="text-sm text-blue-600">({dateRange.futureMonthsLoaded} חודשים נטענו)</span>
-                  </button>
-                </div>
               </div>
             )}
 
@@ -786,29 +797,46 @@ export default function TheoryLessons() {
                     </div>
                   )
                 })}
-                {/* Load More Past Lessons Button */}
-                <div className="flex justify-center pt-2">
-                  <button
-                    onClick={loadMorePastLessons}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>טען שיעורים נוספים</span>
-                    <span className="text-sm text-gray-600">({dateRange.pastMonthsLoaded} חודשים נטענו)</span>
-                  </button>
-                </div>
               </div>
             )}
           </div>
         )}
       </Card>
-      
+
+      {/* Load More Button */}
+      {hasNextPage && (
+        <div className="flex justify-center">
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-8 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+          >
+            {loadingMore ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>טוען...</span>
+              </>
+            ) : (
+              <>
+                <Calendar className="w-5 h-5" />
+                <span>טען עוד שיעורים</span>
+                {totalCount > lessons.length && (
+                  <span className="text-sm opacity-90">
+                    ({lessons.length} מתוך {totalCount})
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       </>
       ) : (
         /* Bulk Update Tab */
         <BulkTheoryUpdateTab
           lessons={lessons}
-          onRefresh={loadTheoryLessons}
+          onRefresh={handleRefresh}
           searchQuery={searchQuery}
           filters={filters}
         />

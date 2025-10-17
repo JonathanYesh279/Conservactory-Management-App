@@ -53,8 +53,10 @@ export default function Teachers() {
 
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [filters, setFilters] = useState({
     instrument: '',
     role: ''
@@ -63,6 +65,7 @@ export default function Teachers() {
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [totalTeachersCount, setTotalTeachersCount] = useState(0)
   const TEACHERS_PER_PAGE = 20
   const [selectedTeacher, setSelectedTeacher] = useState(null)
@@ -77,6 +80,15 @@ export default function Teachers() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [teacherToDelete, setTeacherToDelete] = useState<Teacher | null>(null)
 
+  // Debounce search term - wait 500ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
   // Fetch teachers from real API when school year changes
   useEffect(() => {
     if (!schoolYearLoading) {
@@ -90,7 +102,12 @@ export default function Teachers() {
       if (append) {
         setLoadingMore(true)
       } else {
-        setLoading(true)
+        // Only show full page loading on initial load
+        if (isInitialLoad) {
+          setLoading(true)
+        } else {
+          setSearchLoading(true)
+        }
         setCurrentPage(1)
         setHasMore(true)
       }
@@ -98,13 +115,16 @@ export default function Teachers() {
 
       console.log('Loading teachers for page:', page)
 
-      // Include schoolYearId and pagination in the request
-      const filters = {
+      // Include schoolYearId, search, filters and pagination in the request
+      const apiFilters = {
         ...(currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}),
+        // Add search and filter parameters (using debounced search term)
+        ...(debouncedSearchTerm ? { name: debouncedSearchTerm } : {}),
+        ...(filters.role ? { role: filters.role } : {}),
         page,
         limit: TEACHERS_PER_PAGE
       }
-      const result = await apiService.teachers.getTeachers(filters)
+      const result = await apiService.teachers.getTeachers(apiFilters)
 
       let teachersData
       let paginationMeta = null
@@ -200,7 +220,9 @@ export default function Teachers() {
       setError(err.message)
     } finally {
       setLoading(false)
+      setSearchLoading(false)
       setLoadingMore(false)
+      setIsInitialLoad(false)
     }
   }
 
@@ -327,11 +349,12 @@ export default function Teachers() {
     await loadTeachers(nextPage, true)
   }
 
-  // Reset pagination when filters or search change
+  // Reload teachers from page 1 when filters or debounced search change
   useEffect(() => {
-    setCurrentPage(1)
-    setHasMore(true)
-  }, [searchTerm, filters.instrument, filters.role])
+    if (!schoolYearLoading) {
+      loadTeachers(1, false)
+    }
+  }, [debouncedSearchTerm, filters.instrument, filters.role])
 
   // Available instruments list
   const allInstruments = [
@@ -364,17 +387,11 @@ export default function Teachers() {
     }
   }
 
-  // Filter teachers based on search and filters using correct database structure
+  // Filter teachers - backend handles name and role filtering, but instrument is client-side
+  // since the backend doesn't support instrument parameter for teachers
   const filteredTeachers = teachers.filter(teacher => {
-    const matchesSearch = !searchTerm || 
-      teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      teacher.specialization.toLowerCase().includes(searchTerm.toLowerCase())
-    
     const matchesInstrument = !filters.instrument || teacher.specialization.includes(filters.instrument)
-    // Handle roles array properly
-    const matchesRole = !filters.role || (teacher.roles && teacher.roles.includes(filters.role))
-    
-    return matchesSearch && matchesInstrument && matchesRole
+    return matchesInstrument
   })
 
   // Calculate statistics using correct database structure
@@ -659,7 +676,10 @@ export default function Teachers() {
       <div className="mb-4 flex items-center justify-between">
         <div className="text-sm text-gray-600">
           {searchTerm || filters.instrument || filters.role ? (
-            <span>מציג {filteredTeachers.length} מתוך {totalTeachers} מורים</span>
+            <span>
+              מציג {filteredTeachers.length} מורים מתוך {totalTeachers} סה"כ
+              {hasMore && <span className="text-primary-600 font-medium"> (טען עוד לתוצאות נוספות)</span>}
+            </span>
           ) : (
             <span>
               מציג {teachers.length} מתוך {totalTeachers} מורים
@@ -706,6 +726,16 @@ export default function Teachers() {
       </div>
 
       {/* Teachers Display */}
+      <div className="relative">
+        {searchLoading && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+            <div className="text-center">
+              <Loader className="w-6 h-6 animate-spin mx-auto mb-2 text-primary-600" />
+              <div className="text-sm text-gray-600">מחפש מורים...</div>
+            </div>
+          </div>
+        )}
+
       {viewMode === 'table' ? (
         <Table
           columns={columns}
@@ -753,11 +783,12 @@ export default function Teachers() {
         </div>
       )}
 
-      {filteredTeachers.length === 0 && !loading && (
+      {filteredTeachers.length === 0 && !loading && !searchLoading && (
         <div className="text-center py-12 text-gray-500">
           לא נמצאו מורים התואמים לחיפוש
         </div>
       )}
+      </div>
 
       {/* Load More Button */}
       {hasMore && filteredTeachers.length > 0 && !loading && (

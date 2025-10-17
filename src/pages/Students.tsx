@@ -22,8 +22,10 @@ export default function Students() {
   const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [filters, setFilters] = useState({
     orchestra: '',
     instrument: '',
@@ -33,6 +35,7 @@ export default function Students() {
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [totalStudentsCount, setTotalStudentsCount] = useState(0)
   const STUDENTS_PER_PAGE = 20
   const [showForm, setShowForm] = useState(false)
@@ -56,6 +59,15 @@ export default function Students() {
   
   // Cascade deletion hooks
   const { previewDeletion, executeDeletion, isDeleting } = useCascadeDeletion()
+
+  // Debounce search term - wait 500ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   // Close stage level edit mode when clicking outside
   useEffect(() => {
@@ -125,7 +137,12 @@ export default function Students() {
       if (append) {
         setLoadingMore(true)
       } else {
-        setLoading(true)
+        // Only show full page loading on initial load
+        if (isInitialLoad) {
+          setLoading(true)
+        } else {
+          setSearchLoading(true)
+        }
         setCurrentPage(1)
         setHasMore(true)
       }
@@ -140,13 +157,17 @@ export default function Students() {
       let paginationMeta = null
 
       if (userRole === 'admin') {
-        // Admin sees all students with pagination
-        const filters = {
+        // Admin sees all students with pagination and filters
+        const apiFilters = {
           ...(currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}),
+          // Add search and filter parameters (using debounced search term)
+          ...(debouncedSearchTerm ? { name: debouncedSearchTerm } : {}),
+          ...(filters.instrument ? { instrument: filters.instrument } : {}),
+          ...(filters.stageLevel ? { stage: filters.stageLevel } : {}),
           page,
           limit: STUDENTS_PER_PAGE
         }
-        const result = await apiService.students.getStudents(filters)
+        const result = await apiService.students.getStudents(apiFilters)
 
         // Check if response is paginated
         if (result.data && result.pagination) {
@@ -179,13 +200,17 @@ export default function Students() {
         setHasMore(false)
         setTotalStudentsCount(response.length)
       } else {
-        // Other roles get filtered students based on their permissions with pagination
-        const filters = {
+        // Other roles get filtered students based on their permissions with pagination and filters
+        const apiFilters = {
           ...(currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}),
+          // Add search and filter parameters (using debounced search term)
+          ...(debouncedSearchTerm ? { name: debouncedSearchTerm } : {}),
+          ...(filters.instrument ? { instrument: filters.instrument } : {}),
+          ...(filters.stageLevel ? { stage: filters.stageLevel } : {}),
           page,
           limit: STUDENTS_PER_PAGE
         }
-        const result = await apiService.students.getStudents(filters)
+        const result = await apiService.students.getStudents(apiFilters)
 
         // Check if response is paginated
         if (result.data && result.pagination) {
@@ -325,7 +350,9 @@ export default function Students() {
       setError(err.message)
     } finally {
       setLoading(false)
+      setSearchLoading(false)
       setLoadingMore(false)
+      setIsInitialLoad(false)
     }
   }
 
@@ -592,24 +619,15 @@ export default function Students() {
     await loadStudents(nextPage, true)
   }
 
-  // Reset pagination when filters or search change
+  // Reload students from page 1 when filters or debounced search change
   useEffect(() => {
-    setCurrentPage(1)
-    setHasMore(true)
-  }, [searchTerm, filters.orchestra, filters.instrument, filters.stageLevel])
+    if (!schoolYearLoading) {
+      loadStudents(1, false)
+    }
+  }, [debouncedSearchTerm, filters.orchestra, filters.instrument, filters.stageLevel])
 
-  // Filter students based on search and filters
-  const filteredStudents = students.filter(student => {
-    const matchesSearch = !searchTerm || 
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.instrument.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesOrchestra = !filters.orchestra || student.orchestra === filters.orchestra
-    const matchesInstrument = !filters.instrument || student.instrument === filters.instrument
-    const matchesStageLevel = !filters.stageLevel || student.stageLevel === parseInt(filters.stageLevel)
-    
-    return matchesSearch && matchesOrchestra && matchesInstrument && matchesStageLevel
-  })
+  // No client-side filtering - backend does the filtering
+  const filteredStudents = students
 
   // Calculate statistics
   // Use totalStudentsCount from pagination when available, otherwise use loaded students length
@@ -916,7 +934,10 @@ export default function Students() {
       <div className="mb-4 flex items-center justify-between">
         <div className="text-sm text-gray-600">
           {searchTerm || filters.orchestra || filters.instrument || filters.stageLevel ? (
-            <span>מציג {filteredStudents.length} מתוך {totalStudents} תלמידים</span>
+            <span>
+              מציג {students.length} תלמידים מתוך {totalStudents} סה"כ
+              {hasMore && <span className="text-primary-600 font-medium"> (טען עוד לתוצאות נוספות)</span>}
+            </span>
           ) : (
             <span>
               מציג {students.length} מתוך {totalStudents} תלמידים
@@ -988,6 +1009,16 @@ export default function Students() {
       </div>
 
       {/* Students Display */}
+      <div className="relative">
+        {searchLoading && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+            <div className="text-center">
+              <Loader className="w-6 h-6 animate-spin mx-auto mb-2 text-primary-600" />
+              <div className="text-sm text-gray-600">מחפש תלמידים...</div>
+            </div>
+          </div>
+        )}
+
       {viewMode === 'table' ? (
         <Table
           columns={columns}
@@ -1081,11 +1112,12 @@ export default function Students() {
         </div>
       )}
 
-      {filteredStudents.length === 0 && !loading && (
+      {filteredStudents.length === 0 && !loading && !searchLoading && (
         <div className="text-center py-12 text-gray-500">
           לא נמצאו תלמידים התואמים לחיפוש
         </div>
       )}
+      </div>
 
       {/* Load More Button */}
       {hasMore && filteredStudents.length > 0 && !loading && (
