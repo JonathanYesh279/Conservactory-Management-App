@@ -243,7 +243,9 @@ const StudentForm: React.FC<StudentFormProps> = ({
       try {
         const theoryList = await apiService.theory.getTheoryLessons()
         console.log('Fetched theory lessons:', theoryList)
-        setTheoryLessons(theoryList || [])
+        // Extract the array from the response - handle both array and object responses
+        const lessonsArray = Array.isArray(theoryList) ? theoryList : (theoryList?.data || [])
+        setTheoryLessons(lessonsArray)
       } catch (error) {
         console.error('Error fetching theory lessons:', error)
         setTheoryLessons([])
