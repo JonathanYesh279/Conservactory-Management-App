@@ -172,41 +172,7 @@ export default function Teachers() {
         rolesDisplay: teacher.allRoles?.length > 0 ? teacher.allRoles.join(', ') : 'לא מוגדר',
         status: <StatusBadge status={teacher.isTeacherActive ? "active" : "inactive"}>
           {teacher.isTeacherActive ? 'פעיל' : 'לא פעיל'}
-        </StatusBadge>,
-        actions: (
-          <div className="flex space-x-2 space-x-reverse">
-            <button
-              className="p-1.5 text-primary-600 hover:text-primary-900 hover:bg-primary-100 rounded transition-colors"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleViewTeacher(teacher._id)
-              }}
-              title="צפה בפרטי המורה"
-            >
-              <Eye className="w-4 h-4" />
-            </button>
-            <button
-              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleEditTeacher(teacher._id)
-              }}
-              title="ערוך פרטי המורה"
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-            <button
-              className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-100 rounded transition-colors"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDeleteTeacher(teacher._id)
-              }}
-              title="מחק מורה"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        )
+        </StatusBadge>
       }))
 
       // Either append to existing teachers or replace them
@@ -413,7 +379,46 @@ export default function Teachers() {
     { key: 'rolesDisplay', header: 'תפקידים' },
     { key: 'studentCount', header: 'מס\' תלמידים', align: 'center' as const },
     { key: 'status', header: 'סטטוס', align: 'center' as const },
-    { key: 'actions', header: 'פעולות', align: 'center' as const, width: '100px' },
+    {
+      key: 'actions',
+      header: 'פעולות',
+      align: 'center' as const,
+      width: '100px',
+      render: (row: any) => (
+        <div className="flex space-x-2 space-x-reverse justify-center">
+          <button
+            className="p-1.5 text-primary-600 hover:text-primary-900 hover:bg-primary-100 rounded transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleViewTeacher(row.id)
+            }}
+            title="צפה בפרטי המורה"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleEditTeacher(row.id)
+            }}
+            title="ערוך פרטי המורה"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-100 rounded transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleDeleteTeacher(row.id)
+            }}
+            title="מחק מורה"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )
+    },
   ]
 
   // Schedule display component
