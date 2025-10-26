@@ -10,6 +10,7 @@ import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import { lazyWithRetry, initializeBundleOptimizations } from './utils/bundleOptimization'
+import { Toaster } from 'react-hot-toast'
 
 // Lazy load all pages with retry mechanism for better reliability
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'), 'Dashboard')
@@ -473,13 +474,57 @@ function App() {
   useEffect(() => {
     initializeBundleOptimizations()
   }, [])
-  
+
   return (
     <QueryProvider>
       <AuthProvider>
         <SchoolYearProvider>
           <BagrutProvider>
             <SidebarProvider>
+              <Toaster
+                position="top-center"
+                reverseOrder={false}
+                gutter={8}
+                containerClassName=""
+                containerStyle={{}}
+                toastOptions={{
+                  // Default options for all toasts
+                  duration: 4000,
+                  style: {
+                    background: '#fff',
+                    color: '#363636',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontFamily: 'Reisinger-Yonatan, sans-serif',
+                    direction: 'rtl'
+                  },
+                  // Success toast styling
+                  success: {
+                    style: {
+                      background: '#F0FDF4',
+                      color: '#166534',
+                      border: '1px solid #86EFAC'
+                    },
+                    iconTheme: {
+                      primary: '#22C55E',
+                      secondary: '#F0FDF4'
+                    }
+                  },
+                  // Error toast styling
+                  error: {
+                    style: {
+                      background: '#FEE2E2',
+                      color: '#991B1B',
+                      border: '1px solid #FCA5A5'
+                    },
+                    iconTheme: {
+                      primary: '#EF4444',
+                      secondary: '#FEE2E2'
+                    }
+                  }
+                }}
+              />
               <AppRoutes />
             </SidebarProvider>
           </BagrutProvider>

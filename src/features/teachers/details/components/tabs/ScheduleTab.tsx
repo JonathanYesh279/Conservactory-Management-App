@@ -15,6 +15,8 @@ import TeacherWeeklyCalendar from '../../../../../components/schedule/TeacherWee
 import { orchestraEnrollmentApi } from '../../../../../services/orchestraEnrollmentApi'
 import apiService from '../../../../../services/apiService'
 import TimeBlockForm from '../../../../../components/teacher/TimeBlockForm'
+import toast from 'react-hot-toast'
+import { VALID_LOCATIONS } from '../../../../../constants/locations'
 
 interface ScheduleTabProps {
   teacher: Teacher
@@ -32,6 +34,18 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
   const [isUpdating, setIsUpdating] = useState(false)
   const [teacherData, setTeacherData] = useState(teacher)
   const [deleteConfirmation, setDeleteConfirmation] = useState<{timeBlock: any} | null>(null)
+
+  // Helper function to calculate duration in minutes from time strings
+  const calculateDurationFromTimes = (startTime: string, endTime: string): number => {
+    if (!startTime || !endTime) return 0
+
+    const [startHour, startMin] = startTime.split(':').map(Number)
+    const [endHour, endMin] = endTime.split(':').map(Number)
+    const startMinutes = startHour * 60 + startMin
+    const endMinutes = endHour * 60 + endMin
+
+    return endMinutes - startMinutes
+  }
 
   // Load orchestra and ensemble activities
   useEffect(() => {
@@ -177,12 +191,17 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
   // Combine time blocks and schedule data for יום לימוד
   const allTeachingDays = useMemo(() => {
     const days = []
-    
+
     // Add from timeBlocks (modern structure)
     if (teacherData.teaching?.timeBlocks) {
-      days.push(...teacherData.teaching.timeBlocks)
+      const processedTimeBlocks = teacherData.teaching.timeBlocks.map(block => ({
+        ...block,
+        // Always recalculate duration from times to ensure accuracy
+        totalDuration: calculateDurationFromTimes(block.startTime, block.endTime)
+      }))
+      days.push(...processedTimeBlocks)
     }
-    
+
     // Add from schedule (legacy structure) - convert to timeBlocks format
     if (teacherData.teaching?.schedule) {
       teacherData.teaching.schedule.forEach(scheduleSlot => {
@@ -193,7 +212,8 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
             day: scheduleSlot.day,
             startTime: scheduleSlot.startTime,
             endTime: scheduleSlot.endTime,
-            totalDuration: scheduleSlot.duration || 0,
+            // Calculate duration from actual times instead of using stored duration
+            totalDuration: calculateDurationFromTimes(scheduleSlot.startTime, scheduleSlot.endTime),
             location: scheduleSlot.location,
             notes: scheduleSlot.notes,
             isActive: scheduleSlot.isAvailable !== false,
@@ -203,8 +223,24 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
         }
       })
     }
-    
-    return days
+
+    // Sort by day of week (Sunday to Saturday)
+    // In RTL grid, this makes Sunday appear on the left side
+    const getDayOrder = (day: string) => {
+      const index = daysOfWeek.indexOf(day)
+      return index === -1 ? 999 : index
+    }
+
+    return days.sort((a, b) => {
+      // First sort by day of week (ascending order)
+      const dayComparison = getDayOrder(a.day) - getDayOrder(b.day)
+      if (dayComparison !== 0) return dayComparison
+
+      // If same day, sort by start time
+      const aTime = a.startTime || '00:00'
+      const bTime = b.startTime || '00:00'
+      return aTime.localeCompare(bTime)
+    })
   }, [teacherData.teaching?.timeBlocks, teacherData.teaching?.schedule])
 
   // Group teaching days by day
@@ -564,12 +600,17 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   מיקום
                 </label>
-                <input
-                  type="text"
-                  defaultValue={selectedTimeBlock.location}
-                  placeholder="חדר, אולם, או מיקום אחר"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
+                <select
+                  defaultValue={selectedTimeBlock.location || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+                >
+                  <option value="">בחר מיקום...</option>
+                  {VALID_LOCATIONS.map((location) => (
+                    <option key={location} value={location}>
+                      {location}
+                    </option>
+                  ))}
+                </select>
               </div>
               
               <div>
@@ -609,7 +650,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
                     const timeInputs = form.querySelectorAll('input[type="time"]')
                     const startTime = (timeInputs[0] as HTMLInputElement).value
                     const endTime = (timeInputs[1] as HTMLInputElement).value
-                    const location = (form.querySelector('input[type="text"]') as HTMLInputElement).value
+                    const location = (form.querySelector('select') as HTMLSelectElement).value
                     const notes = (form.querySelector('textarea') as HTMLTextAreaElement).value
                     const isActive = (form.querySelector('input[type="checkbox"]') as HTMLInputElement).checked
                     
@@ -683,7 +724,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
                         console.log('✅ Update successful:', result)
                       } else {
                         // For modern timeBlocks, use the specific API endpoint
-                        await apiService.teachers.updateTimeBlock(teacherId, selectedTimeBlock._id, {
+                        await apiService.teacherSchedule.updateTimeBlock(teacherId, selectedTimeBlock._id, {
                           startTime,
                           endTime,
                           totalDuration: duration,
@@ -699,7 +740,18 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
                     } catch (error) {
                       console.error('❌ Failed to update teaching day:', error)
                       console.error('Error details:', error.response?.data || error.message)
-                      alert('שגיאה בעדכון יום הלימוד. אנא נסה שוב.')
+                      toast.error('שגיאה בעדכון יום הלימוד. אנא נסה שוב.', {
+                        duration: 4000,
+                        position: 'top-center',
+                        style: {
+                          background: '#FEE2E2',
+                          color: '#991B1B',
+                          border: '1px solid #FCA5A5',
+                          padding: '16px',
+                          fontSize: '14px',
+                          fontFamily: 'Reisinger-Yonatan, sans-serif'
+                        }
+                      })
                     } finally {
                       setIsUpdating(false)
                     }
@@ -796,7 +848,18 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
                   } catch (error) {
                     console.error('❌ Failed to delete teaching day:', error)
                     console.error('Error details:', error.response?.data || error.message)
-                    alert('שגיאה במחיקת יום הלימוד. אנא נסה שוב.')
+                    toast.error('שגיאה במחיקת יום הלימוד. אנא נסה שוב.', {
+                      duration: 4000,
+                      position: 'top-center',
+                      style: {
+                        background: '#FEE2E2',
+                        color: '#991B1B',
+                        border: '1px solid #FCA5A5',
+                        padding: '16px',
+                        fontSize: '14px',
+                        fontFamily: 'Reisinger-Yonatan, sans-serif'
+                      }
+                    })
                   } finally {
                     setIsUpdating(false)
                   }
