@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  User, Phone, Mail, MapPin, Music, Calendar, Clock, Save, 
+import {
+  User, Phone, Mail, MapPin, Music, Calendar, Clock, Save,
   X, Plus, Trash2, AlertCircle, CheckCircle, ChevronDown, ChevronUp,
   BookOpen, Users, Filter
 } from 'lucide-react'
 import apiService from '../../services/apiService'
+import ConfirmationModal from '../ui/ConfirmationModal'
 
 // Constants from schema
 const VALID_CLASSES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'יא', 'יב', 'אחר']
@@ -191,6 +192,13 @@ const StudentForm: React.FC<StudentFormProps> = ({
   // Slots menu visibility state
   const [showSlotsMenu, setShowSlotsMenu] = useState(true)
 
+  // Conflict detection state
+  const [conflictModal, setConflictModal] = useState({
+    isOpen: false,
+    message: '',
+    conflictingSlot: null as TeacherScheduleSlot | null
+  })
+
   // Fetch teachers on mount
   useEffect(() => {
     const fetchTeachers = async () => {
@@ -257,6 +265,37 @@ const StudentForm: React.FC<StudentFormProps> = ({
     fetchTheoryLessons()
   }, [])
 
+  // Helper function to calculate end time from start time and duration
+  const calculateEndTime = (startTime: string, duration: number): string => {
+    const [hours, minutes] = startTime.split(':').map(Number)
+    const totalMinutes = hours * 60 + minutes + duration
+    const endHours = Math.floor(totalMinutes / 60)
+    const endMinutes = totalMinutes % 60
+    return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`
+  }
+
+  // Helper function to check if two time ranges overlap
+  const timeRangesOverlap = (
+    start1: string,
+    end1: string,
+    start2: string,
+    end2: string
+  ): boolean => {
+    // Convert times to minutes for easier comparison
+    const timeToMinutes = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number)
+      return hours * 60 + minutes
+    }
+
+    const start1Min = timeToMinutes(start1)
+    const end1Min = timeToMinutes(end1)
+    const start2Min = timeToMinutes(start2)
+    const end2Min = timeToMinutes(end2)
+
+    // Two ranges overlap if one starts before the other ends AND ends after the other starts
+    return start1Min < end2Min && end1Min > start2Min
+  }
+
   // Fetch available slots when teacher is selected
   useEffect(() => {
     if (selectedTeacherId) {
@@ -270,58 +309,94 @@ const StudentForm: React.FC<StudentFormProps> = ({
     setLoadingSlots(true)
     try {
       const teacher = await apiService.teachers.getTeacherById(teacherId)
-      
+
       console.log('Teacher data for slots:', teacher) // Debug log
-      
+
+      // Fetch all students who have lessons with this teacher
+      const teacherStudents = await apiService.teachers.getTeacherStudents(teacherId)
+      console.log('Teacher students:', teacherStudents) // Debug log
+
+      // Build a list of ALL occupied time slots from all students
+      const occupiedSlots: Array<{day: string, time: string, duration: number}> = []
+      teacherStudents.forEach((student: any) => {
+        if (student.teacherAssignments && Array.isArray(student.teacherAssignments)) {
+          student.teacherAssignments.forEach((assignment: any) => {
+            // Only include assignments for this specific teacher
+            if (assignment.teacherId === teacherId) {
+              occupiedSlots.push({
+                day: assignment.day,
+                time: assignment.time,
+                duration: assignment.duration
+              })
+            }
+          })
+        }
+      })
+
+      console.log('Occupied slots from other students:', occupiedSlots) // Debug log
+
       // Get available time blocks from the correct field structure
-      const timeBlocks = teacher.teaching?.timeBlocks?.filter((block: any) => 
+      const timeBlocks = teacher.teaching?.timeBlocks?.filter((block: any) =>
         block.isActive !== false
       ) || []
-      
+
       console.log('Time blocks found:', timeBlocks) // Debug log
-      
+
       // Transform time blocks to available slots with different durations
       const availableSlots: TeacherScheduleSlot[] = []
-      
+
       timeBlocks.forEach((block: any) => {
         const startTime = block.startTime
         const endTime = block.endTime
         const dayName = block.day
-        
+
         // Parse time strings to calculate available slots
         const [startHour, startMin] = startTime.split(':').map(Number)
         const [endHour, endMin] = endTime.split(':').map(Number)
-        
+
         const startTimeMinutes = startHour * 60 + startMin
         const endTimeMinutes = endHour * 60 + endMin
         const totalAvailableTime = endTimeMinutes - startTimeMinutes
-        
+
         // Generate slots for each duration (30, 45, 60 minutes)
         VALID_DURATIONS.forEach(duration => {
-          // Calculate how many slots of this duration can fit
-          const possibleSlots = Math.floor(totalAvailableTime / duration)
-          
-          for (let i = 0; i < possibleSlots; i++) {
-            const slotStartMinutes = startTimeMinutes + (i * duration)
+          // Generate slots starting every 15 minutes to capture all possible time slots
+          const SLOT_INCREMENT = 15 // minutes between possible start times
+
+          // Iterate through all possible start times in 15-minute increments
+          for (let slotStartMinutes = startTimeMinutes; slotStartMinutes + duration <= endTimeMinutes; slotStartMinutes += SLOT_INCREMENT) {
             const slotEndMinutes = slotStartMinutes + duration
-            
+
             // Convert back to time format
             const slotStartHour = Math.floor(slotStartMinutes / 60)
             const slotStartMinute = slotStartMinutes % 60
             const slotEndHour = Math.floor(slotEndMinutes / 60)
             const slotEndMinute = slotEndMinutes % 60
-            
+
             const slotStartTime = `${slotStartHour.toString().padStart(2, '0')}:${slotStartMinute.toString().padStart(2, '0')}`
             const slotEndTime = `${slotEndHour.toString().padStart(2, '0')}:${slotEndMinute.toString().padStart(2, '0')}`
-            
-            // Check if this slot is already assigned (if assignedLessons exist)
-            const isAssigned = block.assignedLessons && block.assignedLessons.some((lesson: any) => {
-              return lesson.startTime === slotStartTime && lesson.duration === duration
+
+            // Check if this slot overlaps with ANY occupied slot from other students
+            const overlapsWithOccupied = occupiedSlots.some(occupied => {
+              if (occupied.day !== dayName) return false
+
+              const occupiedEndTime = calculateEndTime(occupied.time, occupied.duration)
+              return timeRangesOverlap(slotStartTime, slotEndTime, occupied.time, occupiedEndTime)
             })
-            
-            if (!isAssigned) {
+
+            // Check if this slot is already assigned in current form
+            const isAssignedInForm = formData.teacherAssignments.some((assignment: any) => {
+              return assignment.teacherId === teacher._id &&
+                     assignment.day === dayName &&
+                     assignment.time === slotStartTime &&
+                     assignment.duration === duration
+            })
+
+            if (!overlapsWithOccupied && !isAssignedInForm) {
+              // Create unique ID based on start time to avoid duplicates
+              const slotId = `${block._id}-${duration}-${slotStartTime.replace(':', '')}`
               availableSlots.push({
-                _id: `${block._id}-${duration}-${i}`,
+                _id: slotId,
                 day: dayName,
                 startTime: slotStartTime,
                 endTime: slotEndTime,
@@ -336,8 +411,8 @@ const StudentForm: React.FC<StudentFormProps> = ({
           }
         })
       })
-      
-      console.log('Generated available slots:', availableSlots) // Debug log
+
+      console.log('Generated available slots (after filtering occupied):', availableSlots) // Debug log
       setAvailableSlots(availableSlots)
     } catch (error) {
       console.error('Error fetching teacher slots:', error)
@@ -441,7 +516,67 @@ const StudentForm: React.FC<StudentFormProps> = ({
     }))
   }
 
+  // Check for schedule conflicts
+  const checkForConflicts = (slot: TeacherScheduleSlot): string | null => {
+    const slotEndTime = calculateEndTime(slot.startTime, slot.duration)
+
+    // 1. Check conflicts with other teacher lessons
+    for (const assignment of formData.teacherAssignments) {
+      if (assignment.day === slot.day) {
+        const assignmentEndTime = calculateEndTime(assignment.time, assignment.duration)
+
+        if (timeRangesOverlap(slot.startTime, slotEndTime, assignment.time, assignmentEndTime)) {
+          const teacherName = teachers.find(t => t._id === assignment.teacherId)?.personalInfo?.fullName || 'מורה'
+          return `התזמון מתנגש עם שיעור קיים:\n${assignment.day} ${assignment.time}-${assignmentEndTime} עם ${teacherName}`
+        }
+      }
+    }
+
+    // 2. Check conflicts with orchestra rehearsals
+    const selectedOrchestra = orchestras.find(o => o._id === formData.enrollments.orchestraIds[0])
+    if (selectedOrchestra?.rehearsalSchedule) {
+      const rehearsal = selectedOrchestra.rehearsalSchedule
+      if (rehearsal.day === slot.day) {
+        if (timeRangesOverlap(slot.startTime, slotEndTime, rehearsal.startTime, rehearsal.endTime)) {
+          return `התזמון מתנגש עם חזרת תזמורת:\n${rehearsal.day} ${rehearsal.startTime}-${rehearsal.endTime} - ${selectedOrchestra.name}`
+        }
+      }
+    }
+
+    // 3. Check conflicts with theory lessons
+    const selectedTheoryLesson = theoryLessons.find(l => l._id === formData.enrollments.theoryLessonIds[0])
+    if (selectedTheoryLesson?.schedule) {
+      for (const theorySlot of selectedTheoryLesson.schedule) {
+        if (theorySlot.day === slot.day) {
+          if (timeRangesOverlap(slot.startTime, slotEndTime, theorySlot.startTime, theorySlot.endTime)) {
+            return `התזמון מתנגש עם שיעור תיאוריה:\n${theorySlot.day} ${theorySlot.startTime}-${theorySlot.endTime} - ${selectedTheoryLesson.name}`
+          }
+        }
+      }
+    }
+
+    return null // No conflicts
+  }
+
   const handleSlotSelection = (slot: TeacherScheduleSlot) => {
+    // Check for conflicts before adding the slot
+    const conflictMessage = checkForConflicts(slot)
+
+    if (conflictMessage) {
+      // Show conflict warning modal
+      setConflictModal({
+        isOpen: true,
+        message: conflictMessage,
+        conflictingSlot: slot
+      })
+      return
+    }
+
+    // No conflicts - proceed with adding the slot
+    addSlotToSchedule(slot)
+  }
+
+  const addSlotToSchedule = (slot: TeacherScheduleSlot) => {
     // Create assignment structure that exactly matches backend validation schema
     const assignment = {
       teacherId: slot.teacherId!,
@@ -459,46 +594,58 @@ const StudentForm: React.FC<StudentFormProps> = ({
     setFormData(prev => ({
       ...prev,
       teacherAssignments: [...prev.teacherAssignments, assignment],
-      teacherIds: prev.teacherIds.includes(slot.teacherId!) 
-        ? prev.teacherIds 
+      teacherIds: prev.teacherIds.includes(slot.teacherId!)
+        ? prev.teacherIds
         : [...prev.teacherIds, slot.teacherId!]
     }))
 
     // Remove selected slot from available slots
     setAvailableSlots(prev => prev.filter(s => s._id !== slot._id))
-    
+
     // Hide slots menu after selection
     setShowSlotsMenu(false)
   }
 
-  // Helper function to calculate end time from start time and duration
-  const calculateEndTime = (startTime: string, duration: number): string => {
-    const [hours, minutes] = startTime.split(':').map(Number)
-    const totalMinutes = hours * 60 + minutes + duration
-    const endHours = Math.floor(totalMinutes / 60)
-    const endMinutes = totalMinutes % 60
-    return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`
+  const handleConflictOverride = () => {
+    // User chose to proceed despite conflict
+    if (conflictModal.conflictingSlot) {
+      addSlotToSchedule(conflictModal.conflictingSlot)
+    }
+    setConflictModal({ isOpen: false, message: '', conflictingSlot: null })
+  }
+
+  const handleConflictCancel = () => {
+    // User chose not to proceed
+    setConflictModal({ isOpen: false, message: '', conflictingSlot: null })
   }
 
   const removeTeacherAssignment = (index: number) => {
     const assignment = formData.teacherAssignments[index]
-    
+
     setFormData(prev => {
       const newAssignments = prev.teacherAssignments.filter((_, i) => i !== index)
-      
+
       // Check if teacher still has other assignments
-      const teacherHasOtherAssignments = newAssignments.some(a => 
+      const teacherHasOtherAssignments = newAssignments.some(a =>
         a.teacherId === assignment.teacherId
       )
-      
+
       return {
         ...prev,
         teacherAssignments: newAssignments,
-        teacherIds: teacherHasOtherAssignments 
-          ? prev.teacherIds 
+        teacherIds: teacherHasOtherAssignments
+          ? prev.teacherIds
           : prev.teacherIds.filter(id => id !== assignment.teacherId)
       }
     })
+
+    // If the removed assignment is for the currently selected teacher, refresh the available slots
+    if (selectedTeacherId === assignment.teacherId) {
+      // Use setTimeout to ensure state has updated before re-fetching
+      setTimeout(() => {
+        fetchTeacherSlots(assignment.teacherId)
+      }, 100)
+    }
   }
 
   const validateForm = (): boolean => {
@@ -1497,6 +1644,18 @@ const StudentForm: React.FC<StudentFormProps> = ({
           )}
         </button>
       </div>
+
+      {/* Conflict Warning Modal */}
+      <ConfirmationModal
+        isOpen={conflictModal.isOpen}
+        title="התנגשות בלוח זמנים"
+        message={conflictModal.message}
+        confirmText="המשך בכל זאת"
+        cancelText="ביטול"
+        onConfirm={handleConflictOverride}
+        onCancel={handleConflictCancel}
+        variant="warning"
+      />
     </form>
   )
 }
