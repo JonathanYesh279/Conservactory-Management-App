@@ -295,7 +295,28 @@ export default function ConductorOrchestrasTab() {
     if (!selectedOrchestra) return
 
     try {
+      // Step 1: Add to orchestra's memberIds
       await apiService.orchestras.addMember(selectedOrchestra, studentId)
+
+      // Step 2: Update student's orchestraIds (bidirectional sync)
+      try {
+        const student = await apiService.students.getStudent(studentId)
+        const currentOrchestraIds = student?.enrollments?.orchestraIds || []
+
+        // Only add if not already present
+        if (!currentOrchestraIds.includes(selectedOrchestra)) {
+          await apiService.students.updateStudent(studentId, {
+            enrollments: {
+              ...student?.enrollments,
+              orchestraIds: [...currentOrchestraIds, selectedOrchestra]
+            }
+          })
+          console.log(`✅ Updated student ${studentId} orchestraIds with ${selectedOrchestra}`)
+        }
+      } catch (syncError) {
+        console.error('Error syncing student orchestraIds:', syncError)
+        // Don't fail the whole operation if sync fails
+      }
 
       // Refresh data
       await loadOrchestraMembers(selectedOrchestra)
@@ -321,7 +342,30 @@ export default function ConductorOrchestrasTab() {
         setConfirmModal({ ...confirmModal, isOpen: false })
 
         try {
+          // Step 1: Remove from orchestra's memberIds
           await apiService.orchestras.removeMember(selectedOrchestra, memberId)
+
+          // Step 2: Update student's orchestraIds (bidirectional sync)
+          try {
+            const student = await apiService.students.getStudent(memberId)
+            const currentOrchestraIds = student?.enrollments?.orchestraIds || []
+
+            // Remove the orchestraId from the student's list
+            const updatedOrchestraIds = currentOrchestraIds.filter((id: string) => id !== selectedOrchestra)
+
+            if (updatedOrchestraIds.length !== currentOrchestraIds.length) {
+              await apiService.students.updateStudent(memberId, {
+                enrollments: {
+                  ...student?.enrollments,
+                  orchestraIds: updatedOrchestraIds
+                }
+              })
+              console.log(`✅ Removed orchestraId ${selectedOrchestra} from student ${memberId} enrollments`)
+            }
+          } catch (syncError) {
+            console.error('Error syncing student orchestraIds on remove:', syncError)
+            // Don't fail the whole operation if sync fails
+          }
 
           // Refresh data
           await loadOrchestraMembers(selectedOrchestra)

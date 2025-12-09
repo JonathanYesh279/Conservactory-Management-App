@@ -240,11 +240,34 @@ export function useBagrut(): UseBagrutReturn {
     }
   }, [contextActions]);
 
-  // Delete bagrut (placeholder - not implemented in existing API)
+  // Delete bagrut
   const deleteBagrut = useCallback(async (id: string): Promise<boolean> => {
-    setLocalError('מחיקת בגרויות לא מושלמה עדיין');
-    return false;
-  }, []);
+    if (contextActions) {
+      return contextActions.deleteBagrut(id);
+    }
+
+    // Fallback to local implementation
+    setLocalLoading(true);
+    setLocalError(null);
+    try {
+      await bagrutService.deleteBagrut(id);
+
+      // Remove from local state
+      setLocalBagruts(prev => prev.filter(b => b._id !== id));
+      if (localBagrut?._id === id) {
+        setLocalBagrut(null);
+      }
+
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'שגיאה במחיקת הבגרות';
+      setLocalError(errorMessage);
+      console.error('Error deleting bagrut:', err);
+      return false;
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [contextActions, localBagrut]);
 
   // Update presentation
   const updatePresentation = useCallback(async (

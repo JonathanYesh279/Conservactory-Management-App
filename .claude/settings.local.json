@@ -90,7 +90,9 @@
       "Bash(done)",
       "Bash(npm test:*)",
       "Bash(cat:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Skill(frontend-design:frontend-design)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": [],

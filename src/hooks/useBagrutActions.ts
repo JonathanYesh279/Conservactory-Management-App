@@ -128,7 +128,7 @@ export function useBagrutActions() {
   const updateBagrut = useCallback(async (id: string, updateData: any) => {
     actions.setLoading(true);
     actions.clearValidationErrors();
-    
+
     try {
       const updatedBagrut = await bagrutService.updateBagrut(id, updateData);
       if (updatedBagrut) {
@@ -145,6 +145,33 @@ export function useBagrutActions() {
       actions.setLoading(false);
     }
   }, [actions]);
+
+  // Delete bagrut operation
+  const deleteBagrut = useCallback(async (id: string): Promise<boolean> => {
+    actions.setLoading(true);
+    actions.clearValidationErrors();
+
+    try {
+      await bagrutService.deleteBagrut(id);
+
+      // Remove from context state
+      const updatedBagruts = state.bagruts.filter(b => b._id !== id);
+      actions.setBagruts(updatedBagruts);
+
+      // Clear current bagrut if it was the deleted one
+      if (state.currentBagrut?._id === id) {
+        actions.setCurrentBagrut(null);
+      }
+
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'שגיאה במחיקת בגרות';
+      actions.setError(message);
+      return false;
+    } finally {
+      actions.setLoading(false);
+    }
+  }, [actions, state.bagruts, state.currentBagrut]);
 
   // Enhanced presentation update with validation
   const updatePresentation = useCallback(async (
@@ -397,25 +424,26 @@ export function useBagrutActions() {
   return {
     // State
     state,
-    
+
     // Core operations
     fetchAllBagruts,
     fetchBagrutById,
     fetchBagrutByStudentId,
     createBagrut,
     updateBagrut,
-    
+    deleteBagrut,
+
     // Enhanced operations
     updatePresentation,
     updateDirectorEvaluation,
     setRecitalConfiguration,
     calculateFinalGrade,
     addProgramPiece,
-    
+
     // Validation
     validateBagrutCompletion,
     getValidationSummary,
-    
+
     // Utilities
     clearError: () => actions.setError(null),
     clearValidationErrors: actions.clearValidationErrors,

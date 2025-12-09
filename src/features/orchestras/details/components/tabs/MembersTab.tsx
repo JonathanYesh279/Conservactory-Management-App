@@ -90,8 +90,30 @@ const MembersTab: React.FC<OrchestraTabProps> = ({
       console.log('🔍 Frontend user data:', user)
       console.log('🔍 Orchestra data:', orchestra)
       console.log('🔍 Attempting to add student:', studentId, 'to orchestra:', orchestraId)
-      
+
+      // Step 1: Add to orchestra's memberIds
       await apiService.orchestras.addMember(orchestraId, studentId)
+
+      // Step 2: Update student's orchestraIds (bidirectional sync)
+      try {
+        const student = await apiService.students.getStudent(studentId)
+        const currentOrchestraIds = student?.enrollments?.orchestraIds || []
+
+        // Only add if not already present
+        if (!currentOrchestraIds.includes(orchestraId)) {
+          await apiService.students.updateStudent(studentId, {
+            enrollments: {
+              ...student?.enrollments,
+              orchestraIds: [...currentOrchestraIds, orchestraId]
+            }
+          })
+          console.log(`✅ Updated student ${studentId} orchestraIds with ${orchestraId}`)
+        }
+      } catch (syncError) {
+        console.error('Error syncing student orchestraIds:', syncError)
+        // Don't fail the whole operation if sync fails
+      }
+
       await loadMembers() // Reload members list
       onUpdate?.() // Notify parent to refresh orchestra data
       console.log(`✅ Successfully added member ${studentId} to orchestra`)
@@ -113,7 +135,32 @@ const MembersTab: React.FC<OrchestraTabProps> = ({
 
     try {
       setError(null)
+
+      // Step 1: Remove from orchestra's memberIds
       await apiService.orchestras.removeMember(orchestraId, studentId)
+
+      // Step 2: Update student's orchestraIds (bidirectional sync)
+      try {
+        const student = await apiService.students.getStudent(studentId)
+        const currentOrchestraIds = student?.enrollments?.orchestraIds || []
+
+        // Remove the orchestraId from the student's list
+        const updatedOrchestraIds = currentOrchestraIds.filter((id: string) => id !== orchestraId)
+
+        if (updatedOrchestraIds.length !== currentOrchestraIds.length) {
+          await apiService.students.updateStudent(studentId, {
+            enrollments: {
+              ...student?.enrollments,
+              orchestraIds: updatedOrchestraIds
+            }
+          })
+          console.log(`✅ Removed orchestraId ${orchestraId} from student ${studentId} enrollments`)
+        }
+      } catch (syncError) {
+        console.error('Error syncing student orchestraIds on remove:', syncError)
+        // Don't fail the whole operation if sync fails
+      }
+
       await loadMembers() // Reload members list
       onUpdate?.() // Notify parent to refresh orchestra data
       setShowRemoveModal({ isOpen: false })
@@ -152,37 +199,59 @@ const MembersTab: React.FC<OrchestraTabProps> = ({
     try {
       setIsAddingMultiple(true)
       setError(null)
-      
+
       // Add members one by one to get individual error handling
       const selectedIds = Array.from(selectedStudentIds)
       const results = []
       const errors = []
-      
+
       for (const studentId of selectedIds) {
         try {
+          // Step 1: Add to orchestra's memberIds
           await apiService.orchestras.addMember(orchestraId, studentId)
+
+          // Step 2: Update student's orchestraIds (bidirectional sync)
+          try {
+            const student = await apiService.students.getStudent(studentId)
+            const currentOrchestraIds = student?.enrollments?.orchestraIds || []
+
+            // Only add if not already present
+            if (!currentOrchestraIds.includes(orchestraId)) {
+              await apiService.students.updateStudent(studentId, {
+                enrollments: {
+                  ...student?.enrollments,
+                  orchestraIds: [...currentOrchestraIds, orchestraId]
+                }
+              })
+              console.log(`✅ Updated student ${studentId} orchestraIds with ${orchestraId}`)
+            }
+          } catch (syncError) {
+            console.error(`Error syncing student ${studentId} orchestraIds:`, syncError)
+            // Don't fail the whole operation if sync fails
+          }
+
           results.push(studentId)
         } catch (error) {
           console.error(`Error adding student ${studentId}:`, error)
           errors.push({ studentId, error: error.message })
         }
       }
-      
+
       // Clear selection and reload members
       clearSelection()
       await loadMembers()
       onUpdate?.() // Notify parent to refresh orchestra data
-      
+
       // Show results
       if (results.length > 0) {
         console.log(`✅ Successfully added ${results.length} members to orchestra`)
       }
-      
+
       if (errors.length > 0) {
         const errorMessage = `הצליח להוסיף ${results.length} מתוך ${selectedIds.length} חברים. שגיאות: ${errors.length}`
         setError(errorMessage)
       }
-      
+
     } catch (error) {
       console.error('Error adding multiple members:', error)
       const errorMessage = error.message || 'שגיאה לא ידועה'

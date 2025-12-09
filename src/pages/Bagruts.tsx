@@ -69,8 +69,9 @@ export default function Bagruts() {
       console.log('🔄 Loading bagrut data...', forceRefresh ? '(forced refresh)' : '')
       console.log('👤 Current user:', user?._id, 'Role:', user?.roles?.[0])
 
-      // Check if user is a teacher
-      const userIsTeacher = user?.roles?.includes('מורה') || user?.roles?.includes('teacher')
+      // Check if user is a teacher (but not if they're also an admin)
+      const userIsAdmin = user?.roles?.includes('מנהל') || user?.roles?.includes('admin')
+      const userIsTeacher = (user?.roles?.includes('מורה') || user?.roles?.includes('teacher')) && !userIsAdmin
       setIsTeacherRole(userIsTeacher)
 
       if (userIsTeacher) {

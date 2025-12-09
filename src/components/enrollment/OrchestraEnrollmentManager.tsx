@@ -199,9 +199,35 @@ export default function OrchestraEnrollmentManager() {
     if (selectedStudents.length === 0) return
 
     try {
-      await Promise.all(selectedStudents.map(studentId =>
-        apiService.orchestras.addMember(orchestraId, studentId)
-      ))
+      // Process each student with bidirectional sync
+      for (const studentId of selectedStudents) {
+        try {
+          // Step 1: Add to orchestra's memberIds
+          await apiService.orchestras.addMember(orchestraId, studentId)
+
+          // Step 2: Update student's orchestraIds (bidirectional sync)
+          try {
+            const student = await apiService.students.getStudent(studentId)
+            const currentOrchestraIds = student?.enrollments?.orchestraIds || []
+
+            // Only add if not already present
+            if (!currentOrchestraIds.includes(orchestraId)) {
+              await apiService.students.updateStudent(studentId, {
+                enrollments: {
+                  ...student?.enrollments,
+                  orchestraIds: [...currentOrchestraIds, orchestraId]
+                }
+              })
+              console.log(`✅ Updated student ${studentId} orchestraIds with ${orchestraId}`)
+            }
+          } catch (syncError) {
+            console.error(`Error syncing student ${studentId} orchestraIds:`, syncError)
+            // Don't fail the whole operation if sync fails
+          }
+        } catch (error) {
+          console.error(`Error adding student ${studentId}:`, error)
+        }
+      }
 
       alert(`${selectedStudents.length} תלמידים נרשמו בהצלחה`)
       setSelectedStudents([])
@@ -218,9 +244,37 @@ export default function OrchestraEnrollmentManager() {
     if (!window.confirm(`האם אתה בטוח שברצונך להסיר ${selectedStudents.length} תלמידים מהתזמורת?`)) return
 
     try {
-      await Promise.all(selectedStudents.map(studentId =>
-        apiService.orchestras.removeMember(orchestraId, studentId)
-      ))
+      // Process each student with bidirectional sync
+      for (const studentId of selectedStudents) {
+        try {
+          // Step 1: Remove from orchestra's memberIds
+          await apiService.orchestras.removeMember(orchestraId, studentId)
+
+          // Step 2: Update student's orchestraIds (bidirectional sync)
+          try {
+            const student = await apiService.students.getStudent(studentId)
+            const currentOrchestraIds = student?.enrollments?.orchestraIds || []
+
+            // Remove the orchestraId from the student's list
+            const updatedOrchestraIds = currentOrchestraIds.filter((id: string) => id !== orchestraId)
+
+            if (updatedOrchestraIds.length !== currentOrchestraIds.length) {
+              await apiService.students.updateStudent(studentId, {
+                enrollments: {
+                  ...student?.enrollments,
+                  orchestraIds: updatedOrchestraIds
+                }
+              })
+              console.log(`✅ Removed orchestraId ${orchestraId} from student ${studentId} enrollments`)
+            }
+          } catch (syncError) {
+            console.error(`Error syncing student ${studentId} orchestraIds on remove:`, syncError)
+            // Don't fail the whole operation if sync fails
+          }
+        } catch (error) {
+          console.error(`Error removing student ${studentId}:`, error)
+        }
+      }
 
       alert(`${selectedStudents.length} תלמידים הוסרו בהצלחה`)
       setSelectedStudents([])

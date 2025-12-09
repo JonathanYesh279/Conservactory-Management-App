@@ -228,6 +228,23 @@ export const bagrutService = {
   },
 
   /**
+   * Delete bagrut record
+   * @param {string} bagrutId - Bagrut ID
+   * @returns {Promise<boolean>} True if deletion was successful
+   */
+  async deleteBagrut(bagrutId) {
+    try {
+      console.log('🗑️ BagrutService: Deleting bagrut:', bagrutId);
+      await apiClient.delete(`${BASE_URL}/${bagrutId}`);
+      console.log('✅ BagrutService: Bagrut deleted successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ BagrutService: Error deleting bagrut:', error);
+      throw new Error('שגיאה במחיקת הבגרות');
+    }
+  },
+
+  /**
    * Get default detailed grading structure with corrected point maximums
    * @returns {Object} Default detailed grading structure
    */
