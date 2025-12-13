@@ -35,11 +35,18 @@ const PersonalInfoTab: React.FC<OrchestraTabProps> = ({
 
   useEffect(() => {
     if (orchestra) {
+      // Include ALL orchestra fields to prevent accidental data loss
+      // The backend now has protection, but the frontend should also be safe
       setEditedData({
         name: orchestra.name,
         type: orchestra.type,
         location: orchestra.location,
         conductorId: orchestra.conductorId,
+        // Preserve critical arrays to prevent data loss
+        memberIds: orchestra.memberIds || [],
+        rehearsalIds: orchestra.rehearsalIds || [],
+        schoolYearId: orchestra.schoolYearId,
+        isActive: orchestra.isActive,
       })
     }
   }, [orchestra])
@@ -74,6 +81,11 @@ const PersonalInfoTab: React.FC<OrchestraTabProps> = ({
       type: orchestra.type,
       location: orchestra.location,
       conductorId: orchestra.conductorId,
+      // Preserve critical arrays on cancel as well
+      memberIds: orchestra.memberIds || [],
+      rehearsalIds: orchestra.rehearsalIds || [],
+      schoolYearId: orchestra.schoolYearId,
+      isActive: orchestra.isActive,
     })
     setError(null)
   }

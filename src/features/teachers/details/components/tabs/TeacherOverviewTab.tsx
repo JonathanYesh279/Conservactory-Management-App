@@ -37,9 +37,9 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
   
   // Calculate statistics
   const totalStudents = teacher.teaching?.studentIds?.length || 0
-  const totalTimeBlocks = teacher.timeBlocks?.length || 0
-  const weeklyHours = teacher.timeBlocks?.reduce((total, block) => total + (block.totalDuration || 0), 0) / 60 || 0
-  const activeTimeBlocks = teacher.timeBlocks?.filter(block => block.isActive).length || 0
+  const totalTimeBlocks = teacher.teaching?.timeBlocks?.length || 0
+  const weeklyHours = teacher.teaching?.timeBlocks?.reduce((total, block) => total + (block.totalDuration || 0), 0) / 60 || 0
+  const activeTimeBlocks = teacher.teaching?.timeBlocks?.filter(block => block.isActive).length || 0
 
   return (
     <div className="space-y-8">
@@ -169,7 +169,7 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
           סיכום לוח זמנים
         </h3>
         
-        {teacher.timeBlocks && teacher.timeBlocks.length > 0 ? (
+        {teacher.teaching?.timeBlocks && teacher.teaching.timeBlocks.length > 0 ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-white rounded-lg border">
@@ -185,10 +185,10 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
                 <div className="text-sm text-black font-semibold" style={{color: '#000000'}}>שעות בשבוע:</div>
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <h4 className="font-medium text-gray-700">בלוקי זמן פעילים:</h4>
-              {teacher.timeBlocks
+              {teacher.teaching.timeBlocks
                 .filter(block => block.isActive)
                 .slice(0, 5)
                 .map((block, index) => (
@@ -204,9 +204,9 @@ const TeacherOverviewTab: React.FC<TeacherOverviewTabProps> = ({
                     </div>
                   </div>
                 ))}
-              {teacher.timeBlocks.filter(block => block.isActive).length > 5 && (
+              {teacher.teaching.timeBlocks.filter(block => block.isActive).length > 5 && (
                 <div className="text-center text-sm text-gray-500 py-2">
-                  ועוד {teacher.timeBlocks.filter(block => block.isActive).length - 5} בלוקים...
+                  ועוד {teacher.teaching.timeBlocks.filter(block => block.isActive).length - 5} בלוקים...
                 </div>
               )}
             </div>

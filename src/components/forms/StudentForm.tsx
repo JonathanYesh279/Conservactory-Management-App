@@ -333,14 +333,42 @@ const StudentForm: React.FC<StudentFormProps> = ({
         }
       })
 
-      console.log('Occupied slots from other students:', occupiedSlots) // Debug log
+      console.log('🚫 Occupied slots from other students:', occupiedSlots) // Debug log
 
-      // Get available time blocks from the correct field structure
-      const timeBlocks = teacher.teaching?.timeBlocks?.filter((block: any) =>
-        block.isActive !== false
+      // Get available time blocks from BOTH field structures
+      // Legacy structure: teaching.schedule (older format)
+      // New structure: teaching.timeBlocks (created via TimeBlockForm)
+      console.log('📋 Teacher teaching data:', {
+        hasTeaching: !!teacher.teaching,
+        hasSchedule: !!teacher.teaching?.schedule,
+        scheduleLength: teacher.teaching?.schedule?.length,
+        hasTimeBlocks: !!teacher.teaching?.timeBlocks,
+        timeBlocksLength: teacher.teaching?.timeBlocks?.length
+      })
+
+      // Combine both legacy schedule and new timeBlocks
+      const legacySchedule = teacher.teaching?.schedule?.filter((block: any) =>
+        block.isAvailable !== false && block.isActive !== false
       ) || []
 
-      console.log('Time blocks found:', timeBlocks) // Debug log
+      const newTimeBlocks = teacher.teaching?.timeBlocks?.filter((block: any) =>
+        block.isAvailable !== false && block.isActive !== false
+      ) || []
+
+      // Merge both sources, avoiding duplicates by checking day+startTime+endTime
+      const timeBlocks = [...legacySchedule]
+      newTimeBlocks.forEach((newBlock: any) => {
+        const isDuplicate = timeBlocks.some(existing =>
+          existing.day === newBlock.day &&
+          existing.startTime === newBlock.startTime &&
+          existing.endTime === newBlock.endTime
+        )
+        if (!isDuplicate) {
+          timeBlocks.push(newBlock)
+        }
+      })
+
+      console.log('📅 Time blocks found (schedule + timeBlocks):', timeBlocks.length) // Debug log
 
       // Transform time blocks to available slots with different durations
       const availableSlots: TeacherScheduleSlot[] = []
@@ -381,7 +409,11 @@ const StudentForm: React.FC<StudentFormProps> = ({
               if (occupied.day !== dayName) return false
 
               const occupiedEndTime = calculateEndTime(occupied.time, occupied.duration)
-              return timeRangesOverlap(slotStartTime, slotEndTime, occupied.time, occupiedEndTime)
+              const overlaps = timeRangesOverlap(slotStartTime, slotEndTime, occupied.time, occupiedEndTime)
+              if (overlaps && duration === 60) {
+                console.log(`🔴 Blocking slot ${slotStartTime}-${slotEndTime} (${duration}min) - overlaps with ${occupied.time}-${occupiedEndTime}`)
+              }
+              return overlaps
             })
 
             // Check if this slot is already assigned in current form

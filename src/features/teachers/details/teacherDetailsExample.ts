@@ -119,7 +119,7 @@ export const teacherDetailsExamples = {
       console.log('Name:', teacher.personalInfo?.fullName)
       console.log('Instrument:', teacher.professionalInfo?.instrument)
       console.log('Students:', teacher.teaching?.studentIds?.length || 0)
-      console.log('Time Blocks:', teacher.timeBlocks?.length || 0)
+      console.log('Time Blocks:', teacher.teaching?.timeBlocks?.length || 0)
       console.log('Active:', teacher.isActive)
       
       return teacher
@@ -344,7 +344,7 @@ export const reactHookExamples = {
           <h1>{teacher.personalInfo?.fullName}</h1>
           <p>כלי: {teacher.professionalInfo?.instrument}</p>
           <p>תלמידים: {teacher.teaching?.studentIds?.length || 0}</p>
-          <p>בלוקי זמן: {teacher.timeBlocks?.length || 0}</p>
+          <p>בלוקי זמן: {teacher.teaching?.timeBlocks?.length || 0}</p>
         </div>
       )
     }

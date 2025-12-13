@@ -265,6 +265,11 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
     }))
   }, [enrolledOrchestras])
 
+  // Filter out orchestra lessons for the "שיעורים השבוע" section - only show personal lessons
+  const personalLessons = useMemo(() => {
+    return lessons.filter(lesson => lesson.lessonType !== 'orchestra')
+  }, [lessons])
+
   if (isLoading || isLoadingOrchestras) {
     return (
       <div className="p-6">
@@ -306,53 +311,63 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
         </div>
       )}
 
-      {/* Summary Info - Only show if there are lessons */}
-      {lessons.length > 0 && (
+      {/* Summary Info - Only show if there are lessons or orchestra activities */}
+      {(personalLessons.length > 0 || orchestraActivities.length > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Lessons Summary */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h4 className="text-base font-medium text-gray-900 mb-3 flex items-center gap-2">
-              <Music className="w-4 h-4 text-primary-600" />
-              שיעורים השבוע
-            </h4>
-            
-            <div className="space-y-3">
-              {lessons.map((lesson) => {
-                const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
-                return (
-                  <div key={lesson.id} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <Music className="w-4 h-4 text-primary-600" />
-                        <span className="font-medium text-gray-900">{lesson.instrumentName}</span>
-                      </div>
-                      <span className="text-sm text-gray-600 font-medium">
-                        {dayNames[lesson.dayOfWeek]}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{lesson.startTime} - {lesson.endTime}</span>
-                      </div>
-                      
-                      {(lesson.roomNumber || lesson.location) && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          <span>{lesson.roomNumber ? `חדר ${lesson.roomNumber}` : lesson.location}</span>
+          {/* Personal Lessons Summary - Only show personal lessons, not orchestra */}
+          {personalLessons.length > 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <h4 className="text-base font-medium text-gray-900 mb-3 flex items-center gap-2">
+                <Music className="w-4 h-4 text-primary-600" />
+                שיעורים השבוע
+              </h4>
+
+              <div className="space-y-3">
+                {personalLessons.map((lesson) => {
+                  const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+                  return (
+                    <div key={lesson.id} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <Music className="w-4 h-4 text-primary-600" />
+                          <span className="font-medium text-gray-900">{lesson.instrumentName}</span>
                         </div>
-                      )}
+                        <span className="text-sm text-gray-600 font-medium">
+                          {dayNames[lesson.dayOfWeek]}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          <span>{lesson.startTime} - {lesson.endTime}</span>
+                        </div>
+
+                        {(lesson.roomNumber || lesson.location) && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            <span>{lesson.roomNumber ? `חדר ${lesson.roomNumber}` : lesson.location}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-2 text-sm text-gray-600">
+                        מורה: {lesson.teacherName}
+                      </div>
                     </div>
-                    
-                    <div className="mt-2 text-sm text-gray-600">
-                      מורה: {lesson.teacherName}
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="text-center py-4">
+                <Music className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                <h4 className="text-base font-medium text-gray-900 mb-1">אין שיעורים אישיים</h4>
+                <p className="text-sm text-gray-600">התלמיד טרם שוייך לשיעורים אישיים</p>
+              </div>
+            </div>
+          )}
 
           {/* Orchestra Activities with Full Details */}
           {orchestraActivities.length > 0 && (
@@ -457,8 +472,8 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ student, studentId, isLoading
         </div>
       )}
 
-      {/* Orchestra Activities section for when no lessons exist */}
-      {lessons.length === 0 && orchestraActivities.length > 0 && (
+      {/* Orchestra Activities section for when no personal lessons exist */}
+      {personalLessons.length === 0 && orchestraActivities.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
             <Users className="w-5 h-5 text-purple-600" />

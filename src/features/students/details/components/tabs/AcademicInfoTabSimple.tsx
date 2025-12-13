@@ -36,12 +36,65 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
   const academicInfo = student?.academicInfo || {}
   const teacherAssignments = student?.teacherAssignments || []
   const enrollments = student?.enrollments || {}
-  const teacherIds = student?.teacherIds || []  // teacherIds is at root level, not in enrollments
+  // teacherIds can be at root level OR inside enrollments - check both
+  const teacherIds = student?.teacherIds || student?.enrollments?.teacherIds || []
 
+  console.log('📚 AcademicInfoTabSimple data:', {
+    teacherAssignments,
+    teacherIds,
+    'student.teacherIds': student?.teacherIds,
+    'enrollments.teacherIds': student?.enrollments?.teacherIds
+  })
+
+  // State declarations - must come before memos that use them
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [teachersData, setTeachersData] = useState<any[]>([])
   const [loadingTeachers, setLoadingTeachers] = useState(false)
+
+  // Get primary teacher name from teacher assignments
+  // Need to look up teacher name from teachersData since teacherAssignments only has teacherId
+  const primaryTeacher = useMemo(() => {
+    console.log('🔍 Finding primary teacher:', { teacherAssignments, teachersData })
+
+    if (teacherAssignments && teacherAssignments.length > 0) {
+      // First try to get the active teacher assignment
+      const activeAssignment = teacherAssignments.find((ta: any) => ta.isActive) || teacherAssignments[0]
+
+      // If the assignment already has a teacherName, use it
+      if (activeAssignment?.teacherName) {
+        console.log('✅ Found teacherName in assignment:', activeAssignment.teacherName)
+        return activeAssignment.teacherName
+      }
+
+      // Otherwise, look up the teacher name from teachersData using teacherId
+      if (activeAssignment?.teacherId && teachersData.length > 0) {
+        const teacher = teachersData.find((t: any) => t._id === activeAssignment.teacherId)
+        if (teacher?.personalInfo?.fullName) {
+          console.log('✅ Found teacher name from teachersData:', teacher.personalInfo.fullName)
+          return teacher.personalInfo.fullName
+        }
+      }
+    }
+
+    // Fallback: if we have teachersData but no assignments, show the first teacher
+    if (teachersData.length > 0 && teachersData[0]?.personalInfo?.fullName) {
+      console.log('✅ Using first teacher from teachersData:', teachersData[0].personalInfo.fullName)
+      return teachersData[0].personalInfo.fullName
+    }
+
+    console.log('⚠️ No teacher name found')
+    return null
+  }, [teacherAssignments, teachersData])
+
+  // Get primary instrument from progress
+  const primaryInstrument = useMemo(() => {
+    if (academicInfo.instrumentProgress && academicInfo.instrumentProgress.length > 0) {
+      const primary = academicInfo.instrumentProgress.find((i: any) => i.isPrimary)
+      return primary || academicInfo.instrumentProgress[0]
+    }
+    return null
+  }, [academicInfo.instrumentProgress])
 
   // Initialize editedData with test statuses
   const initializeEditData = () => {
@@ -69,24 +122,38 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
     setEditedData(initializeEditData())
   }, [academicInfo])
 
-  // Load teacher names for enrolled teachers without assignments
+  // Load teacher names - from teacherAssignments or teacherIds
   useEffect(() => {
     const loadTeachersData = async () => {
-      console.log('🔍 Checking enrolled teacher IDs:', teacherIds)
-      console.log('📋 Current teacher assignments:', teacherAssignments)
+      // Collect all teacher IDs from both sources
+      const assignmentTeacherIds = teacherAssignments
+        .map((ta: any) => ta.teacherId)
+        .filter(Boolean)
 
-      if (teacherIds.length === 0) {
-        console.log('⚠️ No enrolled teachers found')
+      // Combine with teacherIds, removing duplicates
+      const allTeacherIds = [...new Set([...assignmentTeacherIds, ...teacherIds])]
+
+      console.log('🔍 Teacher IDs to load:', {
+        fromAssignments: assignmentTeacherIds,
+        fromTeacherIds: teacherIds,
+        combined: allTeacherIds
+      })
+
+      if (allTeacherIds.length === 0) {
+        console.log('⚠️ No teachers to load')
         return
       }
 
       setLoadingTeachers(true)
       try {
-        console.log('🔄 Loading teacher data for IDs:', teacherIds)
-        const teachersPromises = teacherIds.map((teacherId: string) =>
-          apiService.teachers.getTeacher(teacherId)
+        console.log('🔄 Loading teacher data for IDs:', allTeacherIds)
+        const teachersPromises = allTeacherIds.map((teacherId: string) =>
+          apiService.teachers.getTeacher(teacherId).catch(err => {
+            console.error(`Failed to load teacher ${teacherId}:`, err)
+            return null
+          })
         )
-        const teachers = await Promise.all(teachersPromises)
+        const teachers = (await Promise.all(teachersPromises)).filter(Boolean)
         console.log('✅ Loaded teachers:', teachers)
         setTeachersData(teachers)
       } catch (error) {
@@ -97,7 +164,7 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
     }
 
     loadTeachersData()
-  }, [teacherIds])
+  }, [teacherIds, teacherAssignments])
 
   // Find teachers enrolled but without lesson assignments
   const teachersWithoutLessons = useMemo(() => {
@@ -257,202 +324,203 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
   }
 
   return (
-    <div className="p-4">
-      {/* Header with Edit Button */}
-      <div className="flex justify-end mb-4">
-        {!isEditing ? (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
-          >
-            <Edit className="w-4 h-4" />
-            ערוך
-          </button>
-        ) : (
-          <div className="flex gap-2">
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      {/* Header with Edit Button - matching PersonalInfoTab */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">מידע אקדמי</h2>
+          <p className="text-gray-600 mt-1">התקדמות, כישורים והישגים אקדמיים</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {!isEditing ? (
             <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors shadow-md hover:shadow-lg"
             >
-              <Save className="w-4 h-4" />
-              {isSaving ? 'שומר...' : 'שמור'}
+              <Edit className="w-4 h-4" />
+              ערוך
             </button>
-            <button
-              onClick={handleCancel}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
-            >
-              <X className="w-4 h-4" />
-              בטל
-            </button>
-          </div>
-        )}
+          ) : (
+            <>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-md hover:shadow-lg disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? 'שומר...' : 'שמור'}
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={isSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors shadow-md hover:shadow-lg disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+                בטל
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Single unified container for all academic information */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-primary-600" />
-          מידע אקדמי
-        </h3>
+      {/* Single unified container for ALL academic information */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+          <div className="p-2 bg-primary-50 rounded-lg">
+            <BookOpen className="w-5 h-5 text-primary-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">פרטים אקדמיים</h3>
+        </div>
 
-        {/* Teachers Enrolled but No Lesson Scheduled - WARNING AT TOP */}
+        {/* Teachers Enrolled but No Lesson Scheduled - WARNING */}
         {teachersWithoutLessons.length > 0 && (
-          <div className="mb-4 pb-4 border-b border-gray-100">
-            <div className="flex items-center gap-2 text-sm font-medium text-orange-700 mb-3">
+          <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-orange-700">
               <AlertTriangle className="w-4 h-4" />
-              <span>מורים ללא שיעור מתוזמן</span>
-            </div>
-            <div className="space-y-2">
-              {teachersWithoutLessons.map((teacher, index) => (
-                <div
-                  key={teacher._id || index}
-                  className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-start gap-2"
-                >
-                  <div className="p-1.5 bg-orange-100 rounded flex-shrink-0">
-                    <User className="w-4 h-4 text-orange-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-orange-900">
-                      {teacher.personalInfo?.fullName || 'מורה'}
-                    </p>
-                    <p className="text-xs text-orange-700 mt-0.5">
-                      התלמיד/ה משוייך/ת למורה זה אך טרם נקבע שיעור. יש ליצור קשר עם המורה לתיאום שיעור.
-                    </p>
-                  </div>
-                </div>
+              <span className="font-medium">מורים ללא שיעור:</span>
+              {teachersWithoutLessons.map((t, i) => (
+                <span key={t._id || i}>{t.personalInfo?.fullName || 'מורה'}{i < teachersWithoutLessons.length - 1 ? ', ' : ''}</span>
               ))}
             </div>
           </div>
         )}
 
-        {/* Basic Info Section */}
-        <div className="mb-4 pb-4 border-b border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <span className="text-xs font-medium text-black font-semibold" style={{color: '#000000'}}>כיתה:</span>
+        {/* Basic Info - GRID LAYOUT */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {/* Teacher - HIGHLIGHTED - First from right */}
+          <div className="bg-primary-50 rounded-lg p-4 border border-primary-200">
+            <div className="text-sm text-primary-600 mb-1 flex items-center gap-1">
+              <User className="w-4 h-4" />
+              מורה
+            </div>
+            <div className="text-base font-semibold text-primary-800">
+              {loadingTeachers ? (
+                <span className="text-gray-400 animate-pulse">טוען...</span>
+              ) : primaryTeacher ? (
+                primaryTeacher
+              ) : (teacherAssignments.length > 0 || teacherIds.length > 0) ? (
+                <span className="text-orange-500">טוען שם מורה...</span>
+              ) : (
+                <span className="text-gray-400">לא משויך</span>
+              )}
+            </div>
+          </div>
+
+          {/* Class */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="text-sm text-gray-500 mb-1">כיתה</div>
+            <div className="text-base font-semibold text-gray-900">
               {isEditing ? (
                 <input
                   type="text"
                   value={editedData.class}
                   onChange={(e) => setEditedData({ ...editedData, class: e.target.value })}
-                  className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="הכנס כיתה"
+                  className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="כיתה"
                 />
               ) : (
-                <div className="text-sm font-medium text-gray-900">{academicInfo.class || 'לא צוין'}</div>
+                academicInfo.class || <span className="text-gray-400">לא צוין</span>
               )}
             </div>
-            
-            {/* Only show stage from academicInfo if no instruments with stage info */}
-            {(!academicInfo.instrumentProgress || academicInfo.instrumentProgress.length === 0) && (
-              <div>
-                <span className="text-xs font-medium text-black font-semibold" style={{color: '#000000'}}>שלב:</span>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editedData.stage}
-                    onChange={(e) => setEditedData({ ...editedData, stage: e.target.value })}
-                    className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="הכנס שלב"
-                  />
-                ) : (
-                  <div className="text-sm font-medium text-gray-900">{academicInfo.stage || academicInfo.level || 'לא צוין'}</div>
-                )}
-              </div>
-            )}
-            
-            <div>
-              <span className="text-xs font-medium text-black font-semibold" style={{color: '#000000'}}>תאריך התחלה:</span>
+          </div>
+
+          {/* Instrument */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="text-sm text-gray-500 mb-1">כלי נגינה</div>
+            <div className="text-base font-semibold text-gray-900">
+              {primaryInstrument?.instrumentName || <span className="text-gray-400">לא צוין</span>}
+            </div>
+          </div>
+
+          {/* Stage */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="text-sm text-gray-500 mb-1">שלב</div>
+            <div className="text-base font-semibold text-gray-900">
+              {primaryInstrument?.currentStage || primaryInstrument?.stage || academicInfo.stage || academicInfo.level || <span className="text-gray-400">לא צוין</span>}
+            </div>
+          </div>
+
+          {/* Start Date */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="text-sm text-gray-500 mb-1">תאריך התחלה</div>
+            <div className="text-base font-semibold text-gray-900">
               {isEditing ? (
                 <input
                   type="date"
                   value={editedData.startDate ? new Date(editedData.startDate).toISOString().split('T')[0] : ''}
                   onChange={(e) => setEditedData({ ...editedData, startDate: e.target.value })}
-                  className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               ) : (
-                <div className="text-sm font-medium text-gray-900">
-                  {academicInfo.startDate ? new Date(academicInfo.startDate).toLocaleDateString('he-IL') : 'לא צוין'}
-                </div>
+                academicInfo.startDate ? new Date(academicInfo.startDate).toLocaleDateString('he-IL') : <span className="text-gray-400">לא צוין</span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Instruments Section */}
+        {/* Tests Section - Only show tests, instrument info is already in the grid above */}
         {academicInfo.instrumentProgress && academicInfo.instrumentProgress.length > 0 && (
-          <div className="mb-4 pb-4 border-b border-gray-100">
-            <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
-              <Music className="w-3 h-3" />
-              כלי נגינה
-            </h4>
-            <div className="space-y-3">
+          <div className="border-t border-gray-100 pt-4 mt-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="w-5 h-5 text-primary-600" />
+              <h4 className="text-base font-semibold text-gray-900">מבחנים</h4>
+            </div>
+
+            <div className="space-y-4">
               {academicInfo.instrumentProgress.map((instrument: any, index: number) => (
-                <div key={index} className="border border-gray-100 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{instrument.instrumentName}</span>
-                    {instrument.isPrimary && (
-                      <span className="text-xs px-1.5 py-0.5 bg-primary-100 text-primary-800 rounded">
-                        ראשי
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-600">
-                    <span>שלב: {instrument.currentStage || instrument.stage || instrument.level || 'לא צוין'}</span>
-                    {instrument.startDate && (
-                      <span>{new Date(instrument.startDate).toLocaleDateString('he-IL')}</span>
-                    )}
-                  </div>
-                  
-                  {/* Test Results for this instrument */}
-                  <div className="mt-2 space-y-2">
+                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                  {/* Instrument name header - only if multiple instruments */}
+                  {academicInfo.instrumentProgress.length > 1 && (
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+                      <span className="text-sm font-semibold text-gray-900">{instrument.instrumentName}</span>
+                      {instrument.isPrimary && (
+                        <span className="text-xs px-2 py-0.5 bg-primary-100 text-primary-800 rounded-full">ראשי</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tests in grid - 2 columns */}
+                  <div className="grid grid-cols-2 gap-4">
                     {/* Technical Test */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-black font-semibold" style={{color: '#000000'}}>מבחן טכני:</span>
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      <div className="text-xs text-gray-500 mb-1">מבחן טכני</div>
                       {isEditing ? (
                         <select
                           value={editedData.instrumentTests?.[instrument.instrumentName]?.technicalTestStatus || 'לא נבחן'}
                           onChange={(e) => handleTestStatusChange(instrument.instrumentName, 'technicalTest', e.target.value)}
-                          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                           {TEST_STATUSES.map(status => (
                             <option key={status} value={status}>{status}</option>
                           ))}
                         </select>
                       ) : (
-                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm ${getExamStatusColor(instrument.tests?.technicalTest?.status || 'לא נבחן')}`}>
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${getExamStatusColor(instrument.tests?.technicalTest?.status || 'לא נבחן')}`}>
                           {getExamStatusIcon(instrument.tests?.technicalTest?.status || 'לא נבחן')}
                           {instrument.tests?.technicalTest?.status || 'לא נבחן'}
                         </div>
                       )}
-                      {instrument.tests?.technicalTest?.notes && !isEditing && (
-                        <span className="text-xs text-gray-500">({instrument.tests.technicalTest.notes})</span>
-                      )}
                     </div>
 
                     {/* Stage Test */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-black font-semibold" style={{color: '#000000'}}>מבחן שלב:</span>
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      <div className="text-xs text-gray-500 mb-1">מבחן שלב</div>
                       {isEditing ? (
                         <select
                           value={editedData.instrumentTests?.[instrument.instrumentName]?.stageTestStatus || 'לא נבחן'}
                           onChange={(e) => handleTestStatusChange(instrument.instrumentName, 'stageTest', e.target.value)}
-                          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                           {TEST_STATUSES.map(status => (
                             <option key={status} value={status}>{status}</option>
                           ))}
                         </select>
                       ) : (
-                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm ${getExamStatusColor(instrument.tests?.stageTest?.status || 'לא נבחן')}`}>
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${getExamStatusColor(instrument.tests?.stageTest?.status || 'לא נבחן')}`}>
                           {getExamStatusIcon(instrument.tests?.stageTest?.status || 'לא נבחן')}
                           {instrument.tests?.stageTest?.status || 'לא נבחן'}
                         </div>
-                      )}
-                      {instrument.tests?.stageTest?.notes && !isEditing && (
-                        <span className="text-xs text-gray-500">({instrument.tests.stageTest.notes})</span>
                       )}
                     </div>
                   </div>
@@ -462,14 +530,14 @@ const AcademicInfoTabSimple: React.FC<AcademicInfoTabProps> = ({ student, studen
           </div>
         )}
 
-        {/* General Notes Section */}
+        {/* General Notes - INLINE */}
         {academicInfo.notes && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
-              <FileText className="w-3 h-3" />
-              הערות
-            </h4>
-            <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{academicInfo.notes}</p>
+          <div className="border-t border-gray-100 pt-4 mt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="w-4 h-4 text-primary-600" />
+              <h4 className="text-sm font-semibold text-gray-900">הערות</h4>
+            </div>
+            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{academicInfo.notes}</p>
           </div>
         )}
       </div>

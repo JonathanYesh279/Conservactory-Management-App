@@ -186,11 +186,15 @@ const AcademicInfoTab: React.FC<AcademicInfoTabProps> = ({ student, studentId })
     </div>
   )
 
-  const InfoRow: React.FC<{ label: string; value: string | React.ReactNode }> = ({ label, value }) => (
-    <div className="flex justify-between items-start py-2 border-b border-gray-200 last:border-b-0">
+  const InfoRow: React.FC<{ label: string; value: string | React.ReactNode; className?: string }> = ({
+    label,
+    value,
+    className = ''
+  }) => (
+    <div className={`flex justify-between items-start py-3 hover:bg-gray-50 rounded-lg px-2 transition-colors duration-150 ${className}`}>
       <span className="text-sm font-medium text-gray-600 min-w-0 flex-shrink-0 ml-4">{label}</span>
-      <span className="text-sm text-gray-900 text-right min-w-0 flex-1">
-        {value || 'לא צוין'}
+      <span className="text-sm text-gray-900 text-right min-w-0 flex-1 font-medium">
+        {value || <span className="text-gray-400 italic">לא צוין</span>}
       </span>
     </div>
   )
@@ -600,6 +604,24 @@ const AcademicInfoTab: React.FC<AcademicInfoTabProps> = ({ student, studentId })
     )
   }
 
+  // Get primary teacher name from teacher assignments
+  const primaryTeacher = useMemo(() => {
+    if (teacherAssignments && teacherAssignments.length > 0) {
+      const activeTeacher = teacherAssignments.find((ta: any) => ta.isActive)
+      return activeTeacher?.teacherName || teacherAssignments[0]?.teacherName || null
+    }
+    return null
+  }, [teacherAssignments])
+
+  // Get primary instrument from progress
+  const primaryInstrument = useMemo(() => {
+    if (academicInfo.instrumentProgress && academicInfo.instrumentProgress.length > 0) {
+      const primary = academicInfo.instrumentProgress.find(i => i.isPrimary)
+      return primary || academicInfo.instrumentProgress[0]
+    }
+    return null
+  }, [academicInfo.instrumentProgress])
+
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -607,6 +629,32 @@ const AcademicInfoTab: React.FC<AcademicInfoTabProps> = ({ student, studentId })
         <h2 className="text-2xl font-bold text-gray-900">מידע אקדמי</h2>
         <p className="text-gray-600 mt-1">התקדמות, כישורים והישגים אקדמיים</p>
       </div>
+
+      {/* Academic Summary Card - Shows key info at a glance */}
+      <InfoSection title="מידע אקדמי" icon={BookOpen}>
+        <div className="space-y-1">
+          <InfoRow label="כיתה" value={academicInfo.class} />
+          <InfoRow
+            label="תאריך התחלה"
+            value={primaryInstrument?.startDate ? new Date(primaryInstrument.startDate).toLocaleDateString('he-IL') : 'לא צוין'}
+          />
+          <InfoRow label="כלי נגינה" value={primaryInstrument?.instrumentName} />
+          <InfoRow
+            label="שלב"
+            value={primaryInstrument ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                {HEBREW_STAGES[primaryInstrument.currentStage as keyof typeof HEBREW_STAGES]?.name || primaryInstrument.currentStage}
+              </span>
+            ) : 'לא צוין'}
+          />
+          <InfoRow
+            label="מורה"
+            value={primaryTeacher ? (
+              <span className="font-medium text-primary-700">{primaryTeacher}</span>
+            ) : 'לא משויך'}
+          />
+        </div>
+      </InfoSection>
 
       {/* Hebrew Stage Progress Cards */}
       {academicInfo.instrumentProgress && academicInfo.instrumentProgress.length > 0 && (

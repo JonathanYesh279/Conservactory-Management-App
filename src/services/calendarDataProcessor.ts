@@ -95,7 +95,7 @@ class CalendarDataProcessor {
    * Finds teacher's location for a specific day
    */
   private getTeacherLocationForDay(teacher: Teacher, day: string): string {
-    const timeBlock = teacher.timeBlocks.find(block => block.day === day)
+    const timeBlock = teacher.teaching?.timeBlocks?.find(block => block.day === day)
     return timeBlock?.location || ''
   }
 

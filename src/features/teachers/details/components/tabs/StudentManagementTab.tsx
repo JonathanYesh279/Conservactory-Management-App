@@ -58,41 +58,60 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
     }
   }
 
-  // Fetch students data
+  // Fetch students data - use teacher lessons API as source of truth
+  // This ensures consistency with the schedule tab (both use studentAssignments as the source)
   useEffect(() => {
     const fetchStudents = async () => {
       try {
         setIsLoading(true)
-        
-        // Fetch teacher's current students
-        if (teacher.teaching?.studentIds?.length > 0) {
-          const studentPromises = teacher.teaching.studentIds.map(studentId =>
-            apiService.students.getStudentById(studentId)
+
+        console.log('📚 StudentManagementTab - Fetching students for teacher:', {
+          teacherId,
+          teacherName: teacher.personalInfo?.fullName
+        })
+
+        // Fetch teacher's students using the lessons API (source of truth)
+        // This queries students with teacherAssignments.teacherId = teacherId
+        const lessonsData = await apiService.teachers.getTeacherLessons(teacherId)
+        const lessons = lessonsData?.lessons || lessonsData?.data?.lessons || []
+
+        console.log('✅ StudentManagementTab - Fetched lessons:', lessons.length)
+
+        // Extract unique students from lessons
+        const uniqueStudentIds = [...new Set(lessons.map((lesson: any) => lesson.studentId))]
+
+        if (uniqueStudentIds.length > 0) {
+          // Fetch full student data for each unique student
+          const studentPromises = uniqueStudentIds.map(studentId =>
+            apiService.students.getStudentById(studentId as string)
           )
           const studentData = await Promise.all(studentPromises)
+          console.log('✅ StudentManagementTab - Fetched students:', studentData.length)
           setStudents(studentData)
-          
-          // Check lesson status for each student using existing data
+
+          // All students from lessons have active lessons with this teacher
           const lessonStatusMap: { [key: string]: boolean } = {}
           studentData.forEach((student) => {
-            const hasLessons = checkStudentHasLessons(student)
-            lessonStatusMap[student._id] = hasLessons
+            lessonStatusMap[student._id] = true // All have active lessons since they came from the lessons API
           })
           setStudentsWithLessons(lessonStatusMap)
+        } else {
+          console.log('⚠️ StudentManagementTab - No students found in teacher lessons')
+          setStudents([])
         }
-        
+
         // Fetch all students for the add student dropdown
         const allStudentsData = await apiService.students.getStudents()
         setAllStudents(allStudentsData)
       } catch (error) {
-        console.error('Error fetching students:', error)
+        console.error('❌ Error fetching students:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchStudents()
-  }, [teacher.teaching?.studentIds, teacherId])
+  }, [teacherId])
 
   // Handle student selection
   const handleStudentSelect = (student: Student) => {
@@ -303,8 +322,10 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
   }
 
   // Get available students (not already assigned to this teacher)
-  const availableStudents = allStudents.filter(student => 
-    !teacher.teaching?.studentIds?.includes(student._id)
+  // Use the students state (from lessons API) instead of teacher.teaching.studentIds
+  const assignedStudentIds = students.map(s => s._id)
+  const availableStudents = allStudents.filter(student =>
+    !assignedStudentIds.includes(student._id)
   )
 
   // Filter students based on search term
@@ -648,7 +669,7 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {teacher.timeBlocks?.map((timeBlock, index) => (
+            {teacher.teaching?.timeBlocks?.map((timeBlock, index) => (
               <div key={timeBlock._id || index} className="bg-white rounded-lg p-4 border">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium text-gray-900">{timeBlock.day}</span>
@@ -671,8 +692,8 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
               </div>
             ))}
           </div>
-          
-          {(!teacher.timeBlocks || teacher.timeBlocks.length === 0) && (
+
+          {(!teacher.teaching?.timeBlocks || teacher.teaching.timeBlocks.length === 0) && (
             <div className="text-center text-gray-500 py-4">
               אין בלוקי זמן מוגדרים עדיין
             </div>

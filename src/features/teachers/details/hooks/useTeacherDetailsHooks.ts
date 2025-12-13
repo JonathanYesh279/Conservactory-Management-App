@@ -127,7 +127,7 @@ export function useTeacherSchedule(teacherId: string, enabled: boolean = true) {
       const teacher = await teacherDetailsApi.getTeacherDetails(teacherId)
       
       // Transform the schedule data for UI consumption
-      const timeBlocks = TeacherDataTransformUtils.sortTimeBlocks(teacher.timeBlocks || [])
+      const timeBlocks = TeacherDataTransformUtils.sortTimeBlocks(teacher.teaching?.timeBlocks || [])
       const scheduledLessons = teacher.teaching?.schedule || []
       
       return {
