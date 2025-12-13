@@ -56,9 +56,33 @@ export default function Students() {
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
   const [deletionPreview, setDeletionPreview] = useState<any>(null)
   const [isSelectMode, setIsSelectMode] = useState(false)
-  
+
+  // Teachers lookup map for displaying teacher names
+  const [teachersMap, setTeachersMap] = useState<Map<string, string>>(new Map())
+
   // Cascade deletion hooks
   const { previewDeletion, executeDeletion, isDeleting } = useCascadeDeletion()
+
+  // Fetch teachers for name lookup
+  useEffect(() => {
+    const fetchTeachers = async () => {
+      try {
+        const teachers = await apiService.teachers.getTeachers()
+        const map = new Map<string, string>()
+        teachers.forEach((teacher: any) => {
+          const name = teacher.personalInfo?.fullName ||
+                      teacher.fullName ||
+                      teacher.name ||
+                      'לא מוגדר'
+          map.set(teacher._id, name)
+        })
+        setTeachersMap(map)
+      } catch (error) {
+        console.error('Error fetching teachers for lookup:', error)
+      }
+    }
+    fetchTeachers()
+  }, [])
 
   // Debounce search term - wait 500ms after user stops typing
   useEffect(() => {
@@ -676,8 +700,33 @@ export default function Students() {
     }] : []),
     { key: 'name', header: 'שם התלמיד' },
     { key: 'instrument', header: 'כלי נגינה' },
-    { 
-      key: 'stageLevel', 
+    {
+      key: 'teacherName',
+      header: 'שם המורה',
+      render: (student: any) => {
+        const assignments = student.rawData?.teacherAssignments || student.originalStudent?.teacherAssignments || []
+        if (!assignments || assignments.length === 0) {
+          return <span className="text-gray-400">לא משוייך</span>
+        }
+
+        // Get first teacher's ID and look up name from teachersMap
+        const firstAssignment = assignments[0]
+        const teacherId = firstAssignment?.teacherId
+
+        if (!teacherId) {
+          return <span className="text-gray-400">לא משוייך</span>
+        }
+
+        const teacherName = teachersMap.get(teacherId)
+        if (!teacherName) {
+          return <span className="text-gray-400">לא משוייך</span>
+        }
+
+        return <span className="text-gray-700">{teacherName}</span>
+      }
+    },
+    {
+      key: 'stageLevel',
       header: 'שלב', 
       align: 'center' as const,
       render: (student: any) => {
@@ -750,31 +799,6 @@ export default function Students() {
     { key: 'orchestra', header: 'תזמורת' },
     { key: 'grade', header: 'כיתה', align: 'center' as const },
     { key: 'status', header: 'סטטוס', align: 'center' as const },
-    {
-      key: 'lastActivity',
-      header: 'פעילות אחרונה',
-      align: 'center' as const,
-      render: (student: any) => {
-        const lastActivity = student.rawData.lastActivity
-        if (!lastActivity) return <span className="text-gray-400 text-xs">-</span>
-
-        const date = new Date(lastActivity)
-        const now = new Date()
-        const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-        return (
-          <span className={`text-xs ${
-            diffDays > 30 ? 'text-red-600' :
-            diffDays > 7 ? 'text-yellow-600' :
-            'text-green-600'
-          }`}>
-            {diffDays === 0 ? 'היום' :
-             diffDays === 1 ? 'אתמול' :
-             `לפני ${diffDays} ימים`}
-          </span>
-        )
-      }
-    },
     { key: 'actions', header: 'פעולות', align: 'center' as const, width: isSelectMode ? '120px' : '140px' },
   ]
 
