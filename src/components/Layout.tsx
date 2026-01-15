@@ -41,27 +41,6 @@ export default function Layout({ children }: LayoutProps) {
     user.conducting?.orchestraIds?.length > 0
   )
 
-  // Debug logging with full user object
-  console.log('🎨 Layout Debug:', {
-    hasUser: !!user,
-    userRole: user?.role,
-    userRoles: user?.roles,
-    userObject: user,
-    shouldShowSidebar,
-    isMobile,
-    isDesktopOpen,
-    conditions: {
-      hasRole: !!(user?.role),
-      hasRolesArray: !!(user?.roles),
-      isAdmin: user?.role === 'admin' || user?.roles?.includes('admin'),
-      isTeacher: user?.role === 'teacher' || user?.roles?.includes('teacher'),
-      hasConductor: user?.role === 'conductor' || user?.roles?.includes('conductor'),
-      hasTheoryTeacher: user?.role === 'theory-teacher' || user?.roles?.includes('theory-teacher'),
-      hasTeaching: user?.teaching?.studentIds?.length > 0,
-      hasConducting: user?.conducting?.orchestraIds?.length > 0
-    }
-  })
-
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
       {/* Sidebar - Show for all users with roles */}

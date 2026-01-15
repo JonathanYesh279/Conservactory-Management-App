@@ -156,9 +156,6 @@ export default function OrchestraForm({ orchestra, teachers, onSubmit, onCancel 
               {errors.type && (
                 <p className="text-red-500 text-xs mt-1">{errors.type}</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
-                תזמורת: הרכב גדול עם כלים שונים | הרכב: קבוצה קטנה יותר
-              </p>
             </div>
 
             {/* Location */}

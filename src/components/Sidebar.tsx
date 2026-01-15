@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAuth } from '../services/authContext.jsx'
 import { useSidebar } from '../contexts/SidebarContext'
 import StudentForm from './forms/StudentForm'
@@ -130,7 +130,7 @@ export default function Sidebar() {
   const [orchestras, setOrchestras] = useState<any[]>([])
   const [loadingOrchestras, setLoadingOrchestras] = useState(false)
 
-  const isActive = (path: string) => location.pathname === path
+  const isActive = useCallback((path: string) => location.pathname === path, [location.pathname])
 
   // Get all user roles
   const getUserRoles = (): string[] => {
@@ -164,9 +164,10 @@ export default function Sidebar() {
     }))]
   }
 
-  const userRoles = getUserRoles()
-  const isAdmin = userRoles.includes('admin')
-  const hasMultipleRoles = userRoles.length > 1
+  // Memoize user roles to prevent recalculation on every render
+  const userRoles = useMemo(() => getUserRoles(), [user])
+  const isAdmin = useMemo(() => userRoles.includes('admin'), [userRoles])
+  const hasMultipleRoles = useMemo(() => userRoles.length > 1, [userRoles])
 
   // Build merged navigation for multi-role users
   const getMergedNavigation = (): NavigationItem[] => {
@@ -277,24 +278,10 @@ export default function Sidebar() {
       .map(([key, data]) => ({ key, ...data }))
   }
 
-  const navigation = getMergedNavigation()
-  const groupedNavigation = groupNavigationByCategory(navigation)
-  const quickActions = getQuickActions()
-
-  // Debug logging with full details (after variables are initialized)
-  console.log('📋 Sidebar Debug:', {
-    hasUser: !!user,
-    isLoading,
-    userRoles,
-    isAdmin,
-    hasMultipleRoles,
-    isMobile,
-    isDesktopOpen,
-    isOpen,
-    navigationItemsCount: navigation?.length || 0,
-    groupedNavigationCount: groupedNavigation?.length || 0,
-    quickActionsCount: quickActions?.length || 0
-  })
+  // Memoize navigation computations to prevent recalculation on every render
+  const navigation = useMemo(() => getMergedNavigation(), [userRoles, isAdmin])
+  const groupedNavigation = useMemo(() => groupNavigationByCategory(navigation), [navigation])
+  const quickActions = useMemo(() => getQuickActions(), [userRoles])
 
   // Close mobile menu when switching to desktop
   useEffect(() => {
@@ -332,21 +319,23 @@ export default function Sidebar() {
     }
   }, [isMobile, isOpen])
 
-  const closeMobileMenu = () => {
+  const closeMobileMenu = useCallback(() => {
     if (isMobile) {
       setIsOpen(false)
     }
-  }
+  }, [isMobile])
 
-  const toggleCategory = (categoryKey: string) => {
-    const newCollapsed = new Set(collapsedCategories)
-    if (newCollapsed.has(categoryKey)) {
-      newCollapsed.delete(categoryKey)
-    } else {
-      newCollapsed.add(categoryKey)
-    }
-    setCollapsedCategories(newCollapsed)
-  }
+  const toggleCategory = useCallback((categoryKey: string) => {
+    setCollapsedCategories(prev => {
+      const newCollapsed = new Set(prev)
+      if (newCollapsed.has(categoryKey)) {
+        newCollapsed.delete(categoryKey)
+      } else {
+        newCollapsed.add(categoryKey)
+      }
+      return newCollapsed
+    })
+  }, [])
 
   // Get role display labels
   const getRoleLabel = (role: string): string => {

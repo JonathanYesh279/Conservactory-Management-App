@@ -58,8 +58,8 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
     }
   }
 
-  // Fetch students data - use teacher lessons API as source of truth
-  // This ensures consistency with the schedule tab (both use studentAssignments as the source)
+  // Fetch students data - use teacher.teaching.studentIds as source of truth
+  // This ensures we show all students assigned to the teacher, even those without lessons yet
   useEffect(() => {
     const fetchStudents = async () => {
       try {
@@ -67,36 +67,38 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
 
         console.log('📚 StudentManagementTab - Fetching students for teacher:', {
           teacherId,
-          teacherName: teacher.personalInfo?.fullName
+          teacherName: teacher.personalInfo?.fullName,
+          studentIds: teacher.teaching?.studentIds
         })
 
-        // Fetch teacher's students using the lessons API (source of truth)
-        // This queries students with teacherAssignments.teacherId = teacherId
-        const lessonsData = await apiService.teachers.getTeacherLessons(teacherId)
-        const lessons = lessonsData?.lessons || lessonsData?.data?.lessons || []
+        // Use teacher's studentIds array as the source of truth
+        const studentIds = teacher.teaching?.studentIds || []
 
-        console.log('✅ StudentManagementTab - Fetched lessons:', lessons.length)
-
-        // Extract unique students from lessons
-        const uniqueStudentIds = [...new Set(lessons.map((lesson: any) => lesson.studentId))]
-
-        if (uniqueStudentIds.length > 0) {
-          // Fetch full student data for each unique student
-          const studentPromises = uniqueStudentIds.map(studentId =>
-            apiService.students.getStudentById(studentId as string)
+        if (studentIds.length > 0) {
+          // Fetch full student data for each student ID
+          const studentPromises = studentIds.map((studentId: string) =>
+            apiService.students.getStudentById(studentId).catch((err: any) => {
+              console.warn(`⚠️ Failed to fetch student ${studentId}:`, err.message)
+              return null // Return null for failed fetches
+            })
           )
           const studentData = await Promise.all(studentPromises)
-          console.log('✅ StudentManagementTab - Fetched students:', studentData.length)
-          setStudents(studentData)
+          const validStudents = studentData.filter(Boolean) // Filter out null values
+          console.log('✅ StudentManagementTab - Fetched students:', validStudents.length)
+          setStudents(validStudents)
 
-          // All students from lessons have active lessons with this teacher
+          // Check which students have active lessons with this teacher
           const lessonStatusMap: { [key: string]: boolean } = {}
-          studentData.forEach((student) => {
-            lessonStatusMap[student._id] = true // All have active lessons since they came from the lessons API
+          validStudents.forEach((student: any) => {
+            // Check if student has an active teacherAssignment with this teacher
+            const hasActiveLesson = student.teacherAssignments?.some((assignment: any) =>
+              assignment.teacherId === teacherId && assignment.isActive === true
+            )
+            lessonStatusMap[student._id] = hasActiveLesson || false
           })
           setStudentsWithLessons(lessonStatusMap)
         } else {
-          console.log('⚠️ StudentManagementTab - No students found in teacher lessons')
+          console.log('⚠️ StudentManagementTab - No students in teacher.teaching.studentIds')
           setStudents([])
         }
 
@@ -111,7 +113,7 @@ const StudentManagementTab: React.FC<StudentManagementTabProps> = ({ teacher, te
     }
 
     fetchStudents()
-  }, [teacherId])
+  }, [teacherId, teacher.teaching?.studentIds])
 
   // Handle student selection
   const handleStudentSelect = (student: Student) => {

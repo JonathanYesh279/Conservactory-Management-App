@@ -86,60 +86,50 @@ export default function OrchestraManagementDashboard({
       setLoading(true)
       setError(null)
 
-      // Load orchestras first
-      const orchestrasData = await orchestraService.getOrchestras()
-      
-      // Load related data in parallel
-      const [allStudents, allTeachers] = await Promise.all([
+      // Load ALL data in parallel - single batch of API calls
+      // This avoids N+1 queries where we would call rehearsal API for each orchestra
+      const [orchestrasData, allStudents, allTeachers, allRehearsals] = await Promise.all([
+        orchestraService.getOrchestras(),
         studentService.getStudents(),
-        teacherService.getTeachers()
+        teacherService.getTeachers(),
+        rehearsalService.getRehearsals().catch(() => []) // Gracefully handle rehearsal loading errors
       ])
 
-      // Enrich orchestras with detailed information
-      const enrichedOrchestras = await Promise.all(
-        orchestrasData.map(async (orchestra): Promise<OrchestraWithDetails> => {
-          try {
-            // Get member details
-            const memberDetails = allStudents.filter(student => 
-              orchestra.memberIds?.includes(student._id)
-            )
+      const now = new Date()
 
-            // Get conductor details
-            const conductorDetails = allTeachers.find(teacher => 
-              teacher._id === orchestra.conductorId
-            )
+      // Enrich orchestras with detailed information - all data is already loaded
+      // No additional API calls needed here
+      const enrichedOrchestras = orchestrasData.map((orchestra): OrchestraWithDetails => {
+        // Get member details (filter from pre-loaded students)
+        const memberDetails = allStudents.filter(student =>
+          orchestra.memberIds?.includes(student._id)
+        )
 
-            // Get rehearsal count
-            let rehearsalCount = 0
-            let upcomingRehearsals: any[] = []
-            
-            try {
-              const rehearsals = await rehearsalService.getOrchestraRehearsals(orchestra._id)
-              rehearsalCount = rehearsals.length
-              
-              // Filter upcoming rehearsals
-              const now = new Date()
-              upcomingRehearsals = rehearsals
-                .filter(r => new Date(r.date) >= now)
-                .slice(0, 3)
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-            } catch (rehearsalError) {
-              console.warn(`Could not load rehearsals for orchestra ${orchestra._id}:`, rehearsalError)
-            }
+        // Get conductor details (find from pre-loaded teachers)
+        const conductorDetails = allTeachers.find(teacher =>
+          teacher._id === orchestra.conductorId
+        )
 
-            return {
-              ...orchestra,
-              memberDetails,
-              conductorDetails,
-              rehearsalCount,
-              upcomingRehearsals
-            }
-          } catch (enrichError) {
-            console.warn(`Error enriching orchestra ${orchestra._id}:`, enrichError)
-            return orchestra
-          }
-        })
-      )
+        // Filter rehearsals for this orchestra from pre-loaded data
+        const orchestraRehearsals = allRehearsals.filter(
+          (r: any) => r.orchestraId === orchestra._id
+        )
+        const rehearsalCount = orchestraRehearsals.length
+
+        // Filter and sort upcoming rehearsals
+        const upcomingRehearsals = orchestraRehearsals
+          .filter((r: any) => new Date(r.date) >= now)
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .slice(0, 3)
+
+        return {
+          ...orchestra,
+          memberDetails,
+          conductorDetails,
+          rehearsalCount,
+          upcomingRehearsals
+        }
+      })
 
       setOrchestras(enrichedOrchestras)
     } catch (error) {

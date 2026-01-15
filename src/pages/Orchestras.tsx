@@ -8,8 +8,10 @@ import OrchestraForm from '../components/OrchestraForm'
 import OrchestraCard from '../components/OrchestraCard'
 import OrchestraManagementDashboard from '../components/OrchestraManagementDashboard'
 import OrchestraMemberManagement from '../components/OrchestraMemberManagement'
+import ConfirmDeleteModal from '../components/ui/ConfirmDeleteModal'
 import { orchestraService, teacherService } from '../services/apiService'
 import { useAuth } from '../services/authContext'
+import { useSchoolYear } from '../services/schoolYearContext'
 import { 
   filterOrchestras, 
   sortOrchestras, 
@@ -29,6 +31,7 @@ import {
 export default function Orchestras() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { currentSchoolYear } = useSchoolYear()
   const [orchestras, setOrchestras] = useState<Orchestra[]>([])
   const [teachers, setTeachers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,6 +44,11 @@ export default function Orchestras() {
   // Modal states (keeping member management modal for now)
   const [showMemberManagement, setShowMemberManagement] = useState(false)
   const [selectedOrchestraId, setSelectedOrchestraId] = useState<string | null>(null)
+
+  // Delete confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [orchestraToDelete, setOrchestraToDelete] = useState<Orchestra | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [sortBy, setSortBy] = useState<'name' | 'type' | 'conductor' | 'memberCount' | 'location' | 'rehearsalCount'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [filters, setFilters] = useState({
@@ -62,15 +70,15 @@ export default function Orchestras() {
       setError(null)
       
       // Load orchestras and teachers in parallel
+      // Use 'role' (singular) as expected by the backend API
       const [orchestrasData, teachersData] = await Promise.all([
         orchestraService.getOrchestras(),
-        teacherService.getTeachers({ roles: 'מנצח' })
+        teacherService.getTeachers({ role: 'מנצח' })
       ])
       
       setOrchestras(orchestrasData)
-      // Filter out current user from conductors list
-      const filteredTeachers = teachersData.filter(teacher => teacher._id !== user?._id)
-      setTeachers(filteredTeachers)
+      // Include all conductors (including current user) so they can assign themselves
+      setTeachers(teachersData)
     } catch (error) {
       console.error('Error loading data:', error)
       setError('שגיאה בטעינת הנתונים')
@@ -121,10 +129,19 @@ export default function Orchestras() {
 
   const handleFormSubmit = async (orchestraData: any) => {
     try {
+      // Add the current school year ID to the orchestra data
+      const dataWithSchoolYear = {
+        ...orchestraData,
+        schoolYearId: currentSchoolYear?._id || ''
+      }
+
       if (editingOrchestra) {
-        await orchestraService.updateOrchestra(editingOrchestra._id, orchestraData)
+        await orchestraService.updateOrchestra(editingOrchestra._id, dataWithSchoolYear)
       } else {
-        await orchestraService.createOrchestra(orchestraData)
+        if (!currentSchoolYear?._id) {
+          throw new Error('לא הוגדרה שנת לימודים נוכחית. אנא הגדר שנת לימודים לפני יצירת תזמורת.')
+        }
+        await orchestraService.createOrchestra(dataWithSchoolYear)
       }
       setShowForm(false)
       setEditingOrchestra(null)
@@ -135,16 +152,34 @@ export default function Orchestras() {
     }
   }
 
-  const handleDeleteOrchestra = async (orchestraId: string) => {
-    if (window.confirm('האם אתה בטוח שברצונך למחוק את התזמורת?')) {
-      try {
-        await orchestraService.deleteOrchestra(orchestraId)
-        await loadData()
-      } catch (error) {
-        console.error('Error deleting orchestra:', error)
-        setError('שגיאה במחיקת התזמורת')
-      }
+  const handleDeleteOrchestra = (orchestraId: string) => {
+    const orchestra = orchestras.find(o => o._id === orchestraId)
+    if (orchestra) {
+      setOrchestraToDelete(orchestra)
+      setShowDeleteConfirm(true)
     }
+  }
+
+  const confirmDeleteOrchestra = async () => {
+    if (!orchestraToDelete) return
+
+    setIsDeleting(true)
+    try {
+      await orchestraService.deleteOrchestra(orchestraToDelete._id)
+      setShowDeleteConfirm(false)
+      setOrchestraToDelete(null)
+      await loadData()
+    } catch (error) {
+      console.error('Error deleting orchestra:', error)
+      setError('שגיאה במחיקת התזמורת')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const cancelDeleteOrchestra = () => {
+    setShowDeleteConfirm(false)
+    setOrchestraToDelete(null)
   }
 
   const handleViewDetails = (orchestraId: string) => {
@@ -497,6 +532,18 @@ export default function Orchestras() {
           onUpdate={loadData}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteConfirm}
+        title="מחיקת תזמורת"
+        message="האם אתה בטוח שברצונך למחוק את התזמורת?"
+        itemName={orchestraToDelete?.name}
+        confirmText="מחק תזמורת"
+        onConfirm={confirmDeleteOrchestra}
+        onCancel={cancelDeleteOrchestra}
+        isLoading={isDeleting}
+      />
     </div>
   )
 }
