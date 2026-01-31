@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, X, Plus, Trash2, Loader } from 'lucide-react'
+import { Save, X, Plus, Trash2, Loader, AlertCircle } from 'lucide-react'
 import { Card } from './ui/Card'
 import apiService from '../services/apiService'
 
@@ -361,7 +361,10 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                     placeholder="הכנס שם מלא"
                   />
                   {errors.fullName && (
-                    <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.fullName}
+                    </p>
                   )}
                 </div>
 
@@ -379,7 +382,10 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                     placeholder="050-1234567"
                   />
                   {errors.phone && (
-                    <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.phone}
+                    </p>
                   )}
                 </div>
 
@@ -399,7 +405,10 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                     placeholder="16"
                   />
                   {errors.age && (
-                    <p className="text-red-500 text-xs mt-1">{errors.age}</p>
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.age}
+                    </p>
                   )}
                 </div>
 
@@ -443,7 +452,10 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                     placeholder="050-1234567"
                   />
                   {errors.parentPhone && (
-                    <p className="text-red-500 text-xs mt-1">{errors.parentPhone}</p>
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.parentPhone}
+                    </p>
                   )}
                 </div>
 
@@ -455,9 +467,17 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                     type="email"
                     value={formData.personalInfo.parentEmail}
                     onChange={(e) => handlePersonalInfoChange('parentEmail', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                      errors.parentEmail ? 'border-red-300' : 'border-gray-300'
+                    }`}
                     placeholder="parent@example.com"
                   />
+                  {errors.parentEmail && (
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.parentEmail}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -468,9 +488,17 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                     type="email"
                     value={formData.personalInfo.studentEmail}
                     onChange={(e) => handlePersonalInfoChange('studentEmail', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                      errors.studentEmail ? 'border-red-300' : 'border-gray-300'
+                    }`}
                     placeholder="student@example.com"
                   />
+                  {errors.studentEmail && (
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.studentEmail}
+                    </p>
+                  )}
                 </div>
               </div>
             </Card>
@@ -496,7 +524,10 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                   ))}
                 </select>
                 {errors.class && (
-                  <p className="text-red-500 text-xs mt-1">{errors.class}</p>
+                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.class}
+                  </p>
                 )}
               </div>
 
@@ -536,7 +567,10 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                             ))}
                           </select>
                           {errors[`instrument_${index}`] && (
-                            <p className="text-red-500 text-xs mt-1">{errors[`instrument_${index}`]}</p>
+                            <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              {errors[`instrument_${index}`]}
+                            </p>
                           )}
                         </div>
 
@@ -556,7 +590,10 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                             ))}
                           </select>
                           {errors[`stage_${index}`] && (
-                            <p className="text-red-500 text-xs mt-1">{errors[`stage_${index}`]}</p>
+                            <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              {errors[`stage_${index}`]}
+                            </p>
                           )}
                         </div>
 
@@ -749,7 +786,10 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
                   ))}
                 </div>
                 {errors.instruments && (
-                  <p className="text-red-500 text-xs mt-1">{errors.instruments}</p>
+                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.instruments}
+                  </p>
                 )}
               </div>
             </Card>

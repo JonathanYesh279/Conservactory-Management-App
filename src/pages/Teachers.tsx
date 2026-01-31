@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Plus, Filter, Loader, Calendar, Users, X, Grid, List, Eye, Edit, Trash2, ChevronDown } from 'lucide-react'
 import { Card } from '../components/ui/card'
 import Table, { StatusBadge } from '../components/ui/Table'
@@ -48,18 +48,20 @@ const isUserAdmin = (user: any): boolean => {
 
 export default function Teachers() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
 
+  // Initialize state from URL params for persistence
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
   const [searchLoading, setSearchLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchParams.get('search') || '')
   const [filters, setFilters] = useState({
-    instrument: '',
-    role: ''
+    instrument: searchParams.get('instrument') || '',
+    role: searchParams.get('role') || ''
   })
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -71,9 +73,9 @@ export default function Teachers() {
   const [selectedTeacher, setSelectedTeacher] = useState(null)
   const [scheduleData, setScheduleData] = useState(null)
   const [scheduleLoading, setScheduleLoading] = useState(false)
-  const [instrumentSearchTerm, setInstrumentSearchTerm] = useState('')
+  const [instrumentSearchTerm, setInstrumentSearchTerm] = useState(searchParams.get('instrument') || '')
   const [showInstrumentDropdown, setShowInstrumentDropdown] = useState(false)
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>((searchParams.get('view') as 'table' | 'grid') || 'table')
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false)
   const [teacherToEdit, setTeacherToEdit] = useState(null)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
@@ -88,6 +90,22 @@ export default function Teachers() {
 
     return () => clearTimeout(timer)
   }, [searchTerm])
+
+  // Sync filter state to URL params for persistence
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (searchTerm) params.set('search', searchTerm)
+    if (filters.instrument) params.set('instrument', filters.instrument)
+    if (filters.role) params.set('role', filters.role)
+    if (viewMode !== 'table') params.set('view', viewMode)
+
+    // Update URL without causing navigation
+    const newSearch = params.toString()
+    const currentSearch = searchParams.toString()
+    if (newSearch !== currentSearch) {
+      setSearchParams(params, { replace: true })
+    }
+  }, [searchTerm, filters.instrument, filters.role, viewMode])
 
   // Fetch teachers from real API when school year changes
   useEffect(() => {
@@ -120,6 +138,7 @@ export default function Teachers() {
         ...(currentSchoolYear ? { schoolYearId: currentSchoolYear._id } : {}),
         // Add search and filter parameters (using debounced search term)
         ...(debouncedSearchTerm ? { name: debouncedSearchTerm } : {}),
+        ...(filters.instrument ? { instrument: filters.instrument } : {}),
         ...(filters.role ? { role: filters.role } : {}),
         page,
         limit: TEACHERS_PER_PAGE
@@ -322,16 +341,19 @@ export default function Teachers() {
     }
   }, [debouncedSearchTerm, filters.instrument, filters.role])
 
-  // Available instruments list
+  // Available instruments list - base instruments only
   const allInstruments = [
+    'כינור', 'ויולה', "צ'לו", 'קונטרבס',
+    'גיטרה', 'גיטרה בס',
     'חלילית', 'חליל צד', 'אבוב', 'בסון', 'סקסופון', 'קלרינט',
-    'חצוצרה', 'קרן יער', 'טרומבון', 'טובה/בריטון', 'שירה',
-    'כינור', 'ויולה', "צ'לו", 'קונטרבס', 'פסנתר', 'גיטרה',
-    'גיטרה בס', 'תופים'
+    'חצוצרה', 'קרן יער', 'טרומבון', 'טובה/בריטון',
+    'פסנתר',
+    'תופים',
+    'שירה'
   ]
 
   // Filter instruments based on search term
-  const filteredInstruments = allInstruments.filter(instrument => 
+  const filteredInstruments = allInstruments.filter(instrument =>
     instrument.toLowerCase().includes(instrumentSearchTerm.toLowerCase())
   )
 
@@ -355,10 +377,20 @@ export default function Teachers() {
 
   // Filter teachers - backend handles name and role filtering, but instrument is client-side
   // since the backend doesn't support instrument parameter for teachers
-  const filteredTeachers = teachers.filter(teacher => {
-    const matchesInstrument = !filters.instrument || teacher.specialization.includes(filters.instrument)
-    return matchesInstrument
-  })
+  const filteredTeachers = useMemo(() => {
+    return teachers.filter(teacher => {
+      if (!filters.instrument) return true
+
+      const teacherInstrument = (teacher.specialization || '').toLowerCase().trim()
+      const filterInstrument = filters.instrument.toLowerCase().trim()
+
+      // Check for exact match, contains, or the filter is contained in teacher's instrument
+      // This handles cases like "כינור" matching "כינור בארוק" and vice versa
+      return teacherInstrument === filterInstrument ||
+             teacherInstrument.includes(filterInstrument) ||
+             filterInstrument.includes(teacherInstrument)
+    })
+  }, [teachers, filters.instrument])
 
   // Calculate statistics using correct database structure
   // Use totalTeachersCount from pagination when available, otherwise use loaded teachers length

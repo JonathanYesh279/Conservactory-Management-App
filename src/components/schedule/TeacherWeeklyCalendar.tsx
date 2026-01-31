@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Clock, MapPin, Users, Music, User, Calendar, BookOpen, Edit, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, MapPin, Users, Music, User, Calendar, BookOpen, Edit, X, Trash2, AlertCircle } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, subDays, isToday, isSameDay } from 'date-fns'
 import { he } from 'date-fns/locale'
 
@@ -58,6 +58,7 @@ interface TeacherWeeklyCalendarProps {
   className?: string
   showNavigation?: boolean
   onLessonUpdate?: (lesson: TeacherLesson) => void
+  onLessonDelete?: (lesson: TeacherLesson) => void
 }
 
 // Hebrew day names mapping
@@ -82,11 +83,14 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
   orchestraActivities = [],
   className = '',
   showNavigation = true,
-  onLessonUpdate
+  onLessonUpdate,
+  onLessonDelete
 }) => {
   const [currentWeek, setCurrentWeek] = useState(new Date())
   const [editingLesson, setEditingLesson] = useState<any>(null)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Calculate week boundaries
   const weekStart = useMemo(() => startOfWeek(currentWeek, { weekStartsOn: 0 }), [currentWeek])
@@ -257,6 +261,25 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
       alert('שגיאה בעדכון השיעור. אנא נסה שוב.')
     } finally {
       setIsUpdating(false)
+    }
+  }
+
+  // Delete lesson
+  const handleLessonDelete = async () => {
+    if (!editingLesson) return
+
+    setIsDeleting(true)
+    try {
+      if (onLessonDelete) {
+        await onLessonDelete(editingLesson)
+      }
+      setEditingLesson(null)
+      setShowDeleteConfirm(false)
+    } catch (error) {
+      console.error('Error deleting lesson:', error)
+      alert('שגיאה במחיקת השיעור. אנא נסה שוב.')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -661,7 +684,7 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
       </div>
 
       {/* Lesson Editing Modal */}
-      {editingLesson && (
+      {editingLesson && !showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4">
             <div className="flex justify-between items-center mb-6">
@@ -675,18 +698,18 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
-            <form 
+
+            <form
               className="space-y-4"
               onSubmit={async (e) => {
                 e.preventDefault()
-                
+
                 const form = e.target as HTMLFormElement
                 const formData = new FormData(form)
                 const day = formData.get('day') as string
                 const startTime = formData.get('startTime') as string
                 const endTime = formData.get('endTime') as string
-                
+
                 if (!day || !startTime || !endTime) {
                   alert('אנא מלא את כל השדות הנדרשים')
                   return
@@ -694,7 +717,7 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
 
                 // Calculate duration
                 const duration = calculateDuration(startTime, endTime)
-                
+
                 if (duration <= 0) {
                   alert('זמן הסיום חייב להיות לאחר זמן ההתחלה')
                   return
@@ -752,7 +775,7 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
                     type="time"
                     name="endTime"
                     defaultValue={editingLesson.endTime || calculateEndTime(
-                      editingLesson.startTime || editingLesson.time || '00:00', 
+                      editingLesson.startTime || editingLesson.time || '00:00',
                       editingLesson.duration || 45
                     )}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -774,7 +797,7 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
                   )}
                 </div>
               </div>
-              
+
               {/* Action Buttons */}
               <div className="flex gap-3 pt-6 border-t">
                 <button
@@ -792,7 +815,59 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
                   ביטול
                 </button>
               </div>
+
+              {/* Delete Button */}
+              {onLessonDelete && (
+                <div className="pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors font-medium border border-red-200"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    מחק שיעור
+                  </button>
+                </div>
+              )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && editingLesson && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+              <AlertCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+              מחיקת שיעור
+            </h3>
+            <p className="text-gray-600 text-center mb-2">
+              האם אתה בטוח שברצונך למחוק את השיעור של
+            </p>
+            <p className="text-lg font-semibold text-gray-900 text-center mb-4">
+              {editingLesson.studentName || 'תלמיד'}?
+            </p>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              יום {editingLesson.day} בשעה {editingLesson.startTime || editingLesson.time}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={handleLessonDelete}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
+              >
+                {isDeleting ? 'מוחק...' : 'מחק'}
+              </button>
+            </div>
           </div>
         </div>
       )}

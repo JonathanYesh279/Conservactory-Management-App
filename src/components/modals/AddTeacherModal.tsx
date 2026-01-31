@@ -159,6 +159,13 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
   }
 
   const loadTeacherData = (teacher: any) => {
+    // IMPORTANT: Only load TIME BLOCKS (availability slots), not actual lessons
+    // Time blocks are schedule entries WITHOUT studentId
+    // Entries WITH studentId are actual lessons that should NOT be modified here
+    const timeBlocksOnly = (teacher.teaching?.schedule || []).filter(
+      (slot: any) => !slot.studentId
+    )
+
     setFormData({
       personalInfo: {
         fullName: teacher.personalInfo?.fullName || '',
@@ -172,7 +179,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
         isActive: teacher.professionalInfo?.isActive ?? true
       },
       teaching: {
-        schedule: teacher.teaching?.schedule || []
+        schedule: timeBlocksOnly
       },
       conducting: {
         orchestraIds: teacher.conducting?.orchestraIds || []
@@ -315,7 +322,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       return
     }
@@ -324,27 +331,41 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
     setSubmitError('')
 
     try {
+      // Convert new time blocks to schedule format
+      const newTimeBlocks = formData.teaching.schedule.map(slot => ({
+        day: slot.day,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        duration: calculateDuration(slot.startTime, slot.endTime),
+        location: slot.location || null,
+        notes: slot.notes || null,
+        isAvailable: true,
+        studentId: null,
+        recurring: {
+          isRecurring: true,
+          excludeDates: []
+        }
+      }))
+
+      // When editing, preserve existing LESSONS (entries with studentId)
+      // Only replace TIME BLOCKS (entries without studentId)
+      let finalSchedule = newTimeBlocks
+      if (mode === 'edit' && teacherToEdit) {
+        const existingLessons = (teacherToEdit.teaching?.schedule || []).filter(
+          (slot: any) => slot.studentId
+        )
+        console.log(`📋 Preserving ${existingLessons.length} existing lessons`)
+        finalSchedule = [...newTimeBlocks, ...existingLessons]
+      }
+
       // Prepare teacher data according to backend schema
       const teacherData = {
         personalInfo: formData.personalInfo,
         roles: formData.roles,
         professionalInfo: formData.professionalInfo,
         teaching: {
-          studentIds: [],
-          schedule: formData.teaching.schedule.map(slot => ({
-            day: slot.day,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            duration: calculateDuration(slot.startTime, slot.endTime),
-            location: slot.location || null,
-            notes: slot.notes || null,
-            isAvailable: true,
-            studentId: null,
-            recurring: {
-              isRecurring: true,
-              excludeDates: []
-            }
-          }))
+          studentIds: teacherToEdit?.teaching?.studentIds || [],
+          schedule: finalSchedule
         },
         conducting: formData.conducting,
         ensemblesIds: formData.ensemblesIds,
@@ -362,7 +383,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
 
       if (mode === 'edit' && teacherToEdit) {
         // Update existing teacher
-        console.log('🔄 Updating teacher:', teacherData)
+        console.log('🔄 Updating teacher with preserved lessons:', teacherData)
         const updatedTeacher = await apiService.teachers.updateTeacher(teacherToEdit._id, teacherData)
         console.log('✅ Teacher updated successfully:', updatedTeacher)
         onTeacherAdded(updatedTeacher)
@@ -483,7 +504,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
                       placeholder="הכנס שם מלא"
                     />
                     {errors['personalInfo.fullName'] && (
-                      <p className="mt-1 text-sm text-red-600">{errors['personalInfo.fullName']}</p>
+                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors['personalInfo.fullName']}</p>
                     )}
                   </div>
 
@@ -503,7 +524,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
                       placeholder="05XXXXXXXX"
                     />
                     {errors['personalInfo.phone'] && (
-                      <p className="mt-1 text-sm text-red-600">{errors['personalInfo.phone']}</p>
+                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors['personalInfo.phone']}</p>
                     )}
                   </div>
 
@@ -523,7 +544,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
                       placeholder="teacher@example.com"
                     />
                     {errors['personalInfo.email'] && (
-                      <p className="mt-1 text-sm text-red-600">{errors['personalInfo.email']}</p>
+                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors['personalInfo.email']}</p>
                     )}
                   </div>
 
@@ -543,7 +564,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
                       placeholder="רחוב מספר, עיר"
                     />
                     {errors['personalInfo.address'] && (
-                      <p className="mt-1 text-sm text-red-600">{errors['personalInfo.address']}</p>
+                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors['personalInfo.address']}</p>
                     )}
                   </div>
                 </div>
@@ -567,7 +588,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
                     ))}
                   </div>
                   {errors['roles'] && (
-                    <p className="mt-1 text-sm text-red-600">{errors['roles']}</p>
+                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors['roles']}</p>
                   )}
                 </div>
               </div>
@@ -596,7 +617,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
                     ))}
                   </select>
                   {errors['professionalInfo.instrument'] && (
-                    <p className="mt-1 text-sm text-red-600">{errors['professionalInfo.instrument']}</p>
+                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors['professionalInfo.instrument']}</p>
                   )}
                 </div>
 
@@ -714,7 +735,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
                               ))}
                             </select>
                             {errors[`schedule.${index}.location`] && (
-                              <p className="mt-1 text-sm text-red-600">{errors[`schedule.${index}.location`]}</p>
+                              <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors[`schedule.${index}.location`]}</p>
                             )}
                           </div>
                         </div>

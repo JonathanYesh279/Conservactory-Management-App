@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Filter, Calendar, Clock, Users, BookOpen, Trash2, AlertTriangle, Settings } from 'lucide-react'
+import { Plus, Search, Filter, Calendar, Clock, Users, BookOpen, Trash2, AlertTriangle, Settings, ChevronDown, ChevronUp, History } from 'lucide-react'
 import { Card } from '../components/ui/card'
 import StatsCard from '../components/ui/StatsCard'
 import TheoryLessonForm from '../components/TheoryLessonForm'
@@ -74,6 +74,12 @@ export default function TheoryLessons() {
     teacherId: ''
   })
 
+  // Past lessons visibility state
+  const [showPastLessons, setShowPastLessons] = useState(false)
+  const [pastLessons, setPastLessons] = useState<TheoryLesson[]>([])
+  const [loadingPastLessons, setLoadingPastLessons] = useState(false)
+  const [pastLessonsLoaded, setPastLessonsLoaded] = useState(false)
+
   // Load theory lessons on component mount
   useEffect(() => {
     loadTheoryLessons(false)
@@ -95,16 +101,21 @@ export default function TheoryLessons() {
       }
       setError(null)
 
-      // Build filters with pagination
-      // Include search query for backend filtering
+      // Get today's date for filtering upcoming lessons
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayStr = today.toISOString().split('T')[0]
+
+      // Build filters with pagination - default to upcoming lessons only
       const params = {
         ...filters,
+        fromDate: filters.date ? undefined : todayStr, // Only filter from today if no specific date filter
         page: isLoadMore ? currentPage + 1 : currentPage,
         limit: itemsPerPage,
-        search: searchQuery // Backend will use this for searching across title, description, teacher name, etc.
+        search: searchQuery
       }
 
-      console.log('📅 Loading theory lessons with pagination:', params)
+      console.log('📅 Loading upcoming theory lessons with pagination:', params)
 
       const response = await theoryService.getTheoryLessons(params)
 
@@ -157,7 +168,58 @@ export default function TheoryLessons() {
   const handleRefresh = () => {
     setCurrentPage(1)
     setLessons([])
+    setPastLessons([])
+    setPastLessonsLoaded(false)
     loadTheoryLessons(false)
+  }
+
+  // Load past lessons when user expands that section
+  const loadPastLessons = async () => {
+    if (pastLessonsLoaded || loadingPastLessons) return
+
+    try {
+      setLoadingPastLessons(true)
+
+      // Get yesterday's date for filtering past lessons
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+      // Request past lessons (before today), sorted by date descending (most recent first)
+      const params = {
+        ...filters,
+        toDate: yesterdayStr,
+        page: 1,
+        limit: 100, // Load more past lessons at once
+        search: searchQuery
+      }
+
+      console.log('📅 Loading past theory lessons:', params)
+
+      const response = await theoryService.getTheoryLessons(params)
+
+      if (response.data) {
+        setPastLessons(response.data)
+      } else if (Array.isArray(response)) {
+        setPastLessons(response)
+      }
+
+      setPastLessonsLoaded(true)
+    } catch (error) {
+      console.error('Error loading past theory lessons:', error)
+    } finally {
+      setLoadingPastLessons(false)
+    }
+  }
+
+  // Toggle past lessons visibility and load if needed
+  const handleTogglePastLessons = () => {
+    if (!showPastLessons && !pastLessonsLoaded) {
+      loadPastLessons()
+    }
+    setShowPastLessons(!showPastLessons)
   }
 
   // Helper function to format day header
@@ -193,8 +255,7 @@ export default function TheoryLessons() {
 
   // Group lessons by individual dates
   const groupedLessonsByDay = useMemo(() => {
-    // Backend handles filtering, so we use lessons directly
-    // Group by date
+    // Group upcoming lessons (from main lessons state)
     const lessonsByDate = new Map<string, TheoryLesson[]>()
 
     lessons.forEach(lesson => {
@@ -225,35 +286,51 @@ export default function TheoryLessons() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Categorize dates
+    // Categorize upcoming dates (today and future only from main lessons)
     const todayLessons: Array<[string, TheoryLesson[]]> = []
     const futureLessons: Array<[string, TheoryLesson[]]> = []
-    const pastLessons: Array<[string, TheoryLesson[]]> = []
 
-    sortedDates.forEach(([date, lessons]) => {
+    sortedDates.forEach(([date, dateLessons]) => {
       const lessonDate = new Date(date)
       lessonDate.setHours(0, 0, 0, 0)
-      
+
       if (lessonDate.getTime() === today.getTime()) {
-        todayLessons.push([date, lessons])
+        todayLessons.push([date, dateLessons])
       } else if (lessonDate > today) {
-        futureLessons.push([date, lessons])
-      } else {
-        pastLessons.push([date, lessons])
+        futureLessons.push([date, dateLessons])
       }
+      // Past lessons are handled separately from pastLessons state
     })
 
-    // Reverse past lessons so most recent is first
-    pastLessons.reverse()
+    // Group past lessons from separate state
+    const pastLessonsByDate = new Map<string, TheoryLesson[]>()
+    pastLessons.forEach(lesson => {
+      const dateKey = lesson.date
+      if (!pastLessonsByDate.has(dateKey)) {
+        pastLessonsByDate.set(dateKey, [])
+      }
+      pastLessonsByDate.get(dateKey)!.push(lesson)
+    })
+
+    pastLessonsByDate.forEach((dayLessons) => {
+      dayLessons.sort(sortByTime)
+    })
+
+    // Sort past lessons by date descending (most recent first)
+    const sortedPastDates = Array.from(pastLessonsByDate.entries()).sort((a, b) => {
+      return new Date(b[0]).getTime() - new Date(a[0]).getTime()
+    })
 
     return {
       today: todayLessons,
       future: futureLessons,
-      past: pastLessons,
-      all: [...todayLessons, ...futureLessons, ...pastLessons],
-      flatList: sortedDates.flatMap(([, lessons]) => lessons)
+      past: sortedPastDates,
+      all: [...todayLessons, ...futureLessons, ...sortedPastDates],
+      flatList: [...sortedDates.flatMap(([, dateLessons]) => dateLessons), ...pastLessons],
+      upcomingCount: lessons.length,
+      pastCount: pastLessons.length
     }
-  }, [lessons])
+  }, [lessons, pastLessons])
 
   // Use the flat list for table view
   const filteredAndSortedLessons = groupedLessonsByDay.flatList
@@ -261,7 +338,7 @@ export default function TheoryLessons() {
   // Calculate statistics
   const stats = {
     totalLessons: totalCount || lessons.length, // Use backend total count if available
-    activeLessons: lessons.filter(l => l.isActive).length,
+    upcomingLessons: lessons.length, // Upcoming lessons (loaded from today onwards)
     totalStudents: lessons.reduce((sum, l) => sum + (l.studentIds?.length || 0), 0),
     averageAttendance: lessons.length > 0
       ? Math.round(lessons.reduce((sum, l) => {
@@ -538,9 +615,9 @@ export default function TheoryLessons() {
           color="blue"
         />
         <StatsCard
-          title="שיעורים פעילים"
-          value={stats.activeLessons.toString()}
-          subtitle="שיעורים פעילים"
+          title="שיעורים קרובים"
+          value={stats.upcomingLessons.toString()}
+          subtitle="שיעורים מהיום והלאה"
           icon={<Calendar />}
           color="green"
         />
@@ -578,18 +655,27 @@ export default function TheoryLessons() {
           </div>
 
           {/* Category Filter */}
-          <div className="md:w-48">
+          <div className="md:w-56">
             <select
               value={filters.category}
               onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">כל הקטגוריות</option>
-              <option value="תיאוריה כללית">תיאוריה כללית</option>
-              <option value="הרמוניה">הרמוניה</option>
-              <option value="קומפוזיציה">קומפוזיציה</option>
-              <option value="היסטוריה של המוזיקה">היסטוריה של המוזיקה</option>
-              <option value="אימון אוזן">אימון אוזן</option>
+              <option value="תלמידים חדשים ב-ד">תלמידים חדשים ב-ד</option>
+              <option value="תלמידים חדשים צעירים">תלמידים חדשים צעירים</option>
+              <option value="תלמידים חדשים בוגרים (ה - ט)">תלמידים חדשים בוגרים (ה - ט)</option>
+              <option value="מתחילים">מתחילים</option>
+              <option value="מתחילים ב">מתחילים ב</option>
+              <option value="מתחילים ד">מתחילים ד</option>
+              <option value="מתקדמים א">מתקדמים א</option>
+              <option value="מתקדמים ב">מתקדמים ב</option>
+              <option value="מתקדמים ג">מתקדמים ג</option>
+              <option value="הכנה לרסיטל קלאסי יא">הכנה לרסיטל קלאסי יא</option>
+              <option value="הכנה לרסיטל רוק\פופ\ג'אז יא">הכנה לרסיטל רוק\פופ\ג'אז יא</option>
+              <option value="הכנה לרסיטל רוק\פופ\ג'אז יב">הכנה לרסיטל רוק\פופ\ג'אז יב</option>
+              <option value="מגמה">מגמה</option>
+              <option value="תאוריה כלי">תאוריה כלי</option>
             </select>
           </div>
 
@@ -621,7 +707,7 @@ export default function TheoryLessons() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <h3 className="text-lg font-semibold text-gray-900">
-              שיעורי תיאוריה ({filteredAndSortedLessons.length})
+              שיעורי תיאוריה קרובים ({lessons.length})
             </h3>
             {filteredAndSortedLessons.length > 0 && (
               <label className="flex items-center text-sm text-gray-600">
@@ -658,6 +744,24 @@ export default function TheoryLessons() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* No Upcoming Lessons Message */}
+            {groupedLessonsByDay.today.length === 0 && groupedLessonsByDay.future.length === 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+                <Calendar className="w-10 h-10 text-blue-400 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-blue-900 mb-1">אין שיעורים קרובים</h3>
+                <p className="text-blue-700 text-sm mb-3">
+                  אין שיעורים מתוכננים להיום או לעתיד. ניתן לצפות בשיעורים שהסתיימו למטה או ליצור שיעורים חדשים.
+                </p>
+                <button
+                  onClick={handleCreateLesson}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  <Plus className="w-4 h-4 ml-2" />
+                  צור שיעור חדש
+                </button>
+              </div>
+            )}
+
             {/* Today's Lessons Section */}
             {groupedLessonsByDay.today.length > 0 && (
               <div className="space-y-4">
@@ -753,52 +857,95 @@ export default function TheoryLessons() {
               </div>
             )}
 
-            {/* Past Lessons Section */}
-            {groupedLessonsByDay.past.length > 0 && (
-              <div className="space-y-4">
+            {/* Past Lessons Section - Collapsible, loaded on demand */}
+            <div className="space-y-4">
+              {/* Past Lessons Toggle Button */}
+              <button
+                onClick={handleTogglePastLessons}
+                className="w-full flex items-center justify-between p-4 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors border border-gray-200"
+              >
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-1 bg-gray-400 rounded-full"></div>
-                  <h2 className="text-xl font-bold text-gray-900">שיעורים שהסתיימו</h2>
+                  <div className="flex items-center justify-center w-10 h-10 bg-gray-300 rounded-full">
+                    <History className="w-5 h-5 text-gray-600" />
+                  </div>
+                  <div className="text-right">
+                    <h2 className="text-lg font-bold text-gray-700">שיעורים שהסתיימו</h2>
+                    <p className="text-sm text-gray-500">
+                      {pastLessonsLoaded
+                        ? `${groupedLessonsByDay.pastCount} שיעורים ב-${groupedLessonsByDay.past.length} ימים`
+                        : 'לחץ לטעינה'
+                      }
+                    </p>
+                  </div>
                 </div>
-                {groupedLessonsByDay.past.map(([date, dayLessons]) => {
-                  const dayInfo = formatDayHeader(date)
-                  return (
-                    <div key={date} className="bg-gray-50 rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-gray-700">
-                          {dayInfo.main}
-                        </h3>
-                        <span className="text-sm text-gray-600 font-medium">
-                          {dayLessons.length} שיעורים
-                          {dayLessons.length > 1 && (
-                            <span className="mr-2 text-xs text-gray-500">← גלל</span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="relative">
-                        <div className="overflow-x-auto pb-2 custom-scrollbar">
-                          <div className="flex gap-4 px-1" style={{ minWidth: 'max-content' }}>
-                            {dayLessons.map(lesson => (
-                              <div key={lesson._id} className="w-80 flex-shrink-0">
-                                <TheoryLessonCard
-                                  lesson={lesson}
-                                  onView={handleViewLesson}
-                                  onEdit={handleEditLesson}
-                                  onDelete={handleDeleteLesson}
-                                  selectable={true}
-                                  selected={selectedLessons.has(lesson._id)}
-                                  onSelect={handleSelectLesson}
-                                />
-                              </div>
-                            ))}
+                <div className="flex items-center gap-2 text-gray-600">
+                  {loadingPastLessons ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600"></div>
+                  ) : (
+                    <>
+                      <span className="text-sm font-medium">
+                        {showPastLessons ? 'הסתר' : 'הצג'}
+                      </span>
+                      {showPastLessons ? (
+                        <ChevronUp className="w-5 h-5" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5" />
+                      )}
+                    </>
+                  )}
+                </div>
+              </button>
+
+              {/* Past Lessons Content - Only shown when expanded and loaded */}
+              {showPastLessons && pastLessonsLoaded && groupedLessonsByDay.past.length > 0 && (
+                <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
+                  {groupedLessonsByDay.past.map(([date, dayLessons]) => {
+                    const dayInfo = formatDayHeader(date)
+                    return (
+                      <div key={date} className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-gray-700">
+                            {dayInfo.main}
+                          </h3>
+                          <span className="text-sm text-gray-600 font-medium">
+                            {dayLessons.length} שיעורים
+                            {dayLessons.length > 1 && (
+                              <span className="mr-2 text-xs text-gray-500">← גלל</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <div className="overflow-x-auto pb-2 custom-scrollbar">
+                            <div className="flex gap-4 px-1" style={{ minWidth: 'max-content' }}>
+                              {dayLessons.map(lesson => (
+                                <div key={lesson._id} className="w-80 flex-shrink-0">
+                                  <TheoryLessonCard
+                                    lesson={lesson}
+                                    onView={handleViewLesson}
+                                    onEdit={handleEditLesson}
+                                    onDelete={handleDeleteLesson}
+                                    selectable={true}
+                                    selected={selectedLessons.has(lesson._id)}
+                                    onSelect={handleSelectLesson}
+                                  />
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* No past lessons message */}
+              {showPastLessons && pastLessonsLoaded && groupedLessonsByDay.past.length === 0 && (
+                <div className="bg-gray-50 rounded-xl p-6 text-center border border-gray-200">
+                  <p className="text-gray-500">אין שיעורים שהסתיימו</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Card>

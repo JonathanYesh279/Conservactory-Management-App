@@ -30,11 +30,9 @@ export interface ApiError {
 // API Client with enhanced error handling
 class TeacherDetailsApiClient {
   private baseURL: string
-  private token: string | null
 
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL
-    this.token = this.getStoredToken()
   }
 
   private getStoredToken(): string | null {
@@ -46,8 +44,10 @@ class TeacherDetailsApiClient {
       'Content-Type': 'application/json',
     }
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`
+    // Get token fresh on each request to ensure we always have the latest
+    const token = this.getStoredToken()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
     }
 
     return headers

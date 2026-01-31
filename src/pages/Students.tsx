@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Plus, Eye, Edit, Filter, Loader, X, Grid, List, Trash2, ChevronUp, ChevronDown, AlertTriangle, Shield, Archive, Clock, Users } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Card } from '../components/ui/card'
@@ -18,18 +18,20 @@ import BatchDeletionModal from '../components/BatchDeletionModal'
 
 export default function Students() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { currentSchoolYear, isLoading: schoolYearLoading } = useSchoolYear()
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchLoading, setSearchLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  // Initialize state from URL params for persistence
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchParams.get('search') || '')
   const [filters, setFilters] = useState({
-    orchestra: '',
-    instrument: '',
-    stageLevel: ''
+    orchestra: searchParams.get('orchestra') || '',
+    instrument: searchParams.get('instrument') || '',
+    stageLevel: searchParams.get('stage') || ''
   })
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -40,7 +42,7 @@ export default function Students() {
   const STUDENTS_PER_PAGE = 20
   const [showForm, setShowForm] = useState(false)
   const [editingStudentId, setEditingStudentId] = useState(null)
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>((searchParams.get('view') as 'table' | 'grid') || 'table')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string} | null>(null)
   const [editingStudentData, setEditingStudentData] = useState<any>(null)
@@ -92,6 +94,23 @@ export default function Students() {
 
     return () => clearTimeout(timer)
   }, [searchTerm])
+
+  // Sync filter state to URL params for persistence
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (searchTerm) params.set('search', searchTerm)
+    if (filters.orchestra) params.set('orchestra', filters.orchestra)
+    if (filters.instrument) params.set('instrument', filters.instrument)
+    if (filters.stageLevel) params.set('stage', filters.stageLevel)
+    if (viewMode !== 'table') params.set('view', viewMode)
+
+    // Update URL without causing navigation
+    const newSearch = params.toString()
+    const currentSearch = searchParams.toString()
+    if (newSearch !== currentSearch) {
+      setSearchParams(params, { replace: true })
+    }
+  }, [searchTerm, filters.orchestra, filters.instrument, filters.stageLevel, viewMode])
 
   // Close stage level edit mode when clicking outside
   useEffect(() => {

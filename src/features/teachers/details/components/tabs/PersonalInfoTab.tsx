@@ -14,11 +14,19 @@ interface PersonalInfoTabProps {
   teacherId: string
 }
 
+interface FieldErrors {
+  fullName?: string
+  phone?: string
+  email?: string
+  address?: string
+}
+
 const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ teacher, teacherId }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [editedData, setEditedData] = useState({
     fullName: teacher.personalInfo?.fullName || '',
     phone: teacher.personalInfo?.phone || '',
@@ -26,14 +34,82 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ teacher, teacherId })
     address: teacher.personalInfo?.address || '',
   })
 
+  // Validation functions
+  const validatePhone = (phone: string): string | undefined => {
+    if (!phone) return undefined // Phone is optional
+    // Remove any dashes, spaces, or other formatting
+    const cleanPhone = phone.replace(/[\s\-]/g, '')
+    // Must be 10 digits starting with 05
+    if (!/^05\d{8}$/.test(cleanPhone)) {
+      return 'מספר הטלפון בפורמט שגוי. יש להזין מספר בפורמט 05XXXXXXXX'
+    }
+    return undefined
+  }
+
+  const validateEmail = (email: string): string | undefined => {
+    if (!email) return undefined // Email is optional
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return 'כתובת הדוא"ל אינה תקינה'
+    }
+    return undefined
+  }
+
+  const validateFullName = (name: string): string | undefined => {
+    if (!name || name.trim().length === 0) {
+      return 'יש להזין שם מלא'
+    }
+    if (name.trim().length < 2) {
+      return 'השם חייב להכיל לפחות 2 תווים'
+    }
+    return undefined
+  }
+
+  const validateAddress = (address: string): string | undefined => {
+    if (!address || address.trim().length === 0) {
+      return 'יש להזין כתובת'
+    }
+    return undefined
+  }
+
+  const validateAllFields = (): boolean => {
+    const errors: FieldErrors = {
+      fullName: validateFullName(editedData.fullName),
+      phone: validatePhone(editedData.phone),
+      email: validateEmail(editedData.email),
+      address: validateAddress(editedData.address),
+    }
+
+    setFieldErrors(errors)
+
+    // Return true if no errors
+    return !Object.values(errors).some(error => error !== undefined)
+  }
+
+  // Clean phone number before sending to API
+  const cleanPhoneNumber = (phone: string): string => {
+    return phone.replace(/[\s\-]/g, '')
+  }
+
   const handleSave = async () => {
+    // Validate all fields before saving
+    if (!validateAllFields()) {
+      return // Don't save if validation fails
+    }
+
     try {
       setIsSaving(true)
       setSaveError(null)
       setSaveSuccess(false)
 
+      // Prepare data with cleaned phone number
+      const dataToSave = {
+        ...editedData,
+        phone: cleanPhoneNumber(editedData.phone),
+      }
+
       // Call API to update teacher personal info
-      await teacherDetailsApi.updateTeacherPersonalInfo(teacherId, editedData)
+      await teacherDetailsApi.updateTeacherPersonalInfo(teacherId, dataToSave)
 
       // Update local teacher data
       teacher.personalInfo.fullName = editedData.fullName
@@ -62,6 +138,7 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ teacher, teacherId })
       address: teacher.personalInfo?.address || '',
     })
     setSaveError(null)
+    setFieldErrors({})
     setIsEditing(false)
   }
 
@@ -131,76 +208,144 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ teacher, teacherId })
           <h3 className="text-md font-medium text-gray-700 border-b pb-2">פרטים בסיסיים</h3>
           
           {/* Full Name */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
               <User className="w-4 h-4" />
               שם מלא
             </label>
             {isEditing ? (
-              <input
-                type="text"
-                value={editedData.fullName}
-                onChange={(e) => setEditedData({ ...editedData, fullName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="הכנס שם מלא"
-              />
+              <>
+                <input
+                  type="text"
+                  value={editedData.fullName}
+                  onChange={(e) => {
+                    setEditedData({ ...editedData, fullName: e.target.value })
+                    if (fieldErrors.fullName) {
+                      setFieldErrors({ ...fieldErrors, fullName: validateFullName(e.target.value) })
+                    }
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                    fieldErrors.fullName
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-primary-500'
+                  }`}
+                  placeholder="הכנס שם מלא"
+                />
+                {fieldErrors.fullName && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.fullName}
+                  </p>
+                )}
+              </>
             ) : (
               <p className="text-gray-900">{teacher.personalInfo?.fullName || 'לא צוין'}</p>
             )}
           </div>
 
           {/* Phone */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
               <Phone className="w-4 h-4" />
               טלפון
             </label>
             {isEditing ? (
-              <input
-                type="tel"
-                value={editedData.phone}
-                onChange={(e) => setEditedData({ ...editedData, phone: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="הכנס מספר טלפון"
-              />
+              <>
+                <input
+                  type="tel"
+                  value={editedData.phone}
+                  onChange={(e) => {
+                    setEditedData({ ...editedData, phone: e.target.value })
+                    if (fieldErrors.phone) {
+                      setFieldErrors({ ...fieldErrors, phone: validatePhone(e.target.value) })
+                    }
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                    fieldErrors.phone
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-primary-500'
+                  }`}
+                  placeholder="05XXXXXXXX"
+                />
+                {fieldErrors.phone && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.phone}
+                  </p>
+                )}
+              </>
             ) : (
               <p className="text-gray-900">{teacher.personalInfo?.phone || 'לא צוין'}</p>
             )}
           </div>
 
           {/* Email */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
               <Mail className="w-4 h-4" />
               דוא"ל
             </label>
             {isEditing ? (
-              <input
-                type="email"
-                value={editedData.email}
-                onChange={(e) => setEditedData({ ...editedData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="הכנס כתובת דוא״ל"
-              />
+              <>
+                <input
+                  type="email"
+                  value={editedData.email}
+                  onChange={(e) => {
+                    setEditedData({ ...editedData, email: e.target.value })
+                    if (fieldErrors.email) {
+                      setFieldErrors({ ...fieldErrors, email: validateEmail(e.target.value) })
+                    }
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                    fieldErrors.email
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-primary-500'
+                  }`}
+                  placeholder="example@email.com"
+                />
+                {fieldErrors.email && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.email}
+                  </p>
+                )}
+              </>
             ) : (
               <p className="text-gray-900">{teacher.personalInfo?.email || 'לא צוין'}</p>
             )}
           </div>
 
           {/* Address */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
               <MapPin className="w-4 h-4" />
               כתובת
             </label>
             {isEditing ? (
-              <textarea
-                value={editedData.address}
-                onChange={(e) => setEditedData({ ...editedData, address: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="הכנס כתובת מגורים"
-                rows={2}
-              />
+              <>
+                <textarea
+                  value={editedData.address}
+                  onChange={(e) => {
+                    setEditedData({ ...editedData, address: e.target.value })
+                    if (fieldErrors.address) {
+                      setFieldErrors({ ...fieldErrors, address: validateAddress(e.target.value) })
+                    }
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                    fieldErrors.address
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-primary-500'
+                  }`}
+                  placeholder="הכנס כתובת מגורים"
+                  rows={2}
+                />
+                {fieldErrors.address && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {fieldErrors.address}
+                  </p>
+                )}
+              </>
             ) : (
               <p className="text-gray-900">{teacher.personalInfo?.address || 'לא צוין'}</p>
             )}

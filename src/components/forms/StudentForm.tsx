@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   User, Phone, Mail, MapPin, Music, Calendar, Clock, Save,
   X, Plus, Trash2, AlertCircle, CheckCircle, ChevronDown, ChevronUp,
-  BookOpen, Users, Filter
+  BookOpen, Users, Filter, Search
 } from 'lucide-react'
 import apiService from '../../services/apiService'
 import ConfirmationModal from '../ui/ConfirmationModal'
@@ -192,6 +192,13 @@ const StudentForm: React.FC<StudentFormProps> = ({
   // Slots menu visibility state
   const [showSlotsMenu, setShowSlotsMenu] = useState(true)
 
+  // Teacher search dropdown state
+  const [teacherSearchQuery, setTeacherSearchQuery] = useState('')
+  const [isTeacherDropdownOpen, setIsTeacherDropdownOpen] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
+  const teacherDropdownRef = useRef<HTMLDivElement>(null)
+  const teacherButtonRef = useRef<HTMLButtonElement>(null)
+
   // Conflict detection state
   const [conflictModal, setConflictModal] = useState({
     isOpen: false,
@@ -264,6 +271,35 @@ const StudentForm: React.FC<StudentFormProps> = ({
     fetchOrchestras()
     fetchTheoryLessons()
   }, [])
+
+  // Close teacher dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (teacherDropdownRef.current && !teacherDropdownRef.current.contains(event.target as Node)) {
+        setIsTeacherDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Filter teachers based on search query
+  const filteredTeachers = teachers.filter(teacher => {
+    if (!teacherSearchQuery) return true
+    const searchLower = teacherSearchQuery.toLowerCase()
+    const fullName = teacher.personalInfo?.fullName?.toLowerCase() || ''
+    const instrument = teacher.professionalInfo?.instrument?.toLowerCase() || ''
+    return fullName.includes(searchLower) || instrument.includes(searchLower)
+  })
+
+  // Get selected teacher name for display
+  const getSelectedTeacherDisplay = () => {
+    if (!selectedTeacherId) return 'בחר מורה לראות זמנים פנויים'
+    const teacher = teachers.find(t => t._id === selectedTeacherId)
+    if (!teacher) return 'בחר מורה לראות זמנים פנויים'
+    return `${teacher.personalInfo?.fullName || ''} - ${teacher.professionalInfo?.instrument || 'ללא כלי'}`
+  }
 
   // Helper function to calculate end time from start time and duration
   const calculateEndTime = (startTime: string, duration: number): string => {
@@ -1164,21 +1200,104 @@ const StudentForm: React.FC<StudentFormProps> = ({
               </div>
             )}
 
-            {/* Teacher Selection */}
-            <div>
+            {/* Teacher Selection - Searchable Dropdown */}
+            <div className="relative" ref={teacherDropdownRef}>
               <label className="block text-sm font-medium text-gray-700 mb-2">בחר מורה</label>
-              <select
-                value={selectedTeacherId}
-                onChange={(e) => setSelectedTeacherId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-gray-900"
+
+              {/* Dropdown trigger button */}
+              <button
+                type="button"
+                ref={teacherButtonRef}
+                onClick={() => {
+                  if (!isTeacherDropdownOpen && teacherButtonRef.current) {
+                    const rect = teacherButtonRef.current.getBoundingClientRect()
+                    setDropdownPosition({
+                      top: rect.bottom + 4,
+                      left: rect.left,
+                      width: rect.width
+                    })
+                  }
+                  setIsTeacherDropdownOpen(!isTeacherDropdownOpen)
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-gray-900 bg-white text-right flex items-center justify-between"
               >
-                <option value="">בחר מורה לראות זמנים פנויים</option>
-                {teachers.map(teacher => (
-                  <option key={teacher._id} value={teacher._id}>
-                    {teacher.personalInfo?.fullName} - {teacher.professionalInfo?.instrument || 'ללא כלי'}
-                  </option>
-                ))}
-              </select>
+                <span className={selectedTeacherId ? 'text-gray-900' : 'text-gray-500'}>
+                  {getSelectedTeacherDisplay()}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isTeacherDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown menu - Fixed positioning to escape modal overflow */}
+              {isTeacherDropdownOpen && (
+                <div
+                  className="fixed z-[9999] bg-white border border-gray-300 rounded-lg shadow-xl overflow-hidden"
+                  style={{
+                    top: dropdownPosition.top,
+                    left: dropdownPosition.left,
+                    width: dropdownPosition.width,
+                    maxHeight: `calc(100vh - ${dropdownPosition.top + 20}px)`
+                  }}
+                >
+                  {/* Search input */}
+                  <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
+                    <div className="relative">
+                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={teacherSearchQuery}
+                        onChange={(e) => setTeacherSearchQuery(e.target.value)}
+                        placeholder="חיפוש לפי שם או כלי נגינה..."
+                        className="w-full pr-9 pl-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm text-gray-900"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  {/* Options list */}
+                  <div className="overflow-y-auto" style={{ maxHeight: `calc(100vh - ${dropdownPosition.top + 80}px)` }}>
+                    {/* Clear selection option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTeacherId('')
+                        setTeacherSearchQuery('')
+                        setIsTeacherDropdownOpen(false)
+                      }}
+                      className="w-full px-3 py-2 text-right text-gray-500 hover:bg-gray-50 border-b border-gray-100"
+                    >
+                      בחר מורה לראות זמנים פנויים
+                    </button>
+
+                    {filteredTeachers.length > 0 ? (
+                      filteredTeachers.map(teacher => (
+                        <button
+                          type="button"
+                          key={teacher._id}
+                          onClick={() => {
+                            setSelectedTeacherId(teacher._id)
+                            setTeacherSearchQuery('')
+                            setIsTeacherDropdownOpen(false)
+                          }}
+                          className={`w-full px-3 py-2 text-right hover:bg-primary-50 flex items-center justify-between ${
+                            selectedTeacherId === teacher._id ? 'bg-primary-100 text-primary-700' : 'text-gray-900'
+                          }`}
+                        >
+                          <span>
+                            {teacher.personalInfo?.fullName} - {teacher.professionalInfo?.instrument || 'ללא כלי'}
+                          </span>
+                          {selectedTeacherId === teacher._id && (
+                            <CheckCircle className="w-4 h-4 text-primary-600" />
+                          )}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                        לא נמצאו מורים תואמים
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Available Slots */}

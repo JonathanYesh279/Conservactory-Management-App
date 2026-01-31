@@ -35,6 +35,11 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
   const [teacherData, setTeacherData] = useState(teacher)
   const [deleteConfirmation, setDeleteConfirmation] = useState<{timeBlock: any} | null>(null)
 
+  // Sync teacherData with teacher prop when it changes
+  useEffect(() => {
+    setTeacherData(teacher)
+  }, [teacher])
+
   // Helper function to calculate duration in minutes from time strings
   const calculateDurationFromTimes = (startTime: string, endTime: string): number => {
     if (!startTime || !endTime) return 0
@@ -144,28 +149,116 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
     loadConductingActivities()
   }, [teacher.conducting])
 
-  // Load teacher lessons
+  // Load teacher lessons - combines API data with teacher's own schedule data
   useEffect(() => {
     const loadTeacherLessons = async () => {
       if (!teacherId) return
-      
+
       try {
         console.log('🔄 Loading teacher lessons for ID:', teacherId)
         const lessonsData = await apiService.teachers.getTeacherLessons(teacherId)
-        console.log('✅ Teacher lessons loaded:', lessonsData)
-        
-        // Extract lessons array from response
-        const lessons = lessonsData?.lessons || lessonsData?.data?.lessons || []
+        console.log('✅ Teacher lessons loaded from API:', lessonsData)
+
+        // Extract lessons array from API response
+        let lessons = lessonsData?.lessons || lessonsData?.data?.lessons || []
+        console.log(`📚 API returned ${lessons.length} lessons`)
+
+        // If API returns empty, use teacher's own schedule data as fallback
+        // This handles cases where students don't have teacherAssignments populated
+        if (lessons.length === 0 && teacherData.teaching?.schedule) {
+          console.log('🔄 API returned no lessons, using teacher schedule data as fallback')
+
+          // Extract lessons from teacher.teaching.schedule (entries with studentId are actual lessons)
+          // Include entries where status is 'active' or not defined (default to active)
+          const scheduleEntries = teacherData.teaching.schedule
+            .filter(entry => entry.studentId && (!entry.status || entry.status === 'active'))
+            .map(entry => ({
+              _id: entry._id,
+              studentId: entry.studentId,
+              studentName: entry.studentName,
+              day: entry.day,
+              startTime: entry.startTime,
+              time: entry.startTime, // Alias for compatibility
+              endTime: entry.endTime,
+              duration: entry.duration,
+              location: entry.location,
+              instrumentName: entry.instrument,
+              lessonType: 'individual',
+              isRecurring: entry.isRecurring,
+              notes: entry.notes
+            }))
+
+          console.log(`📚 Found ${scheduleEntries.length} lessons in teacher.teaching.schedule`)
+
+          // Also check timeBlocks for assigned lessons
+          if (teacherData.teaching?.timeBlocks) {
+            teacherData.teaching.timeBlocks.forEach(block => {
+              if (block.assignedLessons && block.assignedLessons.length > 0) {
+                block.assignedLessons.forEach(lesson => {
+                  // Avoid duplicates by checking studentId + day + startTime
+                  const isDuplicate = scheduleEntries.some(
+                    existing =>
+                      existing.studentId === lesson.studentId &&
+                      existing.day === block.day &&
+                      existing.startTime === lesson.startTime
+                  )
+
+                  if (!isDuplicate) {
+                    scheduleEntries.push({
+                      _id: `${block._id}-${lesson.studentId}`,
+                      studentId: lesson.studentId,
+                      studentName: lesson.studentName,
+                      day: block.day,
+                      startTime: lesson.startTime,
+                      time: lesson.startTime,
+                      endTime: lesson.endTime,
+                      duration: lesson.duration,
+                      location: block.location,
+                      lessonType: 'individual'
+                    })
+                  }
+                })
+              }
+            })
+            console.log(`📚 Total lessons after checking timeBlocks: ${scheduleEntries.length}`)
+          }
+
+          lessons = scheduleEntries
+        }
+
         setTeacherLessons(lessons)
-        console.log(`📚 Set ${lessons.length} lessons for teacher`)
+        console.log(`📚 Final set ${lessons.length} lessons for teacher`)
       } catch (error) {
         console.error('❌ Failed to load teacher lessons:', error)
-        setTeacherLessons([])
+
+        // On error, try to use teacher's schedule data directly
+        if (teacherData.teaching?.schedule) {
+          console.log('🔄 Using teacher schedule data after API error')
+          const fallbackLessons = teacherData.teaching.schedule
+            .filter(entry => entry.studentId && (!entry.status || entry.status === 'active'))
+            .map(entry => ({
+              _id: entry._id,
+              studentId: entry.studentId,
+              studentName: entry.studentName,
+              day: entry.day,
+              startTime: entry.startTime,
+              time: entry.startTime,
+              endTime: entry.endTime,
+              duration: entry.duration,
+              location: entry.location,
+              instrumentName: entry.instrument,
+              lessonType: 'individual'
+            }))
+          setTeacherLessons(fallbackLessons)
+          console.log(`📚 Set ${fallbackLessons.length} fallback lessons`)
+        } else {
+          setTeacherLessons([])
+        }
       }
     }
-    
+
     loadTeacherLessons()
-  }, [teacherId])
+  }, [teacherId, teacherData.teaching?.schedule, teacherData.teaching?.timeBlocks])
 
   // Days of the week in Hebrew
   const daysOfWeek = [
@@ -273,36 +366,36 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
         endTime: updatedLesson.endTime,
         duration: updatedLesson.duration
       })
-      
+
       // Validate required fields
       if (!updatedLesson.studentId) {
         throw new Error('Student ID is missing')
       }
-      
+
       // First, get the current student data to find the teacher assignment
       const currentStudent = await apiService.students.getStudentById(updatedLesson.studentId)
       console.log('📋 Current student data loaded:', currentStudent.personalInfo?.fullName)
-      
+
       if (!currentStudent.teacherAssignments || currentStudent.teacherAssignments.length === 0) {
         throw new Error('No teacher assignments found for this student')
       }
-      
+
       // Find the specific teacher assignment to update
       const currentTeacherId = updatedLesson.teacherId || teacherId
       const assignmentIndex = currentStudent.teacherAssignments.findIndex(
         assignment => assignment.teacherId === currentTeacherId && assignment.isActive
       )
-      
+
       if (assignmentIndex === -1) {
         throw new Error(`No active assignment found for teacher ${currentTeacherId}`)
       }
-      
+
       console.log(`🎯 Found teacher assignment at index ${assignmentIndex}`)
-      
+
       // Create updated teacher assignments array
       const updatedAssignments = [...currentStudent.teacherAssignments]
       const currentAssignment = updatedAssignments[assignmentIndex]
-      
+
       // Calculate end time
       const calculateEndTime = (startTime: string, duration: number): string => {
         const [hours, minutes] = startTime.split(':').map(Number)
@@ -311,7 +404,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
         const endMins = totalMinutes % 60
         return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`
       }
-      
+
       // Update the assignment with new schedule
       updatedAssignments[assignmentIndex] = {
         ...currentAssignment,
@@ -328,26 +421,115 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
         },
         updatedAt: new Date().toISOString()
       }
-      
+
       console.log('📤 Updating student record with new assignment:', updatedAssignments[assignmentIndex])
-      
+
       // Update the student record with the modified teacher assignments
       const result = await apiService.students.updateStudent(updatedLesson.studentId, {
         teacherAssignments: updatedAssignments
       })
-      
+
       console.log('✅ Student updated successfully:', result.personalInfo?.fullName)
-      
+
       // Refresh teacher lessons to reflect the changes
       const lessonsData = await apiService.teachers.getTeacherLessons(teacherId)
       const lessons = lessonsData?.lessons || lessonsData?.data?.lessons || []
       setTeacherLessons(lessons)
-      
+
       console.log('✅ Teacher lessons refreshed - new count:', lessons.length)
+      toast.success('השיעור עודכן בהצלחה', { duration: 3000, position: 'top-center' })
     } catch (error) {
       console.error('❌ Failed to update lesson:', error)
       console.error('❌ Error details:', error.message)
       throw error // Re-throw so the modal can show the error
+    }
+  }
+
+  // Handle lesson deletion
+  const handleLessonDelete = async (lessonToDelete: any) => {
+    try {
+      console.log('🗑️ Deleting lesson:', lessonToDelete)
+      console.log('🆔 Student ID:', lessonToDelete.studentId)
+      console.log('👨‍🏫 Teacher ID:', lessonToDelete.teacherId || teacherId)
+
+      // Validate required fields
+      if (!lessonToDelete.studentId) {
+        throw new Error('Student ID is missing')
+      }
+
+      // Get the current student data
+      const currentStudent = await apiService.students.getStudentById(lessonToDelete.studentId)
+      console.log('📋 Current student data loaded:', currentStudent.personalInfo?.fullName)
+
+      if (!currentStudent.teacherAssignments || currentStudent.teacherAssignments.length === 0) {
+        throw new Error('No teacher assignments found for this student')
+      }
+
+      // Find the specific teacher assignment to deactivate
+      const currentTeacherId = lessonToDelete.teacherId || teacherId
+      const assignmentIndex = currentStudent.teacherAssignments.findIndex(
+        assignment => assignment.teacherId === currentTeacherId && assignment.isActive
+      )
+
+      if (assignmentIndex === -1) {
+        throw new Error(`No active assignment found for teacher ${currentTeacherId}`)
+      }
+
+      console.log(`🎯 Found teacher assignment at index ${assignmentIndex}`)
+
+      // Deactivate the assignment (soft delete) instead of removing it completely
+      const updatedAssignments = [...currentStudent.teacherAssignments]
+      updatedAssignments[assignmentIndex] = {
+        ...updatedAssignments[assignmentIndex],
+        isActive: false,
+        endDate: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+
+      console.log('📤 Deactivating student teacher assignment')
+
+      // Update the student record
+      const result = await apiService.students.updateStudent(lessonToDelete.studentId, {
+        teacherAssignments: updatedAssignments
+      })
+
+      console.log('✅ Student assignment deactivated successfully:', result.personalInfo?.fullName)
+
+      // Also remove from teacher's schedule if it exists there
+      if (teacherData.teaching?.schedule) {
+        const updatedSchedule = teacherData.teaching.schedule.filter(
+          (slot: any) => slot.studentId !== lessonToDelete.studentId
+        )
+
+        if (updatedSchedule.length !== teacherData.teaching.schedule.length) {
+          console.log('📤 Removing lesson from teacher schedule')
+          await apiService.teachers.updateTeacher(teacherId, {
+            teaching: {
+              ...teacherData.teaching,
+              schedule: updatedSchedule
+            }
+          })
+        }
+      }
+
+      // Refresh teacher lessons to reflect the changes
+      const lessonsData = await apiService.teachers.getTeacherLessons(teacherId)
+      const lessons = lessonsData?.lessons || lessonsData?.data?.lessons || []
+      setTeacherLessons(lessons)
+
+      // Refresh teacher data
+      await refreshTeacherData()
+
+      console.log('✅ Lesson deleted - refreshed lessons count:', lessons.length)
+      toast.success('השיעור נמחק בהצלחה', { duration: 3000, position: 'top-center' })
+    } catch (error) {
+      console.error('❌ Failed to delete lesson:', error)
+      console.error('❌ Error details:', error.message)
+      toast.error('שגיאה במחיקת השיעור. אנא נסה שוב.', {
+        duration: 4000,
+        position: 'top-center'
+      })
+      throw error
     }
   }
 
@@ -437,6 +619,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ teacher, teacherId }) => {
           className=""
           showNavigation={true}
           onLessonUpdate={handleLessonUpdate}
+          onLessonDelete={handleLessonDelete}
         />
       ) : (
         /* Teaching Days Management View */
