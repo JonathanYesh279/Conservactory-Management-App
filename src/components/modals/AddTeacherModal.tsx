@@ -11,6 +11,7 @@ import { X, Plus, Trash2, Clock, MapPin, Save, AlertCircle, User, Briefcase, Cal
 import apiService from '../../services/apiService'
 import { useSchoolYear } from '../../services/schoolYearContext'
 import { VALID_LOCATIONS } from '../../constants/locations'
+import { handleServerValidationError } from '../../utils/validationUtils'
 
 interface AddTeacherModalProps {
   isOpen: boolean
@@ -159,12 +160,14 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
   }
 
   const loadTeacherData = (teacher: any) => {
-    // IMPORTANT: Only load TIME BLOCKS (availability slots), not actual lessons
-    // Time blocks are schedule entries WITHOUT studentId
-    // Entries WITH studentId are actual lessons that should NOT be modified here
-    const timeBlocksOnly = (teacher.teaching?.schedule || []).filter(
-      (slot: any) => !slot.studentId
-    )
+    // Load time blocks (availability windows) for editing
+    const timeBlocksForForm = (teacher.teaching?.timeBlocks || []).map((block: any) => ({
+      day: block.day,
+      startTime: block.startTime,
+      endTime: block.endTime,
+      location: block.location || '',
+      notes: block.notes || ''
+    }))
 
     setFormData({
       personalInfo: {
@@ -179,7 +182,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
         isActive: teacher.professionalInfo?.isActive ?? true
       },
       teaching: {
-        schedule: timeBlocksOnly
+        schedule: timeBlocksForForm
       },
       conducting: {
         orchestraIds: teacher.conducting?.orchestraIds || []
@@ -331,31 +334,30 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
     setSubmitError('')
 
     try {
-      // Convert new time blocks to schedule format
+      // Convert form schedule entries to timeBlocks format
       const newTimeBlocks = formData.teaching.schedule.map(slot => ({
         day: slot.day,
         startTime: slot.startTime,
         endTime: slot.endTime,
-        duration: calculateDuration(slot.startTime, slot.endTime),
+        totalDuration: calculateDuration(slot.startTime, slot.endTime),
         location: slot.location || null,
         notes: slot.notes || null,
-        isAvailable: true,
-        studentId: null,
+        isActive: true,
+        assignedLessons: [],
         recurring: {
           isRecurring: true,
           excludeDates: []
         }
       }))
 
-      // When editing, preserve existing LESSONS (entries with studentId)
-      // Only replace TIME BLOCKS (entries without studentId)
-      let finalSchedule = newTimeBlocks
+      // When editing, preserve existing timeBlocks with their assigned lessons
+      let finalTimeBlocks = newTimeBlocks
       if (mode === 'edit' && teacherToEdit) {
-        const existingLessons = (teacherToEdit.teaching?.schedule || []).filter(
-          (slot: any) => slot.studentId
+        const existingBlocksWithLessons = (teacherToEdit.teaching?.timeBlocks || []).filter(
+          (block: any) => block.assignedLessons && block.assignedLessons.length > 0
         )
-        console.log(`📋 Preserving ${existingLessons.length} existing lessons`)
-        finalSchedule = [...newTimeBlocks, ...existingLessons]
+        console.log(`📋 Preserving ${existingBlocksWithLessons.length} existing timeBlocks with lessons`)
+        finalTimeBlocks = [...newTimeBlocks, ...existingBlocksWithLessons]
       }
 
       // Prepare teacher data according to backend schema
@@ -365,7 +367,7 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
         professionalInfo: formData.professionalInfo,
         teaching: {
           studentIds: teacherToEdit?.teaching?.studentIds || [],
-          schedule: finalSchedule
+          timeBlocks: finalTimeBlocks
         },
         conducting: formData.conducting,
         ensemblesIds: formData.ensemblesIds,
@@ -399,7 +401,17 @@ const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ isOpen, onClose, onTe
       onClose()
     } catch (error: any) {
       console.error(`❌ Failed to ${mode === 'edit' ? 'update' : 'create'} teacher:`, error)
-      setSubmitError(error.message || `שגיאה ב${mode === 'edit' ? 'עדכון' : 'יצירת'} המורה. נסה שוב.`)
+
+      // Handle validation errors with field-level details using utility function
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(
+        error,
+        `שגיאה ב${mode === 'edit' ? 'עדכון' : 'יצירת'} המורה. נסה שוב.`
+      )
+
+      if (isValidationError) {
+        setErrors(fieldErrors)
+      }
+      setSubmitError(generalMessage)
     } finally {
       setIsSubmitting(false)
     }

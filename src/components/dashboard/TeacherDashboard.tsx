@@ -384,10 +384,22 @@ export default function TeacherDashboard() {
         upcomingLessonsData = upcoming
       }
 
-      // If no lessons from weekSchedule, try teacher's schedule data
-      if (upcomingLessonsData.length === 0 && teacherProfile?.teaching?.schedule) {
+      // If no lessons from weekSchedule, try teacher's timeBlocks data
+      if (upcomingLessonsData.length === 0 && teacherProfile?.teaching?.timeBlocks) {
         const currentTime = `${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}`
-        const todayLessons = teacherProfile.teaching.schedule.filter(lesson => lesson.day === dayName)
+        const todayLessons: any[] = []
+        teacherProfile.teaching.timeBlocks.forEach(block => {
+          if (block.day !== dayName) return
+          ;(block.assignedLessons || [])
+            .filter(l => l.isActive !== false)
+            .forEach(lesson => {
+              todayLessons.push({
+                ...lesson,
+                day: block.day,
+                location: block.location
+              })
+            })
+        })
 
         const upcoming = todayLessons
           .filter(lesson => lesson.startTime >= currentTime)

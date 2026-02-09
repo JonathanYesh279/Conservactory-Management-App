@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Save, X, Plus, Trash2, Loader, AlertCircle } from 'lucide-react'
 import { Card } from './ui/Card'
 import apiService from '../services/apiService'
+import { handleServerValidationError } from '../utils/validationUtils'
 
 interface StudentFormProps {
   studentId?: string | null
@@ -182,9 +183,20 @@ export default function StudentForm({ studentId, onClose, onSave }: StudentFormP
       
       onSave()
       onClose()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving student:', error)
-      setErrors({ general: 'שגיאה בשמירת הנתונים' })
+
+      // Handle validation errors with field-level details using utility function
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(
+        error,
+        'שגיאה בשמירת הנתונים'
+      )
+
+      if (isValidationError) {
+        setErrors({ ...fieldErrors, general: generalMessage })
+      } else {
+        setErrors({ general: generalMessage })
+      }
     } finally {
       setLoading(false)
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Save, X, Award, Calculator, AlertCircle, CheckCircle } from 'lucide-react'
 import { Card } from './ui/Card'
 import type { GradingDetailsUpdateData } from '../types/bagrut.types'
+import { handleServerValidationError } from '../utils/validationUtils'
 
 interface GradingFormProps {
   initialData?: GradingDetailsUpdateData
@@ -156,9 +157,14 @@ const GradingForm: React.FC<GradingFormProps> = ({
     setLoading(true)
     try {
       await onSubmit(formData)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting grading:', error)
-      setErrors({ general: 'שגיאה בשמירת הציונים. אנא נסה שוב.' })
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(error, 'שגיאה בשמירת הציונים. אנא נסה שוב.')
+      if (isValidationError) {
+        setErrors({ ...fieldErrors, general: generalMessage })
+      } else {
+        setErrors({ general: generalMessage })
+      }
     } finally {
       setLoading(false)
     }

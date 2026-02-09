@@ -451,65 +451,46 @@ export default function Students() {
   const handleFormSubmit = async (formData: any) => {
     try {
       let studentId = editingStudentId
-      
+
+      // Separate orchestra enrollment from other student data —
+      // addMember/removeMember handle both student AND orchestra sides atomically
+      const newOrchestraIds = formData.enrollments?.orchestraIds || []
+      const studentData = {
+        ...formData,
+        enrollments: {
+          ...formData.enrollments,
+          orchestraIds: undefined // Don't send orchestraIds in student update
+        }
+      }
+
       if (editingStudentId) {
-        // Update existing student
-        await apiService.students.updateStudent(editingStudentId, formData)
-        
-        // Handle orchestra enrollment changes
-        if (editingStudentData?.enrollments?.orchestraIds) {
-          const oldOrchestraIds = editingStudentData.enrollments.orchestraIds
-          const newOrchestraIds = formData.enrollments?.orchestraIds || []
-          
-          // Remove from old orchestras that are no longer selected
-          for (const oldId of oldOrchestraIds) {
-            if (!newOrchestraIds.includes(oldId)) {
-              try {
-                await apiService.orchestras.removeMember(oldId, editingStudentId)
-                console.log(`Removed student ${editingStudentId} from orchestra ${oldId}`)
-              } catch (err) {
-                console.error(`Failed to remove from orchestra ${oldId}:`, err)
-              }
-            }
+        // Update existing student (without orchestraIds — handled below)
+        await apiService.students.updateStudent(editingStudentId, studentData)
+
+        // Handle orchestra enrollment changes via addMember/removeMember
+        const oldOrchestraIds = editingStudentData?.enrollments?.orchestraIds || []
+
+        // Remove from orchestras that are no longer selected
+        for (const oldId of oldOrchestraIds) {
+          if (!newOrchestraIds.includes(oldId)) {
+            await apiService.orchestras.removeMember(oldId, editingStudentId)
           }
-          
-          // Add to new orchestras
-          for (const newId of newOrchestraIds) {
-            if (!oldOrchestraIds.includes(newId)) {
-              try {
-                await apiService.orchestras.addMember(newId, editingStudentId)
-                console.log(`Added student ${editingStudentId} to orchestra ${newId}`)
-              } catch (err) {
-                console.error(`Failed to add to orchestra ${newId}:`, err)
-              }
-            }
-          }
-        } else if (formData.enrollments?.orchestraIds?.length > 0) {
-          // If no previous enrollments, add to all new orchestras
-          for (const orchestraId of formData.enrollments.orchestraIds) {
-            try {
-              await apiService.orchestras.addMember(orchestraId, editingStudentId)
-              console.log(`Added student ${editingStudentId} to orchestra ${orchestraId}`)
-            } catch (err) {
-              console.error(`Failed to add to orchestra ${orchestraId}:`, err)
-            }
+        }
+
+        // Add to newly selected orchestras
+        for (const newId of newOrchestraIds) {
+          if (!oldOrchestraIds.includes(newId)) {
+            await apiService.orchestras.addMember(newId, editingStudentId)
           }
         }
       } else {
-        // Create new student
-        const newStudent = await apiService.students.createStudent(formData)
+        // Create new student (without orchestraIds — handled below)
+        const newStudent = await apiService.students.createStudent(studentData)
         studentId = newStudent._id
-        
-        // Add new student to selected orchestras
-        if (formData.enrollments?.orchestraIds?.length > 0) {
-          for (const orchestraId of formData.enrollments.orchestraIds) {
-            try {
-              await apiService.orchestras.addMember(orchestraId, studentId)
-              console.log(`Added new student ${studentId} to orchestra ${orchestraId}`)
-            } catch (err) {
-              console.error(`Failed to add to orchestra ${orchestraId}:`, err)
-            }
-          }
+
+        // Enroll new student in selected orchestras
+        for (const orchestraId of newOrchestraIds) {
+          await apiService.orchestras.addMember(orchestraId, studentId)
         }
       }
 

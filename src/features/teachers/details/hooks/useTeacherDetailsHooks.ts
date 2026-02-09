@@ -128,15 +128,17 @@ export function useTeacherSchedule(teacherId: string, enabled: boolean = true) {
       
       // Transform the schedule data for UI consumption
       const timeBlocks = TeacherDataTransformUtils.sortTimeBlocks(teacher.teaching?.timeBlocks || [])
-      const scheduledLessons = teacher.teaching?.schedule || []
-      
+      const assignedLessons = timeBlocks.flatMap(block =>
+        (block.assignedLessons || []).filter(l => l.isActive !== false)
+      )
+
       return {
         teacherId,
         teacherName: teacher.personalInfo?.fullName || 'Unknown',
         timeBlocks,
-        scheduledLessons,
+        scheduledLessons: assignedLessons,
         weeklyCapacity: timeBlocks.reduce((total, block) => total + block.totalDuration, 0) / 60,
-        utilizationRate: TeacherDataTransformUtils.calculateTeachingHours(scheduledLessons)
+        utilizationRate: TeacherDataTransformUtils.calculateTeachingHours(assignedLessons)
       }
     },
     enabled: !!teacherId && enabled,

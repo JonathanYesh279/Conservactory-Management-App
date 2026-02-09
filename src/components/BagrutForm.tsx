@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { 
-  X, Save, User, AlertCircle, CheckCircle, Search, Music, Users, 
+import {
+  X, Save, User, AlertCircle, CheckCircle, Search, Music, Users,
   Star, FileText, Calculator, ChevronLeft, ChevronRight, Plus, Trash2,
   Calendar, Link, PlayCircle
 } from 'lucide-react'
 import { Card } from './ui/Card'
 import type { BagrutFormData } from '../types/bagrut.types'
+import { handleServerValidationError } from '../utils/validationUtils'
 
 interface BagrutFormProps {
   students: any[]
@@ -81,30 +82,53 @@ const BagrutForm: React.FC<BagrutFormProps> = ({
     }
   }, [initialData])
 
-  const validateStep = useCallback((stepIndex: number): boolean => {
+  const validateStep = useCallback((stepIndex: number, setFieldErrors: boolean = false): boolean => {
+    const newErrors: Record<string, string> = {}
+
     switch (stepIndex) {
       case 0: // Basic Info
-        return !!(formData.studentId && formData.teacherId)
+        if (!formData.studentId) {
+          newErrors.studentId = 'יש לבחור תלמיד'
+        }
+        if (!formData.teacherId) {
+          newErrors.teacherId = 'יש לבחור מורה מנחה'
+        }
+        break
       case 1: // Recital Setup
-        return !!(formData.recitalUnits && formData.recitalField)
+        if (!formData.recitalUnits) {
+          newErrors.recitalUnits = 'יש לבחור מספר יחידות'
+        }
+        if (!formData.recitalField) {
+          newErrors.recitalField = 'יש לבחור תחום רסיטל'
+        }
+        break
       case 2: // Program
-        const validPieces = formData.program?.filter(piece => 
+        const validPieces = formData.program?.filter(piece =>
           piece.pieceTitle.trim() && piece.composer.trim()
         ) || []
-        return validPieces.length >= 1 // At least 1 piece required for initial creation
+        if (validPieces.length < 1) {
+          newErrors.program = 'יש להזין לפחות יצירה אחת עם שם היצירה ומלחין'
+        }
+        break
       default:
-        return true
+        break
     }
+
+    if (setFieldErrors) {
+      setErrors(prev => ({ ...prev, ...newErrors }))
+    }
+
+    return Object.keys(newErrors).length === 0
   }, [
-    formData.studentId, 
-    formData.teacherId, 
-    formData.recitalUnits, 
+    formData.studentId,
+    formData.teacherId,
+    formData.recitalUnits,
     formData.recitalField,
     formData.program
   ])
 
   const canProceedToNext = useCallback(() => {
-    return validateStep(currentStep) && currentStep < STEPS.length - 1
+    return validateStep(currentStep, false) && currentStep < STEPS.length - 1
   }, [currentStep, validateStep])
 
   const canGoBack = useCallback(() => {
@@ -112,10 +136,13 @@ const BagrutForm: React.FC<BagrutFormProps> = ({
   }, [currentStep])
 
   const nextStep = useCallback(() => {
-    if (canProceedToNext()) {
-      setCurrentStep(prev => prev + 1)
+    // Validate with field errors shown
+    if (validateStep(currentStep, true)) {
+      if (currentStep < STEPS.length - 1) {
+        setCurrentStep(prev => prev + 1)
+      }
     }
-  }, [canProceedToNext])
+  }, [currentStep, validateStep])
 
   const previousStep = useCallback(() => {
     if (canGoBack()) {
@@ -177,21 +204,8 @@ const BagrutForm: React.FC<BagrutFormProps> = ({
     
     // Validate all steps before final submission
     for (let i = 0; i < STEPS.length; i++) {
-      if (!validateStep(i)) {
-        let errorMessage = ''
-        switch (i) {
-          case 0:
-            errorMessage = 'יש לבחור תלמיד ומורה'
-            break
-          case 1:
-            errorMessage = 'יש להשלים את הגדרת הרסיטל'
-            break
-          case 2:
-            errorMessage = 'יש להזין לפחות יצירה אחת בתוכנית הרסיטל'
-            break
-        }
+      if (!validateStep(i, true)) {
         setCurrentStep(i)
-        setErrors({ general: errorMessage })
         return
       }
     }
@@ -199,9 +213,14 @@ const BagrutForm: React.FC<BagrutFormProps> = ({
     setLoading(true)
     try {
       await onSubmit(formData)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting form:', error)
-      setErrors({ general: 'שגיאה בשמירת הנתונים. אנא נסה שוב.' })
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(error, 'שגיאה בשמירת הנתונים. אנא נסה שוב.')
+      if (isValidationError) {
+        setErrors({ ...fieldErrors, general: generalMessage })
+      } else {
+        setErrors({ general: generalMessage })
+      }
     } finally {
       setLoading(false)
     }
@@ -277,7 +296,7 @@ const BagrutForm: React.FC<BagrutFormProps> = ({
       <Card>
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <User className="w-5 h-5 text-gray-600" />
-          בחירת תלמיד
+          בחירת תלמיד <span className="text-red-500">*</span>
         </h3>
         
         <div className="space-y-4">
@@ -358,7 +377,7 @@ const BagrutForm: React.FC<BagrutFormProps> = ({
       <Card>
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <User className="w-5 h-5 text-gray-600" />
-          בחירת מורה מנחה
+          בחירת מורה מנחה <span className="text-red-500">*</span>
         </h3>
         
         <div className="space-y-4">
@@ -537,9 +556,12 @@ const BagrutForm: React.FC<BagrutFormProps> = ({
           <FileText className="w-5 h-5 text-gray-600" />
           תוכנית הרסיטל
         </h3>
-        <p className="text-sm text-gray-600 mb-6">
+        <p className="text-sm text-gray-600 mb-4">
           יש להזין לפחות 3 יצירות. ניתן להזין עד 5 יצירות.
         </p>
+        {errors.program && (
+          <p className="text-red-600 text-sm mb-4">{errors.program}</p>
+        )}
 
         <div className="space-y-6">
           {formData.program?.map((piece, index) => (

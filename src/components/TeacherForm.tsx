@@ -72,7 +72,7 @@ export default function TeacherForm({ teacher, onSubmit, onCancel, isLoading = f
         },
         teaching: {
           studentIds: teacher.teaching?.studentIds || [],
-          schedule: teacher.teaching?.schedule || []
+          timeBlocks: teacher.teaching?.timeBlocks || []
         },
         conducting: {
           orchestraIds: teacher.conducting?.orchestraIds || []

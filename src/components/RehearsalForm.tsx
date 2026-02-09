@@ -12,6 +12,7 @@ import {
   type BulkRehearsalData,
   type Rehearsal
 } from '../utils/rehearsalUtils'
+import { handleServerValidationError } from '../utils/validationUtils'
 
 interface RehearsalFormProps {
   orchestras: Array<{
@@ -189,7 +190,12 @@ export default function RehearsalForm({
         await onSubmit(bulkForm as BulkRehearsalData, true)
       }
     } catch (error: any) {
-      setErrors({ submit: error.message || 'שגיאה בשמירת החזרה' })
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(error, 'שגיאה בשמירת החזרה')
+      if (isValidationError) {
+        setErrors({ ...fieldErrors, submit: generalMessage })
+      } else {
+        setErrors({ submit: generalMessage })
+      }
     } finally {
       setLoading(false)
     }
@@ -255,7 +261,7 @@ export default function RehearsalForm({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Users className="w-4 h-4 inline ml-1" />
-                    תזמורת
+                    תזמורת <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={singleForm.groupId || ''}
@@ -281,7 +287,7 @@ export default function RehearsalForm({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Calendar className="w-4 h-4 inline ml-1" />
-                    תאריך
+                    תאריך <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -301,7 +307,7 @@ export default function RehearsalForm({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Clock className="w-4 h-4 inline ml-1" />
-                      שעת התחלה
+                      שעת התחלה <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="time"
@@ -317,7 +323,7 @@ export default function RehearsalForm({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">שעת סיום</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">שעת סיום <span className="text-red-500">*</span></label>
                     <input
                       type="time"
                       value={singleForm.endTime || ''}
@@ -336,7 +342,7 @@ export default function RehearsalForm({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <MapPin className="w-4 h-4 inline ml-1" />
-                    מיקום
+                    מיקום <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -371,7 +377,7 @@ export default function RehearsalForm({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Users className="w-4 h-4 inline ml-1" />
-                    תזמורת
+                    תזמורת <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={bulkForm.orchestraId || ''}
@@ -397,7 +403,7 @@ export default function RehearsalForm({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Calendar className="w-4 h-4 inline ml-1" />
-                      תאריך התחלה
+                      תאריך התחלה <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -413,7 +419,7 @@ export default function RehearsalForm({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">תאריך סיום</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">תאריך סיום <span className="text-red-500">*</span></label>
                     <input
                       type="date"
                       value={bulkForm.endDate || ''}
@@ -430,7 +436,7 @@ export default function RehearsalForm({
 
                 {/* Day of Week */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">יום בשבוע</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">יום בשבוע <span className="text-red-500">*</span></label>
                   <select
                     value={bulkForm.dayOfWeek || 0}
                     onChange={(e) => handleBulkFormChange('dayOfWeek', parseInt(e.target.value))}
@@ -454,7 +460,7 @@ export default function RehearsalForm({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Clock className="w-4 h-4 inline ml-1" />
-                      שעת התחלה
+                      שעת התחלה <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="time"
@@ -470,7 +476,7 @@ export default function RehearsalForm({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">שעת סיום</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">שעת סיום <span className="text-red-500">*</span></label>
                     <input
                       type="time"
                       value={bulkForm.endTime || ''}
@@ -489,7 +495,7 @@ export default function RehearsalForm({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <MapPin className="w-4 h-4 inline ml-1" />
-                    מיקום
+                    מיקום <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"

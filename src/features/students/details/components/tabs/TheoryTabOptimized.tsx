@@ -116,12 +116,6 @@ const LessonCard = memo(({
                 {lesson.level}
               </span>
             )}
-            
-            {!isEnrolled && lesson.gradeCompatible && studentGrade && (
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                מתאים לכיתה {studentGrade}
-              </span>
-            )}
           </div>
         </div>
         

@@ -3,6 +3,7 @@ import { X, Clock, MapPin, Calendar, Save } from 'lucide-react';
 import { Card } from '../ui/card';
 import apiService from '../../services/apiService';
 import { VALID_LOCATIONS } from '../../constants/locations';
+import { handleServerValidationError } from '../../utils/validationUtils';
 
 interface TimeBlock {
   _id?: string;
@@ -155,7 +156,8 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
       onSave();
     } catch (error: any) {
       console.error('Error saving time block:', error);
-      setError('שגיאה בשמירת הזמינות: ' + (error.message || 'שגיאה לא ידועה'));
+      const { generalMessage } = handleServerValidationError(error, 'שגיאה בשמירת הזמינות');
+      setError(generalMessage);
     } finally {
       setIsLoading(false);
     }
@@ -192,7 +194,7 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
           <div>
             <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
               <Calendar className="w-4 h-4 mr-2" />
-              יום בשבוע *
+              יום בשבוע <span className="text-red-500">*</span>
             </label>
             <select
               value={formData.day}
@@ -211,7 +213,7 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
             <div>
               <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
                 <Clock className="w-4 h-4 mr-2" />
-                שעת התחלה *
+                שעת התחלה <span className="text-red-500">*</span>
               </label>
               <input
                 type="time"
@@ -224,7 +226,7 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
 
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">
-                שעת סיום *
+                שעת סיום <span className="text-red-500">*</span>
               </label>
               <input
                 type="time"
@@ -250,7 +252,7 @@ const TimeBlockForm: React.FC<TimeBlockFormProps> = ({
           <div>
             <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
               <MapPin className="w-4 h-4 mr-2" />
-              מיקום *
+              מיקום <span className="text-red-500">*</span>
             </label>
             <select
               value={formData.location}

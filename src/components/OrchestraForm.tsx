@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Save, Music, User, MapPin, Users } from 'lucide-react'
-import { 
-  VALID_ORCHESTRA_TYPES, 
+import {
+  VALID_ORCHESTRA_TYPES,
   VALID_LOCATIONS,
   validateOrchestraForm,
   type Orchestra,
@@ -9,6 +9,7 @@ import {
   type OrchestraType,
   type LocationType
 } from '../utils/orchestraUtils'
+import { handleServerValidationError } from '../utils/validationUtils'
 
 interface OrchestraFormProps {
   orchestra?: Orchestra | null
@@ -72,10 +73,18 @@ export default function OrchestraForm({ orchestra, teachers, onSubmit, onCancel 
 
     setLoading(true)
     try {
-      await onSubmit(formData)
+      // Strip memberIds from submission — members are managed through
+      // dedicated addMember/removeMember endpoints, not through the form
+      const { memberIds, ...submitData } = formData
+      await onSubmit(submitData as any)
     } catch (error: any) {
       console.error('Error submitting orchestra form:', error)
-      setErrors({ general: error.message || 'שגיאה בשמירת התזמורת' })
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(error, 'שגיאה בשמירת התזמורת')
+      if (isValidationError) {
+        setErrors({ ...fieldErrors, general: generalMessage })
+      } else {
+        setErrors({ general: generalMessage })
+      }
     } finally {
       setLoading(false)
     }

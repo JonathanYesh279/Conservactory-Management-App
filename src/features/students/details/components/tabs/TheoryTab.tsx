@@ -42,18 +42,21 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId, isLoading }) 
         setIsLoadingLessons(true)
         
         // Get all theory lessons to check enrollment
-        const allLessons = await apiService.theoryLessons.getTheoryLessons()
+        const response = await apiService.theoryLessons.getTheoryLessons()
+        // Handle both formats: direct array (legacy) or { data: [], pagination: {} }
+        const allLessons = Array.isArray(response) ? response : (response?.data || [])
         
-        // Find lessons where this student is enrolled
-        const enrolledLessons = allLessons.filter((lesson: any) => 
+        // Find lessons where this student is enrolled (check both paths)
+        const enrolledTheoryLessonIds = student?.enrollments?.theoryLessonIds || []
+        const enrolledLessons = allLessons.filter((lesson: any) =>
           lesson.studentIds?.includes(studentId) ||
-          student?.theoryLessonIds?.includes(lesson._id)
+          enrolledTheoryLessonIds.includes(lesson._id)
         )
-        
+
         setEnrolledTheoryLessons(enrolledLessons)
-        
+
         // Check for data mismatch
-        const studentTheoryLessons = student?.theoryLessonIds || []
+        const studentTheoryLessons = enrolledTheoryLessonIds
         const hasDataMismatch = enrolledLessons.length > 0 && studentTheoryLessons.length === 0
         if (hasDataMismatch) {
           console.warn('⚠️ DATA MISMATCH DETECTED:', {
@@ -74,7 +77,7 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId, isLoading }) 
     }
 
     fetchEnrolledTheoryLessons()
-  }, [student?.theoryLessonIds, studentId])
+  }, [student?.enrollments?.theoryLessonIds, studentId])
 
   // Fetch available theory lessons for enrollment
   useEffect(() => {
@@ -83,13 +86,16 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId, isLoading }) 
 
       try {
         setIsLoadingLessons(true)
-        const allLessons = await apiService.theoryLessons.getTheoryLessons()
-        
+        const response = await apiService.theoryLessons.getTheoryLessons()
+        // Handle both formats: direct array (legacy) or { data: [], pagination: {} }
+        const allLessons = Array.isArray(response) ? response : (response?.data || [])
+
         // Process and filter lessons
+        const enrolledTheoryLessonIds = student?.enrollments?.theoryLessonIds || []
         const processedLessons = allLessons.map((lesson: any) => {
           // Check if student is already enrolled
-          const isEnrolled = lesson.studentIds?.includes(studentId) || 
-                            student?.theoryLessonIds?.includes(lesson._id)
+          const isEnrolled = lesson.studentIds?.includes(studentId) ||
+                            enrolledTheoryLessonIds.includes(lesson._id)
           
           // Check if lesson is full
           const isFull = lesson.maxStudents && lesson.studentIds?.length >= lesson.maxStudents
@@ -128,7 +134,7 @@ const TheoryTab: React.FC<TheoryTabProps> = ({ student, studentId, isLoading }) 
     }
 
     fetchAvailableTheoryLessons()
-  }, [activeView, student?.theoryLessonIds, studentId, studentGrade, studentLevel])
+  }, [activeView, student?.enrollments?.theoryLessonIds, studentId, studentGrade, studentLevel])
 
   // Handle data sync
   const handleSyncData = async () => {

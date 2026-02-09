@@ -81,13 +81,20 @@ const TeacherCard: React.FC<TeacherCardProps> = ({
     return colors[role as keyof typeof colors] || 'bg-blue-500'
   }
 
-  // Count total weekly schedule hours
+  // Count total weekly schedule hours from timeBlocks
   const getScheduleInfo = () => {
-    if (!teacher.teaching?.schedule) return { lessons: 0, hours: 0 }
-    
-    const totalMinutes = teacher.teaching.schedule.reduce((sum, slot) => sum + slot.duration, 0)
+    const timeBlocks = teacher.teaching?.timeBlocks || []
+    const allLessons = timeBlocks.flatMap(block =>
+      (block.assignedLessons || []).filter(lesson => lesson.isActive !== false)
+    )
+
+    if (allLessons.length === 0) {
+      return { lessons: 0, hours: 0 }
+    }
+
+    const totalMinutes = allLessons.reduce((sum, lesson) => sum + (lesson.duration || 0), 0)
     return {
-      lessons: teacher.teaching.schedule.length,
+      lessons: allLessons.length,
       hours: Math.round(totalMinutes / 60 * 10) / 10
     }
   }

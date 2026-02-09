@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Save, X, Users, Music, Phone, Mail, AlertCircle } from 'lucide-react'
 import { Card } from './ui/Card'
 import type { Accompanist } from '../types/bagrut.types'
+import { handleServerValidationError } from '../utils/validationUtils'
 
 interface AccompanistFormProps {
   initialData?: Partial<Accompanist>
@@ -97,9 +98,14 @@ const AccompanistForm: React.FC<AccompanistFormProps> = ({
     setLoading(true)
     try {
       await onSubmit(formData)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting accompanist:', error)
-      setErrors({ general: 'שגיאה בשמירת המלווה. אנא נסה שוב.' })
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(error, 'שגיאה בשמירת המלווה. אנא נסה שוב.')
+      if (isValidationError) {
+        setErrors({ ...fieldErrors, general: generalMessage })
+      } else {
+        setErrors({ general: generalMessage })
+      }
     } finally {
       setLoading(false)
     }

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import apiService from '../../services/apiService'
 import ConfirmationModal from '../ui/ConfirmationModal'
+import { handleServerValidationError } from '../../utils/validationUtils'
 
 // Constants from schema
 const VALID_CLASSES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'יא', 'יב', 'אחר']
@@ -371,40 +372,18 @@ const StudentForm: React.FC<StudentFormProps> = ({
 
       console.log('🚫 Occupied slots from other students:', occupiedSlots) // Debug log
 
-      // Get available time blocks from BOTH field structures
-      // Legacy structure: teaching.schedule (older format)
-      // New structure: teaching.timeBlocks (created via TimeBlockForm)
+      // Get available time blocks
       console.log('📋 Teacher teaching data:', {
         hasTeaching: !!teacher.teaching,
-        hasSchedule: !!teacher.teaching?.schedule,
-        scheduleLength: teacher.teaching?.schedule?.length,
         hasTimeBlocks: !!teacher.teaching?.timeBlocks,
         timeBlocksLength: teacher.teaching?.timeBlocks?.length
       })
 
-      // Combine both legacy schedule and new timeBlocks
-      const legacySchedule = teacher.teaching?.schedule?.filter((block: any) =>
+      const timeBlocks = (teacher.teaching?.timeBlocks || []).filter((block: any) =>
         block.isAvailable !== false && block.isActive !== false
-      ) || []
+      )
 
-      const newTimeBlocks = teacher.teaching?.timeBlocks?.filter((block: any) =>
-        block.isAvailable !== false && block.isActive !== false
-      ) || []
-
-      // Merge both sources, avoiding duplicates by checking day+startTime+endTime
-      const timeBlocks = [...legacySchedule]
-      newTimeBlocks.forEach((newBlock: any) => {
-        const isDuplicate = timeBlocks.some(existing =>
-          existing.day === newBlock.day &&
-          existing.startTime === newBlock.startTime &&
-          existing.endTime === newBlock.endTime
-        )
-        if (!isDuplicate) {
-          timeBlocks.push(newBlock)
-        }
-      })
-
-      console.log('📅 Time blocks found (schedule + timeBlocks):', timeBlocks.length) // Debug log
+      console.log('📅 Time blocks found:', timeBlocks.length)
 
       // Transform time blocks to available slots with different durations
       const availableSlots: TeacherScheduleSlot[] = []
@@ -779,9 +758,14 @@ const StudentForm: React.FC<StudentFormProps> = ({
       console.log('👥 Teacher assignments:', JSON.stringify(formData.teacherAssignments, null, 2))
       console.log('👨‍🏫 Teacher IDs:', formData.teacherIds)
       await onSubmit(formData)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting form:', error)
-      setErrors({ submit: 'שגיאה בשמירת הנתונים' })
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(error, 'שגיאה בשמירת הנתונים')
+      if (isValidationError) {
+        setErrors({ ...fieldErrors, submit: generalMessage })
+      } else {
+        setErrors({ submit: generalMessage })
+      }
     } finally {
       setIsSubmitting(false)
     }

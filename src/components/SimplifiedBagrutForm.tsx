@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { 
-  X, Save, User, AlertCircle, CheckCircle, Search, Music, 
-  FileText, ChevronLeft, ChevronRight, Plus, Trash2, 
+import {
+  X, Save, User, AlertCircle, CheckCircle, Search, Music,
+  FileText, ChevronLeft, ChevronRight, Plus, Trash2,
   Info, Clock, CheckCircle2, AlertTriangle, Sparkles, ArrowRight
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card'
 import type { BagrutFormData } from '../types/bagrut.types'
+import { handleServerValidationError } from '../utils/validationUtils'
 
 interface SimplifiedBagrutFormProps {
   students: any[]
@@ -422,9 +423,14 @@ const SimplifiedBagrutForm: React.FC<SimplifiedBagrutFormProps> = ({
       
       // Show success state
       setShowSuccessModal(true)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting form:', error)
-      setErrors({ general: 'שגיאה בשמירת הנתונים. אנא נסה שוב.' })
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(error, 'שגיאה בשמירת הנתונים. אנא נסה שוב.')
+      if (isValidationError) {
+        setErrors({ ...fieldErrors, general: generalMessage })
+      } else {
+        setErrors({ general: generalMessage })
+      }
     } finally {
       setLoading(false)
     }
@@ -568,7 +574,7 @@ const SimplifiedBagrutForm: React.FC<SimplifiedBagrutFormProps> = ({
       <Card>
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <User className="w-5 h-5 text-gray-600" />
-          בחירת תלמיד
+          בחירת תלמיד <span className="text-red-500">*</span>
         </h3>
         
         <div className="space-y-4">
@@ -635,6 +641,10 @@ const SimplifiedBagrutForm: React.FC<SimplifiedBagrutFormProps> = ({
               )}
             </div>
           )}
+
+          {!formData.studentId && submitted && (
+            <p className="text-red-600 text-sm mt-2">יש לבחור תלמיד</p>
+          )}
         </div>
       </Card>
 
@@ -642,7 +652,7 @@ const SimplifiedBagrutForm: React.FC<SimplifiedBagrutFormProps> = ({
       <Card>
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <User className="w-5 h-5 text-gray-600" />
-          בחירת מורה מנחה
+          בחירת מורה מנחה <span className="text-red-500">*</span>
         </h3>
         
         <div className="space-y-4">
@@ -708,6 +718,10 @@ const SimplifiedBagrutForm: React.FC<SimplifiedBagrutFormProps> = ({
                 </div>
               )}
             </div>
+          )}
+
+          {!formData.teacherId && submitted && (
+            <p className="text-red-600 text-sm mt-2">יש לבחור מורה מנחה</p>
           )}
         </div>
       </Card>
@@ -840,9 +854,12 @@ const SimplifiedBagrutForm: React.FC<SimplifiedBagrutFormProps> = ({
           <FileText className="w-5 h-5 text-gray-600" />
           תוכנית בסיסית
         </h3>
-        <p className="text-sm text-gray-600 mb-6">
+        <p className="text-sm text-gray-600 mb-4">
           הזן לפחות יצירה אחת. ניתן להוסיף יצירות נוספות ופרטים מלאים בדף הבגרות לאחר היצירה.
         </p>
+        {submitted && !(formData.program?.some(p => p.pieceTitle.trim() && p.composer.trim())) && (
+          <p className="text-red-600 text-sm mb-4">יש להזין לפחות יצירה אחת עם שם היצירה ומלחין</p>
+        )}
 
         <div className="space-y-4">
           {formData.program?.map((piece, index) => (

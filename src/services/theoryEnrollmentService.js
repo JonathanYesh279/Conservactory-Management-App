@@ -379,13 +379,28 @@ class TheoryEnrollmentService {
    */
   async getStudentEnrollment(lessonId, studentId) {
     try {
-      const lesson = await apiClient.get(`/theory/${lessonId}`)
-      
-      return lesson.enrollment?.enrolledStudents?.find(
-        enrollment => enrollment.studentId === studentId && 
+      const response = await apiClient.get(`/theory/${lessonId}`)
+      // Handle both response formats
+      const lesson = response?.data || response
+
+      // Check if student is in studentIds array (primary enrollment check)
+      if (lesson.studentIds?.includes(studentId)) {
+        return {
+          studentId,
+          lessonId,
+          status: 'active',
+          enrolledAt: lesson.updatedAt || new Date().toISOString()
+        }
+      }
+
+      // Also check the enrollment.enrolledStudents structure if it exists (legacy/alternative format)
+      const enrollmentRecord = lesson.enrollment?.enrolledStudents?.find(
+        enrollment => enrollment.studentId === studentId &&
         ['active', 'waitlist'].includes(enrollment.status)
-      ) || null
-      
+      )
+
+      return enrollmentRecord || null
+
     } catch (error) {
       console.error('Error getting enrollment status:', error)
       return null

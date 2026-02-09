@@ -807,11 +807,12 @@ function StudentAssignmentModal({ allStudents, loading, onClose, onSubmit }: Stu
             const slotEndTime = `${slotEndHour.toString().padStart(2, '0')}:${slotEndMinute.toString().padStart(2, '0')}`
 
             // Check if this slot is already assigned in the teacher's schedule
-            const isAssigned = teacher.teaching?.schedule?.some((lesson: any) => {
-              return lesson.day === dayName &&
-                     lesson.time === slotStartTime &&
-                     lesson.duration === duration
-            }) || false
+            const isAssigned = teacher.teaching?.timeBlocks?.some((block: any) =>
+              block.day === dayName &&
+              (block.assignedLessons || []).some((lesson: any) =>
+                lesson.startTime === slotStartTime && lesson.duration === duration && lesson.isActive !== false
+              )
+            ) || false
 
             if (!isAssigned) {
               generatedSlots.push({

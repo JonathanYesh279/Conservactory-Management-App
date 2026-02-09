@@ -94,7 +94,12 @@ export const cachedApiService = {
   
   // Theory Lessons
   theoryLessons: {
-    getAll: () => dedupeRequest('theory-lessons-all', () => apiService.theoryLessons.getTheoryLessons()),
+    // getTheoryLessons returns { data: lessons[], pagination: {...} }, so extract the data array
+    getAll: () => dedupeRequest('theory-lessons-all', async () => {
+      const response = await apiService.theoryLessons.getTheoryLessons()
+      // Handle both formats: direct array (legacy) or { data: [], pagination: {} }
+      return Array.isArray(response) ? response : (response?.data || [])
+    }),
     getById: (id: string) => dedupeRequest(`theory-lesson-${id}`, () => apiService.theoryLessons.getTheoryLessonById(id)),
     addStudent: (lessonId: string, studentId: string) =>
       theoryEnrollmentService.enrollStudent(lessonId, studentId, {
@@ -155,59 +160,69 @@ export function useTheoryLessons() {
 export function useStudentTheoryLessons(studentId: string | undefined) {
   const { data: allTheoryLessons = [] } = useTheoryLessons()
   const { data: student } = useStudent(studentId)
-  
+
   return useMemo(() => {
     if (!studentId || !allTheoryLessons.length) return []
-    
-    return allTheoryLessons.filter((lesson: any) => 
+
+    // Check both lesson.studentIds and student.enrollments.theoryLessonIds for enrollment
+    const enrolledTheoryLessonIds = student?.enrollments?.theoryLessonIds || []
+
+    return allTheoryLessons.filter((lesson: any) =>
       lesson.studentIds?.includes(studentId) ||
-      student?.theoryLessonIds?.includes(lesson._id)
+      enrolledTheoryLessonIds.includes(lesson._id)
     )
-  }, [allTheoryLessons, studentId, student?.theoryLessonIds])
+  }, [allTheoryLessons, studentId, student?.enrollments?.theoryLessonIds])
 }
 
 /**
  * Hook for available (non-enrolled) theory lessons
+ * Shows all non-enrolled lessons with compatibility flags (similar to OrchestraTab pattern)
  */
 export function useAvailableTheoryLessons(studentId: string | undefined, studentGrade?: string, studentLevel?: string) {
   const { data: allTheoryLessons = [] } = useTheoryLessons()
   const { data: student } = useStudent(studentId)
-  
+
   return useMemo(() => {
     if (!studentId || !allTheoryLessons.length) return []
-    
+
+    // Get enrolled theory lesson IDs from the correct path
+    const enrolledTheoryLessonIds = student?.enrollments?.theoryLessonIds || []
+
     return allTheoryLessons
       .filter((lesson: any) => {
-        // Check if already enrolled
-        const isEnrolled = lesson.studentIds?.includes(studentId) || 
-                          student?.theoryLessonIds?.includes(lesson._id)
-        if (isEnrolled) return false
-        
+        // Only filter out already enrolled lessons
+        const isEnrolled = lesson.studentIds?.includes(studentId) ||
+                          enrolledTheoryLessonIds.includes(lesson._id)
+        return !isEnrolled
+      })
+      .map((lesson: any) => {
         // Check if full
         const isFull = lesson.maxStudents && lesson.studentIds?.length >= lesson.maxStudents
-        if (isFull) return false
-        
+
         // Check grade compatibility
-        const gradeCompatible = !lesson.targetGrades || 
-                               lesson.targetGrades.length === 0 || 
+        const gradeCompatible = !lesson.targetGrades ||
+                               lesson.targetGrades.length === 0 ||
                                lesson.targetGrades.includes(studentGrade)
-        
+
         // Check level compatibility
-        const levelCompatible = !lesson.level || 
-                               lesson.level === studentLevel || 
-                               lesson.level === 'all'
-        
-        return gradeCompatible && levelCompatible
+        const levelCompatible = !lesson.level ||
+                               lesson.level === studentLevel ||
+                               lesson.level === 'all' ||
+                               lesson.level === 'mixed'
+
+        // Overall compatibility for enrollment
+        const isCompatible = gradeCompatible && levelCompatible && !isFull
+
+        return {
+          ...lesson,
+          isCompatible,
+          gradeCompatible,
+          levelCompatible,
+          isFull,
+          isEnrolled: false
+        }
       })
-      .map((lesson: any) => ({
-        ...lesson,
-        isCompatible: true, // All filtered lessons are compatible
-        gradeCompatible: true,
-        levelCompatible: true,
-        isFull: false,
-        isEnrolled: false
-      }))
-  }, [allTheoryLessons, studentId, student?.theoryLessonIds, studentGrade, studentLevel])
+  }, [allTheoryLessons, studentId, student?.enrollments?.theoryLessonIds, studentGrade, studentLevel])
 }
 
 /**
@@ -294,14 +309,17 @@ export function useTheoryLessonEnrollment(studentId: string) {
         ) || []
       )
       
-      // Optimistically update student
-      queryClient.setQueryData(QUERY_KEYS.STUDENT(studentId), (old: any) => 
-        old ? { 
-          ...old, 
-          theoryLessonIds: [...(old.theoryLessonIds || []), lessonId] 
+      // Optimistically update student (use enrollments.theoryLessonIds path)
+      queryClient.setQueryData(QUERY_KEYS.STUDENT(studentId), (old: any) =>
+        old ? {
+          ...old,
+          enrollments: {
+            ...old.enrollments,
+            theoryLessonIds: [...(old.enrollments?.theoryLessonIds || []), lessonId]
+          }
         } : old
       )
-      
+
       return { previousTheoryLessons, previousStudent }
     },
     onError: (err, variables, context) => {
@@ -339,14 +357,17 @@ export function useTheoryLessonEnrollment(studentId: string) {
         ) || []
       )
       
-      // Optimistically update student
-      queryClient.setQueryData(QUERY_KEYS.STUDENT(studentId), (old: any) => 
-        old ? { 
-          ...old, 
-          theoryLessonIds: old.theoryLessonIds?.filter((id: string) => id !== lessonId) || []
+      // Optimistically update student (use enrollments.theoryLessonIds path)
+      queryClient.setQueryData(QUERY_KEYS.STUDENT(studentId), (old: any) =>
+        old ? {
+          ...old,
+          enrollments: {
+            ...old.enrollments,
+            theoryLessonIds: old.enrollments?.theoryLessonIds?.filter((id: string) => id !== lessonId) || []
+          }
         } : old
       )
-      
+
       return { previousTheoryLessons, previousStudent }
     },
     onError: (err, variables, context) => {

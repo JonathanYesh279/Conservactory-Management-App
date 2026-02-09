@@ -116,6 +116,12 @@ class ApiClient {
         throw new Error('Resource not found.');
       } else if (response.status >= 500) {
         throw new Error('Server error. Please try again later.');
+      } else if (response.status === 400 && data?.code === 'VALIDATION_ERROR' && data?.validationErrors) {
+        // Handle validation errors with field-level details
+        const error = new Error(data?.error || 'שגיאת אימות נתונים');
+        error.code = 'VALIDATION_ERROR';
+        error.validationErrors = data.validationErrors;
+        throw error;
       } else {
         const errorMessage = data?.error || data?.message || `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
@@ -1441,7 +1447,6 @@ export const teacherService = {
         },
         teaching: {
           studentIds: teacherData.teaching?.studentIds || [],
-          schedule: teacherData.teaching?.schedule || [],
           timeBlocks: teacherData.teaching?.timeBlocks || []
         },
         conducting: {

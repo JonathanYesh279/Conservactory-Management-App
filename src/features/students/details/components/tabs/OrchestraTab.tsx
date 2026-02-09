@@ -252,81 +252,39 @@ const OrchestraTab: React.FC<OrchestraTabProps> = ({ student, studentId, isLoadi
     return (rehearsalStart < studentLessonEnd && rehearsalEnd > studentLessonStart)
   }
 
-  // Enroll in orchestra
+  // Enroll in orchestra — addMember updates BOTH orchestra.memberIds AND student.enrollments.orchestraIds
   const handleEnrollment = async (orchestraId: string) => {
     try {
       setEnrollmentInProgress(orchestraId)
-      
-      const updatedOrchestras = [...(student.enrollments?.orchestraIds || []), orchestraId]
-      
-      // Update student's orchestraIds
-      await apiService.students.updateStudent(studentId, {
-        enrollments: {
-          ...student.enrollments,
-          orchestraIds: updatedOrchestras
-        }
-      })
-      
-      // Also update orchestra's memberIds
-      try {
-        await apiService.orchestras.addMember(orchestraId, studentId)
-        console.log(`Added student ${studentId} to orchestra ${orchestraId} memberIds`)
-      } catch (err) {
-        console.error(`Failed to update orchestra ${orchestraId} memberIds:`, err)
-        // Don't fail the whole operation if orchestra update fails
-      }
-      
+
+      await apiService.orchestras.addMember(orchestraId, studentId)
+
       // Update local state optimistically
       const enrolledOrchestra = availableOrchestras.find(o => o._id === orchestraId)
       if (enrolledOrchestra) {
         setEnrolledOrchestras(prev => [...prev, { ...enrolledOrchestra, enrollmentStatus: 'enrolled' }])
         setAvailableOrchestras(prev => prev.filter(o => o._id !== orchestraId))
       }
-      
-      // Success feedback would go here (toast notification)
-      console.log(`Successfully enrolled in orchestra ${orchestraId}`)
-      
     } catch (error) {
       console.error('Error enrolling in orchestra:', error)
-      // Error feedback would go here
     } finally {
       setEnrollmentInProgress(null)
     }
   }
 
-  // Remove enrollment
+  // Remove enrollment — removeMember updates BOTH orchestra.memberIds AND student.enrollments.orchestraIds
   const handleUnenrollment = async (orchestraId: string) => {
     try {
       setEnrollmentInProgress(orchestraId)
-      
-      const updatedOrchestras = (student.enrollments?.orchestraIds || []).filter((id: string) => id !== orchestraId)
-      
-      // Update student's orchestraIds
-      await apiService.students.updateStudent(studentId, {
-        enrollments: {
-          ...student.enrollments,
-          orchestraIds: updatedOrchestras
-        }
-      })
-      
-      // Also update orchestra's memberIds
-      try {
-        await apiService.orchestras.removeMember(orchestraId, studentId)
-        console.log(`Removed student ${studentId} from orchestra ${orchestraId} memberIds`)
-      } catch (err) {
-        console.error(`Failed to update orchestra ${orchestraId} memberIds:`, err)
-        // Don't fail the whole operation if orchestra update fails
-      }
-      
+
+      await apiService.orchestras.removeMember(orchestraId, studentId)
+
       // Update local state optimistically
       const unenrolledOrchestra = enrolledOrchestras.find(o => o._id === orchestraId)
       if (unenrolledOrchestra && !unenrolledOrchestra.error) {
         setAvailableOrchestras(prev => [...prev, unenrolledOrchestra])
       }
       setEnrolledOrchestras(prev => prev.filter(o => o._id !== orchestraId))
-      
-      console.log(`Successfully unenrolled from orchestra ${orchestraId}`)
-      
     } catch (error) {
       console.error('Error unenrolling from orchestra:', error)
     } finally {

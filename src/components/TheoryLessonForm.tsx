@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Save, Clock, MapPin, Users, BookOpen, Calendar, Repeat } from 'lucide-react'
 import { teacherService, schoolYearService } from '../services/apiService'
 import { VALID_LOCATIONS } from '../constants/locations'
+import { handleServerValidationError } from '../utils/validationUtils'
 
 interface TheoryLessonFormProps {
   theoryLesson?: any
@@ -423,7 +424,8 @@ export default function TheoryLessonForm({
       }
     } catch (error: any) {
       console.error('Error submitting theory lesson form:', error)
-      setError(error.message || 'שגיאה בשמירת השיעור')
+      const { generalMessage } = handleServerValidationError(error, 'שגיאה בשמירת השיעור')
+      setError(generalMessage)
     } finally {
       setLoading(false)
     }

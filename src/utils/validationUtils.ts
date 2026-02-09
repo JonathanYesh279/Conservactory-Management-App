@@ -347,20 +347,141 @@ const translateErrorMessage = (message: string): string => {
   const translations: Record<string, string> = {
     'required': ERROR_MESSAGES.required,
     'invalid email': ERROR_MESSAGES.invalidEmail,
+    'must be a valid email': ERROR_MESSAGES.invalidEmail,
     'invalid phone': ERROR_MESSAGES.invalidPhone,
     'invalid format': 'פורמט לא תקין',
     'already exists': ERROR_MESSAGES.duplicateEntry,
     'not found': 'לא נמצא במערכת',
     'unauthorized': 'אין הרשאה',
-    'forbidden': 'פעולה אסורה'
+    'forbidden': 'פעולה אסורה',
+    'is not allowed to be empty': ERROR_MESSAGES.required,
+    'is required': ERROR_MESSAGES.required,
+    'must be a string': 'ערך לא תקין',
+    'length must be at least': 'הערך קצר מדי',
+    'must be a number': 'חייב להיות מספר',
+    'must be greater than': 'ערך נמוך מדי',
+    'must be less than': 'ערך גבוה מדי',
   }
-  
+
   const lowerMessage = message.toLowerCase()
   for (const [pattern, translation] of Object.entries(translations)) {
     if (lowerMessage.includes(pattern)) {
       return translation
     }
   }
-  
+
   return message // Return original if no translation found
+}
+
+// ==================== Server Validation Error Handler ====================
+
+/**
+ * Interface for server validation error structure
+ */
+export interface ServerValidationError extends Error {
+  code?: string
+  validationErrors?: Record<string, string>
+}
+
+/**
+ * Result of processing a server error
+ */
+export interface ProcessedServerError {
+  /** Field-level errors mapped to form fields */
+  fieldErrors: Record<string, string>
+  /** General error message for display */
+  generalMessage: string
+  /** Whether this was a validation error */
+  isValidationError: boolean
+}
+
+/**
+ * Map server field paths to form field paths
+ * Customize this based on your form structure
+ */
+const DEFAULT_FIELD_PATH_MAP: Record<string, string> = {
+  'credentials.email': 'personalInfo.email',
+  'credentials.password': 'password',
+}
+
+/**
+ * Process a server error and extract field-level validation errors
+ *
+ * Usage in form components:
+ * ```typescript
+ * } catch (error: any) {
+ *   const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(error)
+ *   if (isValidationError) {
+ *     setErrors(fieldErrors)
+ *   }
+ *   setSubmitError(generalMessage)
+ * }
+ * ```
+ *
+ * @param error - The caught error from an API call
+ * @param defaultMessage - Default message if error has no message (Hebrew)
+ * @param fieldPathMap - Optional custom mapping of server field paths to form field paths
+ * @returns ProcessedServerError with field errors and general message
+ */
+export function handleServerValidationError(
+  error: any,
+  defaultMessage: string = 'שגיאה בשמירת הנתונים',
+  fieldPathMap: Record<string, string> = {}
+): ProcessedServerError {
+  const combinedFieldMap = { ...DEFAULT_FIELD_PATH_MAP, ...fieldPathMap }
+
+  // Check if this is a validation error with field details
+  if (error?.code === 'VALIDATION_ERROR' && error?.validationErrors) {
+    const fieldErrors: Record<string, string> = {}
+    const validationErrors = error.validationErrors as Record<string, string>
+
+    Object.entries(validationErrors).forEach(([field, message]) => {
+      // Map field path if needed (e.g., credentials.email -> personalInfo.email)
+      const mappedField = combinedFieldMap[field] || field
+      // Translate the error message to Hebrew
+      const hebrewMessage = translateErrorMessage(message)
+      fieldErrors[mappedField] = hebrewMessage
+    })
+
+    return {
+      fieldErrors,
+      generalMessage: 'יש לתקן את השדות המסומנים באדום',
+      isValidationError: true
+    }
+  }
+
+  // Not a validation error - return general error message
+  return {
+    fieldErrors: {},
+    generalMessage: error?.message || defaultMessage,
+    isValidationError: false
+  }
+}
+
+/**
+ * Hook for handling server validation errors in forms
+ *
+ * Usage:
+ * ```typescript
+ * const { processError } = useServerValidationError()
+ *
+ * const handleSubmit = async () => {
+ *   try {
+ *     await apiService.updateData(data)
+ *   } catch (error) {
+ *     const { fieldErrors, generalMessage, isValidationError } = processError(error)
+ *     if (isValidationError) {
+ *       setErrors(prev => ({ ...prev, ...fieldErrors }))
+ *     }
+ *     setSubmitError(generalMessage)
+ *   }
+ * }
+ * ```
+ */
+export function useServerValidationError(customFieldPathMap?: Record<string, string>) {
+  const processError = (error: any, defaultMessage?: string): ProcessedServerError => {
+    return handleServerValidationError(error, defaultMessage, customFieldPathMap)
+  }
+
+  return { processError }
 }

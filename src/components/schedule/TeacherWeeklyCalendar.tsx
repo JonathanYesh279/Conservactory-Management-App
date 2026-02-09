@@ -161,9 +161,7 @@ const TeacherWeeklyCalendar: React.FC<TeacherWeeklyCalendarProps> = ({
     })
     
 
-    // Note: Legacy schedule slots (יום לימוד from teacher.teaching.schedule) 
-    // are also treated as availability blocks, not actual activities
-    // Only show actual lessons with confirmed students in the calendar
+    // Time blocks are availability windows — only show actual lessons with confirmed students in the calendar
 
     // Process orchestra activities
     orchestraActivities.forEach(activity => {

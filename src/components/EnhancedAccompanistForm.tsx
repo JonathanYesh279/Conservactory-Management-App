@@ -3,6 +3,7 @@ import { Save, X, Users, Music, Phone, Mail, AlertCircle, Search, User } from 'l
 import { Card } from './ui/Card'
 import type { Accompanist } from '../types/bagrut.types'
 import apiService from '../services/apiService'
+import { handleServerValidationError } from '../utils/validationUtils'
 
 interface Teacher {
   _id: string
@@ -205,9 +206,14 @@ const EnhancedAccompanistForm: React.FC<EnhancedAccompanistFormProps> = ({
     setLoading(true)
     try {
       await onSubmit(formData)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting accompanist:', error)
-      setErrors({ general: 'שגיאה בשמירת המלווה. אנא נסה שוב.' })
+      const { fieldErrors, generalMessage, isValidationError } = handleServerValidationError(error, 'שגיאה בשמירת המלווה. אנא נסה שוב.')
+      if (isValidationError) {
+        setErrors({ ...fieldErrors, general: generalMessage })
+      } else {
+        setErrors({ general: generalMessage })
+      }
     } finally {
       setLoading(false)
     }
